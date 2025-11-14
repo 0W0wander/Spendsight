@@ -1,0 +1,4 @@
+body { font-family: sans-serif; margin: 20px; }
+nav { background: #333; color: white; padding: 10px; margin-bottom: 20px; }
+nav a { color: white; text-decoration: none; font-weight: bold; }
+button { background: #4f46e5; color: white; border: none; padding: 8px 16px; cursor: pointer; }
