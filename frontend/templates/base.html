@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Spendsight{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar" id="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>💰 Spendsight</h1>
+                <p class="tagline">Your Personal Budget Intelligence</p>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">Dashboard</a></li>
+                <li><a href="{{ url_for('upload') }}" class="{% if request.endpoint == 'upload' %}active{% endif %}">Upload</a></li>
+                <li><a href="{{ url_for('transactions_page') }}" class="{% if request.endpoint == 'transactions_page' %}active{% endif %}">Transactions</a></li>
+                <li><a href="{{ url_for('extra_analytics_page') }}" class="{% if request.endpoint == 'extra_analytics_page' %}active{% endif %}">Extra Analytics</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            {{ message }}
+                            <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Spendsight - Personal Budget Tracking</p>
+        </div>
+    </footer>
+
+    <script>
+        // Navbar hide on scroll
+        (function() {
+            let lastScrollY = window.scrollY;
+            let ticking = false;
+            const navbar = document.getElementById('navbar');
+            
+            function updateNavbar() {
+                const currentScrollY = window.scrollY;
+                
+                if (currentScrollY > lastScrollY && currentScrollY > 80) {
+                    // Scrolling down - hide navbar
+                    navbar.classList.add('navbar-hidden');
+                } else {
+                    // Scrolling up - show navbar
+                    navbar.classList.remove('navbar-hidden');
+                }
+                
+                lastScrollY = currentScrollY;
+                ticking = false;
+            }
+            
+            window.addEventListener('scroll', function() {
+                if (!ticking) {
+                    requestAnimationFrame(updateNavbar);
+                    ticking = true;
+                }
+            });
+        })();
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+

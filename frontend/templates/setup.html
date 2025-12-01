@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup - Spendsight</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a0c;
+            --bg-card: #141419;
+            --bg-elevated: #1c1c24;
+            --accent-mint: #4ade80;
+            --accent-mint-dim: rgba(74, 222, 128, 0.15);
+            --accent-blue: #60a5fa;
+            --accent-amber: #fbbf24;
+            --text-primary: #f4f4f5;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border-color: #27272a;
+            --border-active: #4ade80;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', -apple-system, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Background gradient */
+        .bg-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(ellipse at 50% 0%, rgba(74, 222, 128, 0.06) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Main container */
+        .wizard-container {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .wizard-header {
+            padding: 32px 24px 24px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+
+        .brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-mint), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Progress bar */
+        .progress-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            padding: 0 24px 32px;
+        }
+
+        .progress-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .progress-dot.active {
+            background: var(--accent-mint);
+            box-shadow: 0 0 12px rgba(74, 222, 128, 0.5);
+        }
+
+        .progress-dot.completed {
+            background: var(--accent-mint);
+        }
+
+        .progress-line {
+            width: 40px;
+            height: 2px;
+            background: var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .progress-line.completed {
+            background: var(--accent-mint);
+        }
+
+        /* Slides container */
+        .slides-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 24px;
+        }
+
+        .slide {
+            display: none;
+            max-width: 560px;
+            width: 100%;
+            animation: slideIn 0.4s ease-out;
+        }
+
+        .slide.active {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Slide card */
+        .slide-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 40px;
+        }
+
+        .slide-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            margin-bottom: 24px;
+            background: var(--accent-mint-dim);
+            border: 1px solid rgba(74, 222, 128, 0.25);
+        }
+
+        .slide-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .slide-desc {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+
+        /* Link button */
+        .link-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 28px;
+            background: var(--accent-mint);
+            color: var(--bg-dark);
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            margin-bottom: 16px;
+        }
+
+        .link-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(74, 222, 128, 0.35);
+        }
+
+        .link-btn.secondary {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .link-btn.secondary:hover {
+            border-color: var(--accent-mint);
+            box-shadow: 0 8px 24px rgba(74, 222, 128, 0.15);
+        }
+
+        .link-btn.google {
+            background: #4285f4;
+        }
+
+        .link-btn.google:hover {
+            box-shadow: 0 8px 24px rgba(66, 133, 244, 0.35);
+        }
+
+        .link-btn.sheets {
+            background: #34a853;
+        }
+
+        .link-btn.sheets:hover {
+            box-shadow: 0 8px 24px rgba(52, 168, 83, 0.35);
+        }
+
+        .links-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        /* Instructions */
+        .instruction-list {
+            margin-bottom: 28px;
+        }
+
+        .instruction-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .instruction-item:last-child {
+            border-bottom: none;
+        }
+
+        .instruction-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: var(--bg-elevated);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+
+        .instruction-text {
+            color: var(--text-secondary);
+            line-height: 1.5;
+            padding-top: 3px;
+        }
+
+        .instruction-text strong {
+            color: var(--text-primary);
+        }
+
+        /* File upload */
+        .upload-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 16px;
+            padding: 40px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+            background: var(--bg-dark);
+        }
+
+        .upload-zone:hover {
+            border-color: var(--accent-mint);
+            background: rgba(74, 222, 128, 0.03);
+        }
+
+        .upload-zone.dragover {
+            border-color: var(--accent-mint);
+            background: rgba(74, 222, 128, 0.08);
+        }
+
+        .upload-zone.uploaded {
+            border-color: var(--accent-mint);
+            border-style: solid;
+            background: rgba(74, 222, 128, 0.08);
+        }
+
+        .upload-icon {
+            font-size: 2.5rem;
+            margin-bottom: 16px;
+        }
+
+        .upload-text {
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .upload-hint {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .upload-success {
+            display: none;
+            color: var(--accent-mint);
+            font-weight: 600;
+        }
+
+        .upload-zone.uploaded .upload-prompt { display: none; }
+        .upload-zone.uploaded .upload-success { display: block; }
+
+        #credentials-input {
+            display: none;
+        }
+
+        /* Form input */
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--text-primary);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 16px 18px;
+            background: var(--bg-dark);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-mint);
+            box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.15);
+        }
+
+        .form-hint {
+            margin-top: 10px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .form-hint.extracted-id {
+            color: var(--accent-mint);
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--accent-mint-dim);
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+
+        .form-input.valid {
+            border-color: var(--accent-mint);
+        }
+
+        .form-input.invalid {
+            border-color: #ef4444;
+        }
+
+        /* URL example */
+        .url-example {
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 14px 18px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin: 16px 0 24px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .url-example .highlight {
+            color: var(--accent-mint);
+            font-weight: 600;
+        }
+
+        /* Navigation */
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 32px 24px 48px;
+            max-width: 560px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .nav-btn.back {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .nav-btn.back:hover {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+        }
+
+        .nav-btn.back:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .nav-btn.next {
+            background: var(--accent-mint);
+            color: var(--bg-dark);
+        }
+
+        .nav-btn.next:hover {
+            box-shadow: 0 6px 20px rgba(74, 222, 128, 0.35);
+            transform: translateY(-2px);
+        }
+
+        .nav-btn.next:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .nav-btn.submit {
+            background: linear-gradient(135deg, var(--accent-mint), #34d399);
+        }
+
+        /* Spacer */
+        .nav-spacer {
+            width: 120px;
+        }
+
+        /* Status messages */
+        .status-message {
+            padding: 14px 18px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status-message.error {
+            display: block;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+        }
+
+        .status-message.success {
+            display: block;
+            background: rgba(74, 222, 128, 0.1);
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            color: var(--accent-mint);
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .slide-card {
+                padding: 28px 24px;
+            }
+
+            .slide-title {
+                font-size: 1.5rem;
+            }
+
+            .links-row {
+                flex-direction: column;
+            }
+
+            .link-btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .nav-buttons {
+                padding: 24px 16px 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+    
+    <div class="wizard-container">
+        <!-- Header -->
+        <div class="wizard-header">
+            <div class="logo">💰</div>
+            <div class="brand">Spendsight Setup</div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="progress-bar">
+            <div class="progress-dot active" data-step="0"></div>
+            <div class="progress-line" data-line="0"></div>
+            <div class="progress-dot" data-step="1"></div>
+            <div class="progress-line" data-line="1"></div>
+            <div class="progress-dot" data-step="2"></div>
+            <div class="progress-line" data-line="2"></div>
+            <div class="progress-dot" data-step="3"></div>
+        </div>
+
+        <!-- Slides -->
+        <div class="slides-wrapper">
+            <!-- Slide 0: Welcome -->
+            <div class="slide active" data-slide="0">
+                <div class="slide-card">
+                    <div class="slide-icon">👋</div>
+                    <h2 class="slide-title">Welcome to Spendsight</h2>
+                    <p class="slide-desc">
+                        Let's connect your budget tracker to Google Sheets. 
+                        This quick setup will have you tracking expenses in minutes.
+                    </p>
+                    <p class="slide-desc" style="margin-bottom: 0;">
+                        You'll need:
+                    </p>
+                    <div class="instruction-list">
+                        <div class="instruction-item">
+                            <span class="instruction-num">1</span>
+                            <span class="instruction-text">A Google account</span>
+                        </div>
+                        <div class="instruction-item">
+                            <span class="instruction-num">2</span>
+                            <span class="instruction-text">A Google Cloud project with Sheets API enabled</span>
+                        </div>
+                        <div class="instruction-item">
+                            <span class="instruction-num">3</span>
+                            <span class="instruction-text">A Google Sheet to store your transactions</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 1: Enable API -->
+            <div class="slide" data-slide="1">
+                <div class="slide-card">
+                    <div class="slide-icon">☁️</div>
+                    <h2 class="slide-title">Enable Google Sheets API</h2>
+                    <p class="slide-desc">
+                        First, we need to enable the Google Sheets API in your Google Cloud Console.
+                    </p>
+                    <div class="instruction-list">
+                        <div class="instruction-item">
+                            <span class="instruction-num">1</span>
+                            <span class="instruction-text">Click the button below to open Google Cloud Console</span>
+                        </div>
+                        <div class="instruction-item">
+                            <span class="instruction-num">2</span>
+                            <span class="instruction-text"><strong>Create a new project</strong> or select an existing one</span>
+                        </div>
+                        <div class="instruction-item">
+                            <span class="instruction-num">3</span>
+                            <span class="instruction-text">Click <strong>"Enable"</strong> to activate the Sheets API</span>
+                        </div>
+                    </div>
+                    <a href="https://console.cloud.google.com/apis/library/sheets.googleapis.com" target="_blank" rel="noopener" class="link-btn google">
+                        ☁️ Open Google Cloud Console
+                    </a>
+                </div>
+            </div>
+
+            <!-- Slide 2: Download Credentials -->
+            <div class="slide" data-slide="2">
+                <div class="slide-card">
+                    <div class="slide-icon">🔑</div>
+                    <h2 class="slide-title">Download Credentials</h2>
+                    <p class="slide-desc">
+                        Now create and download your API credentials file.
+                    </p>
+                    <div class="instruction-list">
+                        <div class="instruction-item">
+                            <span class="instruction-num">1</span>
+                            <span class="instruction-text">Go to <strong>Credentials</strong> in the Cloud Console</span>
+                        </div>
+                        <div class="instruction-item">
+                            <span class="instruction-num">2</span>
+                            <span class="instruction-text">Click <strong>Create Credentials → Service Account</strong></span>
+                        </div>
+                        <div class="instruction-item">
+                            <span class="instruction-num">3</span>
+                            <span class="instruction-text">Name it anything (e.g., "spendsight") and click Create</span>
+                        </div>
+                        <div class="instruction-item">
+                            <span class="instruction-num">4</span>
+                            <span class="instruction-text">Click on the service account → <strong>Keys</strong> → Add Key → <strong>JSON</strong></span>
+                        </div>
+                    </div>
+                    <div class="links-row">
+                        <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener" class="link-btn google">
+                            🔑 Create Service Account
+                        </a>
+                    </div>
+                    
+                    <div style="margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--border-color);">
+                        <p class="slide-desc" style="margin-bottom: 16px;">
+                            <strong>Upload the downloaded JSON file:</strong>
+                        </p>
+                        <div class="upload-zone" id="upload-zone">
+                            <input type="file" id="credentials-input" accept=".json">
+                            <div class="upload-prompt">
+                                <div class="upload-icon">📄</div>
+                                <p class="upload-text">Drag & drop your credentials JSON file here</p>
+                                <p class="upload-hint">or click to browse</p>
+                            </div>
+                            <div class="upload-success">
+                                <div class="upload-icon">✅</div>
+                                <p>credentials.json uploaded successfully!</p>
+                            </div>
+                        </div>
+                        <div id="upload-status" class="status-message"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 3: Create Sheet & Finish -->
+            <div class="slide" data-slide="3">
+                <div class="slide-card">
+                    <div class="slide-icon">📊</div>
+                    <h2 class="slide-title">Connect Your Sheet</h2>
+                    <p class="slide-desc">
+                        Create a new Google Sheet (or use an existing one) and paste the link below.
+                    </p>
+                    <div class="links-row" style="margin-bottom: 28px;">
+                        <a href="https://sheets.new" target="_blank" rel="noopener" class="link-btn sheets">
+                            ➕ Create New Sheet
+                        </a>
+                        <a href="https://sheets.google.com" target="_blank" rel="noopener" class="link-btn secondary">
+                            📁 My Sheets
+                        </a>
+                    </div>
+                    
+                    <form id="setup-form" method="POST" action="{{ url_for('setup_submit') }}">
+                        <div class="form-group">
+                            <label class="form-label" for="sheet_url">Paste your Google Sheet link</label>
+                            <input 
+                                type="text" 
+                                id="sheet_url" 
+                                class="form-input"
+                                placeholder="https://docs.google.com/spreadsheets/d/..."
+                                autocomplete="off"
+                            >
+                            <input type="hidden" id="sheet_id" name="sheet_id">
+                            <p class="form-hint" id="sheet-hint">Paste the full URL from your browser</p>
+                            <p class="form-hint extracted-id" id="extracted-id" style="display: none;"></p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="nav-buttons">
+            <button class="nav-btn back" id="btn-back" disabled>
+                ← Back
+            </button>
+            <button class="nav-btn next" id="btn-next">
+                Next →
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Wizard state
+        let currentSlide = 0;
+        const totalSlides = 4;
+        let credentialsUploaded = {{ 'true' if credentials_exist else 'false' }};
+
+        // Elements
+        const slides = document.querySelectorAll('.slide');
+        const dots = document.querySelectorAll('.progress-dot');
+        const lines = document.querySelectorAll('.progress-line');
+        const btnBack = document.getElementById('btn-back');
+        const btnNext = document.getElementById('btn-next');
+        const uploadZone = document.getElementById('upload-zone');
+        const credentialsInput = document.getElementById('credentials-input');
+        const uploadStatus = document.getElementById('upload-status');
+        const setupForm = document.getElementById('setup-form');
+
+        // Update progress indicator
+        function updateProgress() {
+            dots.forEach((dot, i) => {
+                dot.classList.remove('active', 'completed');
+                if (i < currentSlide) dot.classList.add('completed');
+                if (i === currentSlide) dot.classList.add('active');
+            });
+
+            lines.forEach((line, i) => {
+                line.classList.remove('completed');
+                if (i < currentSlide) line.classList.add('completed');
+            });
+        }
+
+        // Show slide
+        function showSlide(index) {
+            slides.forEach((slide, i) => {
+                slide.classList.remove('active');
+                if (i === index) {
+                    slide.classList.add('active');
+                }
+            });
+
+            currentSlide = index;
+            updateProgress();
+
+            // Update buttons
+            btnBack.disabled = currentSlide === 0;
+            
+            if (currentSlide === totalSlides - 1) {
+                btnNext.textContent = 'Complete Setup ✨';
+                btnNext.classList.add('submit');
+            } else {
+                btnNext.textContent = 'Next →';
+                btnNext.classList.remove('submit');
+            }
+
+            // Check if can proceed
+            updateNextButton();
+        }
+
+        // Update next button state
+        function updateNextButton() {
+            if (currentSlide === 2 && !credentialsUploaded) {
+                btnNext.disabled = true;
+            } else if (currentSlide === 3) {
+                const sheetId = document.getElementById('sheet_id').value.trim();
+                btnNext.disabled = !sheetId || !credentialsUploaded;
+            } else {
+                btnNext.disabled = false;
+            }
+        }
+
+        // Form submission - prevent if no valid sheet ID
+        setupForm.addEventListener('submit', (e) => {
+            if (!document.getElementById('sheet_id').value.trim()) {
+                e.preventDefault();
+            }
+        });
+
+        // Navigation
+        btnBack.addEventListener('click', () => {
+            if (currentSlide > 0) {
+                showSlide(currentSlide - 1);
+            }
+        });
+
+        btnNext.addEventListener('click', () => {
+            if (currentSlide < totalSlides - 1) {
+                showSlide(currentSlide + 1);
+            } else {
+                // Submit form on last slide
+                if (credentialsUploaded && document.getElementById('sheet_id').value.trim()) {
+                    setupForm.submit();
+                }
+            }
+        });
+
+        // File upload handling
+        uploadZone.addEventListener('click', () => {
+            credentialsInput.click();
+        });
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileUpload(files[0]);
+            }
+        });
+
+        credentialsInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileUpload(e.target.files[0]);
+            }
+        });
+
+        async function handleFileUpload(file) {
+            if (!file.name.endsWith('.json')) {
+                showUploadStatus('Please upload a JSON file', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('credentials_file', file);
+
+            try {
+                const response = await fetch('{{ url_for("upload_credentials") }}', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    credentialsUploaded = true;
+                    uploadZone.classList.add('uploaded');
+                    showUploadStatus('', '');
+                    updateNextButton();
+                } else {
+                    showUploadStatus(result.error || 'Upload failed', 'error');
+                }
+            } catch (error) {
+                showUploadStatus('Upload failed: ' + error.message, 'error');
+            }
+        }
+
+        function showUploadStatus(message, type) {
+            uploadStatus.textContent = message;
+            uploadStatus.className = 'status-message';
+            if (type) {
+                uploadStatus.classList.add(type);
+            }
+        }
+
+        // Sheet URL parsing
+        const sheetUrlInput = document.getElementById('sheet_url');
+        const sheetIdInput = document.getElementById('sheet_id');
+        const sheetHint = document.getElementById('sheet-hint');
+        const extractedIdDisplay = document.getElementById('extracted-id');
+
+        function extractSheetId(input) {
+            // Try to extract ID from full URL
+            // Format: https://docs.google.com/spreadsheets/d/SHEET_ID/edit...
+            const urlMatch = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+            if (urlMatch) {
+                return urlMatch[1];
+            }
+            
+            // If it looks like just an ID (alphanumeric, dashes, underscores, 20+ chars)
+            if (/^[a-zA-Z0-9-_]{20,}$/.test(input.trim())) {
+                return input.trim();
+            }
+            
+            return null;
+        }
+
+        sheetUrlInput.addEventListener('input', (e) => {
+            const value = e.target.value.trim();
+            const extractedId = extractSheetId(value);
+            
+            if (extractedId) {
+                sheetIdInput.value = extractedId;
+                sheetUrlInput.classList.remove('invalid');
+                sheetUrlInput.classList.add('valid');
+                sheetHint.style.display = 'none';
+                extractedIdDisplay.style.display = 'block';
+                extractedIdDisplay.textContent = '✓ Sheet ID: ' + extractedId;
+            } else if (value) {
+                sheetIdInput.value = '';
+                sheetUrlInput.classList.remove('valid');
+                sheetUrlInput.classList.add('invalid');
+                sheetHint.style.display = 'block';
+                sheetHint.textContent = 'Please paste a valid Google Sheets URL';
+                extractedIdDisplay.style.display = 'none';
+            } else {
+                sheetIdInput.value = '';
+                sheetUrlInput.classList.remove('valid', 'invalid');
+                sheetHint.style.display = 'block';
+                sheetHint.textContent = 'Paste the full URL from your browser';
+                extractedIdDisplay.style.display = 'none';
+            }
+            
+            updateNextButton();
+        });
+
+        // Initialize
+        if (credentialsUploaded) {
+            uploadZone.classList.add('uploaded');
+        }
+        updateNextButton();
+    </script>
+</body>
+</html>

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Complete - Spendsight</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a0c;
+            --bg-card: #141419;
+            --bg-elevated: #1c1c24;
+            --accent-mint: #4ade80;
+            --accent-blue: #60a5fa;
+            --text-primary: #f4f4f5;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border-color: #27272a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', -apple-system, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+
+        .bg-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(ellipse at 30% 30%, rgba(74, 222, 128, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 70%, rgba(96, 165, 250, 0.05) 0%, transparent 40%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 480px;
+            width: 100%;
+            margin: 40px 24px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 48px 40px;
+            text-align: center;
+        }
+
+        .success-icon {
+            font-size: 4rem;
+            margin-bottom: 24px;
+            display: inline-block;
+            animation: pop 0.5s ease-out;
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-mint), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 12px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 32px;
+        }
+
+        /* Config display */
+        .config-box {
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 28px;
+            text-align: left;
+        }
+
+        .config-label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+
+        .config-value {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-mint);
+            font-size: 0.9rem;
+            word-break: break-all;
+        }
+
+        /* Loading state */
+        .loading-box {
+            background: rgba(96, 165, 250, 0.08);
+            border: 1px solid rgba(96, 165, 250, 0.2);
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-mint);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .loading-text strong {
+            color: var(--accent-blue);
+        }
+
+        /* Status messages */
+        .status-done {
+            display: none;
+        }
+
+        .status-done.show {
+            display: block;
+        }
+
+        .status-loading.hide {
+            display: none;
+        }
+
+        /* Quick link */
+        .sheet-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .sheet-link:hover {
+            border-color: var(--accent-mint);
+        }
+
+        /* Confetti */
+        .confetti-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 100;
+        }
+
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: fall linear forwards;
+        }
+
+        @keyframes fall {
+            to {
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        @media (max-width: 500px) {
+            .card {
+                padding: 36px 24px;
+            }
+
+            h1 {
+                font-size: 1.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+    <div class="confetti-container" id="confetti"></div>
+
+    <div class="container">
+        <div class="card">
+            <div class="success-icon">🎉</div>
+            <h1>Setup Complete!</h1>
+            <p class="subtitle">Your configuration has been saved.</p>
+
+            <div class="config-box">
+                <div class="config-label">Connected Sheet ID</div>
+                <div class="config-value">{{ sheet_id }}</div>
+            </div>
+
+            <a href="https://docs.google.com/spreadsheets/d/{{ sheet_id }}/edit" target="_blank" class="sheet-link">
+                📊 Open Your Sheet
+            </a>
+
+            <div class="loading-box status-loading" id="loading-box">
+                <div class="loading-spinner"></div>
+                <p class="loading-text" id="loading-text">
+                    <strong>Restarting server...</strong><br>
+                    Please wait a moment
+                </p>
+            </div>
+
+            <div class="loading-box status-done" id="done-box" style="background: rgba(74, 222, 128, 0.08); border-color: rgba(74, 222, 128, 0.2);">
+                <p class="loading-text" style="color: var(--accent-mint);">
+                    ✅ <strong>Ready!</strong> Redirecting to dashboard...
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Create confetti
+        const colors = ['#4ade80', '#60a5fa', '#a78bfa', '#fbbf24', '#f472b6'];
+        const container = document.getElementById('confetti');
+
+        for (let i = 0; i < 40; i++) {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            confetti.style.left = Math.random() * 100 + 'vw';
+            confetti.style.top = '-20px';
+            confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+            confetti.style.animationDelay = Math.random() * 1.5 + 's';
+            container.appendChild(confetti);
+        }
+
+        // Auto-restart and redirect
+        const loadingBox = document.getElementById('loading-box');
+        const doneBox = document.getElementById('done-box');
+        const loadingText = document.getElementById('loading-text');
+
+        async function restartAndRedirect() {
+            try {
+                // Trigger server restart
+                await fetch('/setup/restart', { method: 'POST' });
+            } catch (e) {
+                // Server might close connection during restart - that's expected
+            }
+
+            // Wait for server to come back up
+            loadingText.innerHTML = '<strong>Restarting server...</strong><br>Waiting for server to restart';
+            
+            let attempts = 0;
+            const maxAttempts = 30;
+            
+            const checkServer = async () => {
+                attempts++;
+                try {
+                    const response = await fetch('/', { method: 'HEAD' });
+                    if (response.ok || response.status === 302) {
+                        // Server is back!
+                        loadingBox.classList.add('hide');
+                        doneBox.classList.add('show');
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 1500);
+                        return;
+                    }
+                } catch (e) {
+                    // Server not ready yet
+                }
+
+                if (attempts < maxAttempts) {
+                    loadingText.innerHTML = `<strong>Restarting server...</strong><br>Attempt ${attempts}/${maxAttempts}`;
+                    setTimeout(checkServer, 1000);
+                } else {
+                    loadingText.innerHTML = '<strong>Server restart taking longer than expected</strong><br><a href="/" style="color: var(--accent-mint);">Click here to continue →</a>';
+                }
+            };
+
+            // Start checking after a brief delay
+            setTimeout(checkServer, 2000);
+        }
+
+        // Start the restart process
+        restartAndRedirect();
+
+        // Clean up confetti
+        setTimeout(() => container.remove(), 5000);
+    </script>
+</body>
+</html>

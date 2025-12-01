@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Upload - Spendsight{% endblock %}
+
+{% block content %}
+<div class="upload-page">
+    <h2 class="page-title">Upload Transactions</h2>
+    
+    <div class="upload-container">
+        <div class="upload-card">
+            <div class="upload-icon">📤</div>
+            <h3>Upload Bank CSV</h3>
+            <p>Upload transaction CSV files from Chase or Discover</p>
+            
+            <form method="POST" enctype="multipart/form-data" class="upload-form">
+                <div class="form-group">
+                    <label for="bank">Select Bank</label>
+                    <select id="bank" name="bank" required>
+                        <option value="">Choose a bank...</option>
+                        <option value="chase">Chase</option>
+                        <option value="discover">Discover</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="file">Select CSV File</label>
+                    <input type="file" id="file" name="file" accept=".csv" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Upload and Process</button>
+            </form>
+        </div>
+        
+        <div class="info-card">
+            <h3>📋 How to Export CSVs</h3>
+            
+            <div class="bank-instructions">
+                <h4>Chase:</h4>
+                <ol>
+                    <li>Log in to Chase.com</li>
+                    <li>Select your account</li>
+                    <li>Go to "Activity" or "Transactions"</li>
+                    <li>Click "Download" and select "CSV"</li>
+                    <li>Choose your date range</li>
+                    <li>Download and save the file</li>
+                </ol>
+            </div>
+            
+            <div class="bank-instructions">
+                <h4>Discover:</h4>
+                <ol>
+                    <li>Log in to Discover.com</li>
+                    <li>Go to "Recent Activity"</li>
+                    <li>Click "Download" icon</li>
+                    <li>Select "CSV" format</li>
+                    <li>Choose your date range</li>
+                    <li>Download and save the file</li>
+                </ol>
+            </div>
+            
+            <div class="alert alert-info">
+                <strong>💡 Tip:</strong> Transactions are automatically synced to your Google Sheet if configured!
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

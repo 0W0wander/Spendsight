@@ -1,0 +1,732 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Spendsight{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Control Bar - Unified Filters */
+    .control-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        background: var(--bg-primary);
+        border-radius: var(--border-radius-lg);
+        margin-bottom: 0.5rem;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border-color);
+        flex-wrap: wrap;
+    }
+    
+    .control-group {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    
+    .control-label {
+        font-size: 0.65rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        font-weight: 500;
+    }
+    
+    .time-toggle {
+        display: flex;
+        background: var(--bg-tertiary);
+        border-radius: 4px;
+        padding: 2px;
+        gap: 1px;
+    }
+    
+    .time-toggle button {
+        padding: 0.2rem 0.45rem;
+        border: none;
+        background: transparent;
+        border-radius: 3px;
+        font-size: 0.65rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .time-toggle button:hover { color: var(--text-primary); }
+    .time-toggle button.active { background: var(--primary-color); color: white; }
+    
+    .filter-select {
+        padding: 0.2rem 0.4rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-size: 0.65rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        background: var(--bg-primary);
+        cursor: pointer;
+    }
+    
+    .filter-select:focus { border-color: var(--primary-color); outline: none; }
+    
+    .divider {
+        width: 1px;
+        height: 20px;
+        background: var(--border-color);
+    }
+    
+    .active-filter {
+        display: none;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.2rem 0.5rem;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+        border-radius: 4px;
+        font-size: 0.65rem;
+        color: var(--text-primary);
+    }
+    
+    .active-filter.visible { display: flex; }
+    
+    .active-filter .clear-btn {
+        padding: 0.1rem 0.3rem;
+        background: var(--danger-color);
+        color: white;
+        border: none;
+        border-radius: 3px;
+        font-size: 0.6rem;
+        cursor: pointer;
+        margin-left: 0.25rem;
+    }
+    
+    /* Charts Container */
+    .charts-container {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .chart-card {
+        background: var(--bg-primary);
+        border-radius: var(--border-radius-lg);
+        padding: 0.5rem;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border-color);
+    }
+    
+    .chart-title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.35rem;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .line-chart-container { position: relative; height: 180px; }
+    .pie-chart-container { position: relative; height: 180px; }
+    
+    .chart-card canvas { cursor: pointer; }
+    
+    /* Transactions Section - Compact */
+    .transactions-section {
+        background: var(--bg-primary);
+        border-radius: var(--border-radius-lg);
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+    }
+    
+    .transactions-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.35rem 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-secondary);
+    }
+    
+    .transactions-header h3 {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .transactions-summary {
+        display: flex;
+        gap: 0.75rem;
+        font-size: 0.65rem;
+    }
+    
+    .summary-stat {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .summary-stat .label {
+        color: var(--text-secondary);
+    }
+    
+    .summary-stat .value {
+        font-weight: 600;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    
+    .summary-stat .value.expense { color: var(--danger-color); }
+    
+    /* Transactions List - Compact */
+    .transactions-list {
+        max-height: 320px;
+        overflow-y: auto;
+    }
+    
+    .transaction-item {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 0.5rem;
+        padding: 0.3rem 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+        transition: var(--transition);
+        align-items: center;
+    }
+    
+    .transaction-item:hover { background: var(--bg-gradient-subtle); }
+    
+    .transaction-info {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+    
+    .transaction-description {
+        font-weight: 500;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 0.72rem;
+    }
+    
+    .transaction-meta {
+        display: flex;
+        gap: 0.4rem;
+        font-size: 0.62rem;
+        color: var(--text-secondary);
+    }
+    
+    .transaction-category {
+        padding: 0.05rem 0.25rem;
+        border-radius: 2px;
+        font-size: 0.58rem;
+        font-weight: 500;
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        white-space: nowrap;
+    }
+    
+    .transaction-amount {
+        font-size: 0.72rem;
+        font-weight: 600;
+        font-family: 'JetBrains Mono', monospace;
+        white-space: nowrap;
+    }
+    
+    .transaction-amount.expense { color: var(--danger-color); }
+    .transaction-amount.income { color: var(--success-color); }
+    
+    /* Empty/Loading */
+    .no-transactions {
+        padding: 1.5rem;
+        text-align: center;
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+    }
+    
+    .no-transactions .icon { font-size: 1.25rem; margin-bottom: 0.35rem; }
+    
+    .spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid var(--bg-tertiary);
+        border-top-color: var(--primary-color);
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        margin: 0 auto 0.35rem;
+    }
+    
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    /* Classification badges for transactions */
+    .transaction-badges {
+        display: flex;
+        gap: 0.25rem;
+        flex-wrap: wrap;
+    }
+    
+    .mini-badge {
+        padding: 0.05rem 0.2rem;
+        border-radius: 2px;
+        font-size: 0.55rem;
+        font-weight: 500;
+    }
+    
+    .mini-badge.needs { background: #dbeafe; color: #1d4ed8; }
+    .mini-badge.wants { background: #fce7f3; color: #be185d; }
+    .mini-badge.savings { background: #dcfce7; color: #15803d; }
+    .mini-badge.subscription { background: #f3e8ff; color: #7c3aed; }
+    .mini-badge.recurring { background: #ccfbf1; color: #0f766e; }
+    .mini-badge.one-time { background: #f1f5f9; color: #64748b; }
+    .mini-badge.income { background: #dcfce7; color: #15803d; }
+    
+    /* Responsive */
+    @media (max-width: 900px) {
+        .charts-container { grid-template-columns: 1fr; }
+        .budget-health-widget { grid-template-columns: 1fr 1fr; }
+    }
+    
+    @media (max-width: 600px) {
+        .control-bar { flex-direction: column; align-items: flex-start; }
+        .transaction-item { grid-template-columns: 1fr; gap: 0.15rem; }
+        .budget-health-widget { grid-template-columns: 1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    {% if statistics and statistics.count > 0 %}
+    
+    <!-- Unified Control Bar -->
+    <div class="control-bar">
+        <div class="control-group">
+            <span class="control-label">Period:</span>
+            <div class="time-toggle">
+                <button data-period="week" class="active">Week</button>
+                <button data-period="month">Month</button>
+                <button data-period="year">Year</button>
+            </div>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="control-group">
+            <span class="control-label">Breakdown:</span>
+            <select class="filter-select" id="pieFilterType">
+                <option value="category">Category</option>
+                <option value="necessity">Needs/Wants</option>
+                <option value="recurrence">Recurrence</option>
+                <option value="day_of_week">Day of Week</option>
+                <option value="bank">Bank</option>
+            </select>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="active-filter" id="activeFilter">
+            <span>Showing: <strong id="filterLabel"></strong></span>
+            <button class="clear-btn" onclick="clearAllFilters()">✕</button>
+        </div>
+    </div>
+    
+    <!-- Charts Row -->
+    <div class="charts-container">
+        <div class="chart-card">
+            <h3 class="chart-title">📈 Spending Over Time</h3>
+            <div class="line-chart-container">
+                <canvas id="spendingLineChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="chart-card">
+            <h3 class="chart-title">🥧 Breakdown</h3>
+            <div class="pie-chart-container">
+                <canvas id="spendingPieChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Transactions Section -->
+    <div class="transactions-section">
+        <div class="transactions-header">
+            <h3>💳 <span id="transactionsTitle">All Transactions</span></h3>
+            <div class="transactions-summary">
+                <div class="summary-stat">
+                    <span class="label">Count:</span>
+                    <span class="value" id="summaryCount">{{ statistics.count }}</span>
+                </div>
+                <div class="summary-stat">
+                    <span class="label">Total:</span>
+                    <span class="value expense" id="summarySpent">${{ "%.2f"|format(statistics.total) }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="transactions-list" id="transactionsList">
+            <div class="no-transactions">
+                <div class="spinner"></div>
+                <p>Loading...</p>
+            </div>
+        </div>
+    </div>
+    
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📁</div>
+        <h3>No Transactions Yet</h3>
+        <p>Upload your first CSV file to start tracking!</p>
+        <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload CSV</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    Chart.defaults.font.family = "'Inter', -apple-system, sans-serif";
+    Chart.defaults.font.size = 10;
+    Chart.defaults.color = '#64748b';
+    
+    const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6'];
+    const categoryColors = {{ category_colors|tojson|safe if category_colors else '{}' }};
+    
+    let currentPeriod = 'week';
+    let currentPieFilter = 'category';
+    let lineChart = null;
+    let pieChart = null;
+    let allTransactions = [];
+    
+    const monthlyTrends = {{ monthly_trends|tojson|safe if monthly_trends else '{}' }};
+    const weeklySpending = {{ weekly_spending|tojson|safe if weekly_spending else '{}' }};
+    const dailySpending = {{ daily_spending|tojson|safe if daily_spending else '{}' }};
+    const categories = {{ categories|tojson|safe if categories else '{}' }};
+    const dayOfWeek = {{ day_of_week|tojson|safe if day_of_week else '{}' }};
+    const spendingByBank = {{ spending_by_bank|tojson|safe if spending_by_bank else '{}' }};
+    const classification = {{ classification|tojson|safe if classification else '{}' }};
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        initLineChart();
+        initPieChart();
+        loadAllTransactions();
+        
+        document.querySelectorAll('.time-toggle button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.time-toggle button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentPeriod = this.dataset.period;
+                updateLineChart();
+                clearAllFilters();
+            });
+        });
+        
+        document.getElementById('pieFilterType').addEventListener('change', function() {
+            currentPieFilter = this.value;
+            updatePieChart();
+            clearAllFilters();
+        });
+    });
+    
+    function initLineChart() {
+        const ctx = document.getElementById('spendingLineChart').getContext('2d');
+        
+        lineChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    pointBackgroundColor: '#6366f1',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 1.5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        padding: 6,
+                        cornerRadius: 4,
+                        titleFont: { size: 10 },
+                        bodyFont: { size: 10 },
+                        callbacks: {
+                            label: ctx => `$${ctx.raw.toFixed(2)}`,
+                            afterLabel: () => 'Click to filter'
+                        }
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.03)' }, ticks: { callback: v => '$' + v, font: { size: 9 } } },
+                    x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0 } }
+                },
+                onClick: (e, elements) => { if (elements.length > 0) handleLineChartClick(elements[0].index); }
+            }
+        });
+        updateLineChart();
+    }
+    
+    function updateLineChart() {
+        let labels = [], data = [], periodData = {};
+        
+        if (currentPeriod === 'week') {
+            // Get all dates and filter to last 7 days that have data
+            const allDates = Object.keys(dailySpending).sort();
+            const recentDates = allDates.slice(-7);
+            recentDates.forEach(date => {
+                const d = new Date(date + 'T12:00:00');
+                const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
+                labels.push(label);
+                data.push(dailySpending[date]?.spent || 0);
+                periodData[label] = { type: 'day', value: date, display: label };
+            });
+        } else if (currentPeriod === 'month') {
+            const sortedWeeks = Object.keys(weeklySpending).sort().slice(-4);
+            sortedWeeks.forEach(week => {
+                const d = new Date(week + 'T12:00:00');
+                const label = 'Wk ' + d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
+                labels.push(label);
+                data.push(weeklySpending[week]?.spent || 0);
+                periodData[label] = { type: 'week', value: week, display: label };
+            });
+        } else if (currentPeriod === 'year') {
+            const sortedMonths = Object.keys(monthlyTrends).sort();
+            sortedMonths.forEach(month => {
+                labels.push(month);
+                data.push(monthlyTrends[month]?.spent || 0);
+                periodData[month] = { type: 'month', value: month, display: month };
+            });
+        }
+        
+        lineChart.data.labels = labels;
+        lineChart.data.datasets[0].data = data;
+        lineChart.periodData = periodData;
+        lineChart.update();
+    }
+    
+    function handleLineChartClick(index) {
+        const label = lineChart.data.labels[index];
+        const periodInfo = lineChart.periodData[label];
+        
+        if (periodInfo) {
+            showActiveFilter(periodInfo.display);
+            loadFilteredTransactions(periodInfo.type, periodInfo.value);
+        }
+    }
+    
+    function initPieChart() {
+        const ctx = document.getElementById('spendingPieChart').getContext('2d');
+        
+        pieChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: [],
+                datasets: [{ data: [], backgroundColor: colors, borderWidth: 2, borderColor: '#ffffff', hoverOffset: 3 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '45%',
+                plugins: {
+                    legend: { position: 'right', labels: { padding: 6, usePointStyle: true, font: { size: 9 } } },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        padding: 6,
+                        cornerRadius: 4,
+                        callbacks: {
+                            label: ctx => {
+                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                return `$${ctx.raw.toFixed(2)} (${((ctx.raw / total) * 100).toFixed(1)}%)`;
+                            },
+                            afterLabel: () => 'Click to filter'
+                        }
+                    }
+                },
+                onClick: (e, elements) => { if (elements.length > 0) handlePieChartClick(elements[0].index); }
+            }
+        });
+        updatePieChart();
+    }
+    
+    function updatePieChart() {
+        let labels = [], data = [], bgColors = [];
+        
+        if (currentPieFilter === 'category') {
+            Object.keys(categories).forEach((cat, i) => {
+                labels.push(cat);
+                data.push(categories[cat].total);
+                bgColors.push(categoryColors[cat] || colors[i % colors.length]);
+            });
+            pieChart.filterType = 'category';
+        } else if (currentPieFilter === 'necessity') {
+            // Needs vs Wants vs Savings (50/30/20 rule)
+            const necessityData = classification.by_necessity || {};
+            const necessityColors = { 'Needs': '#3b82f6', 'Wants': '#ec4899', 'Savings': '#22c55e', 'Unknown': '#64748b' };
+            Object.keys(necessityData).forEach((type, i) => {
+                labels.push(type);
+                data.push(necessityData[type].total);
+                bgColors.push(necessityColors[type] || colors[i % colors.length]);
+            });
+            pieChart.filterType = 'necessity';
+        } else if (currentPieFilter === 'recurrence') {
+            // Subscription / Recurring / One-time
+            const recurrenceData = classification.by_recurrence || {};
+            const recurrenceColors = { 'Subscription': '#a855f7', 'Recurring': '#14b8a6', 'One-time': '#64748b', 'Income': '#22c55e', 'Unknown': '#94a3b8' };
+            Object.keys(recurrenceData).forEach((type, i) => {
+                labels.push(type);
+                data.push(recurrenceData[type].total);
+                bgColors.push(recurrenceColors[type] || colors[i % colors.length]);
+            });
+            pieChart.filterType = 'recurrence';
+        } else if (currentPieFilter === 'day_of_week') {
+            ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach((day, i) => {
+                const fullDay = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][i];
+                labels.push(day);
+                data.push(dayOfWeek[fullDay]?.total || 0);
+                bgColors.push(colors[i % colors.length]);
+            });
+            pieChart.filterType = 'day_of_week';
+            pieChart.dayMap = { 'Mon': 'Monday', 'Tue': 'Tuesday', 'Wed': 'Wednesday', 'Thu': 'Thursday', 'Fri': 'Friday', 'Sat': 'Saturday', 'Sun': 'Sunday' };
+        } else if (currentPieFilter === 'bank') {
+            Object.keys(spendingByBank).forEach((bank) => {
+                labels.push(bank);
+                data.push(spendingByBank[bank].spent);
+                bgColors.push(bank.toLowerCase() === 'chase' ? '#0066b2' : '#ff6000');
+            });
+            pieChart.filterType = 'bank';
+        }
+        
+        pieChart.data.labels = labels;
+        pieChart.data.datasets[0].data = data;
+        pieChart.data.datasets[0].backgroundColor = bgColors;
+        pieChart.update();
+    }
+    
+    function handlePieChartClick(index) {
+        const label = pieChart.data.labels[index];
+        let filterType = pieChart.filterType;
+        let filterValue = label;
+        
+        // Map abbreviated day to full day name for filtering
+        if (filterType === 'day_of_week' && pieChart.dayMap) {
+            filterValue = pieChart.dayMap[label] || label;
+        }
+        
+        showActiveFilter(label);
+        loadFilteredTransactions(filterType, filterValue);
+    }
+    
+    function showActiveFilter(label) {
+        document.getElementById('activeFilter').classList.add('visible');
+        document.getElementById('filterLabel').textContent = label;
+    }
+    
+    async function loadAllTransactions() {
+        try {
+            const response = await fetch('/api/transactions');
+            allTransactions = await response.json();
+            renderTransactions(allTransactions);
+        } catch (error) {
+            document.getElementById('transactionsList').innerHTML = `<div class="no-transactions"><div class="icon">❌</div><p>Error loading</p></div>`;
+        }
+    }
+    
+    async function loadFilteredTransactions(periodType, periodValue) {
+        document.getElementById('transactionsTitle').textContent = 'Filtered';
+        
+        try {
+            let url = `/api/transactions/filter?period_type=${encodeURIComponent(periodType)}&period_value=${encodeURIComponent(periodValue)}`;
+            if (periodType === 'category') {
+                url = `/api/transactions/filter?category=${encodeURIComponent(periodValue)}`;
+            }
+            
+            const response = await fetch(url);
+            const result = await response.json();
+            
+            document.getElementById('summaryCount').textContent = result.summary.count;
+            document.getElementById('summarySpent').textContent = `$${result.summary.total_spent.toFixed(2)}`;
+            
+            renderTransactions(result.transactions);
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+    
+    function renderTransactions(transactions) {
+        const container = document.getElementById('transactionsList');
+        
+        if (!transactions || transactions.length === 0) {
+            container.innerHTML = `<div class="no-transactions"><div class="icon">📭</div><p>No transactions found</p></div>`;
+            return;
+        }
+        
+        transactions.sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date));
+        
+        container.innerHTML = transactions.map(t => {
+            const isExpense = t.amount < 0 || t.type === 'expense';
+            const amount = Math.abs(t.amount);
+            const necessity = t.necessity || 'Unknown';
+            const recurrence = t.recurrence || 'One-time';
+            
+            // Build badges HTML
+            let badgesHtml = '';
+            if (necessity && necessity !== 'Unknown' && necessity !== 'Income') {
+                badgesHtml += `<span class="mini-badge ${necessity.toLowerCase()}">${necessity}</span>`;
+            }
+            if (recurrence && recurrence !== 'Unknown') {
+                const recurrenceClass = recurrence.toLowerCase().replace('-', '');
+                badgesHtml += `<span class="mini-badge ${recurrenceClass}">${recurrence}</span>`;
+            }
+            
+            return `
+                <div class="transaction-item">
+                    <div class="transaction-info">
+                        <div class="transaction-description">${escapeHtml(t.description)}</div>
+                        <div class="transaction-meta">
+                            <span>${formatDate(t.transaction_date)}</span>
+                            <span>•</span>
+                            <span>${t.bank || ''}</span>
+                        </div>
+                    </div>
+                    <div class="transaction-badges">
+                        <span class="transaction-category">${t.category || 'Other'}</span>
+                        ${badgesHtml}
+                    </div>
+                    <span class="transaction-amount ${isExpense ? 'expense' : 'income'}">${isExpense ? '-' : '+'}$${amount.toFixed(2)}</span>
+                </div>`;
+        }).join('');
+    }
+    
+    function clearAllFilters() {
+        document.getElementById('activeFilter').classList.remove('visible');
+        document.getElementById('transactionsTitle').textContent = 'All Transactions';
+        document.getElementById('summaryCount').textContent = '{{ statistics.count }}';
+        document.getElementById('summarySpent').textContent = '${{ "%.2f"|format(statistics.total) }}';
+        renderTransactions(allTransactions);
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function formatDate(dateStr) {
+        if (!dateStr) return '';
+        const date = new Date(dateStr + 'T12:00:00');
+        if (isNaN(date.getTime())) return dateStr;
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+</script>
+{% endblock %}

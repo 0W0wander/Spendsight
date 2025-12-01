@@ -1,0 +1,2 @@
+"""Spendsight backend package."""
+
