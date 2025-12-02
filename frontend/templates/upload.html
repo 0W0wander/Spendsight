@@ -27,6 +27,26 @@
                     <input type="file" id="file" name="file" accept=".csv" required>
                 </div>
                 
+                <div class="form-group category-source-group">
+                    <label>Category Source</label>
+                    <div class="category-source-options">
+                        <label class="radio-option">
+                            <input type="radio" name="category_source" value="csv" checked>
+                            <span class="radio-label">
+                                <strong>Use CSV Categories</strong>
+                                <small>Import the category column from your bank's CSV file as-is</small>
+                            </span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="category_source" value="rules">
+                            <span class="radio-label">
+                                <strong>Use Auto-Tagging Rules</strong>
+                                <small>Apply your custom keyword-matching rules to categorize transactions</small>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                
                 <button type="submit" class="btn btn-primary">Upload and Process</button>
             </form>
         </div>
@@ -61,8 +81,101 @@
             <div class="alert alert-info">
                 <strong>💡 Tip:</strong> Transactions are automatically synced to your Google Sheet if configured! Duplicate transactions are automatically skipped.
             </div>
+            
+            <div class="category-info">
+                <h4>🏷️ About Category Options</h4>
+                <p><strong>Use CSV Categories:</strong> Import categories exactly as your bank labeled them. Great if your bank's categories are already accurate.</p>
+                <p><strong>Use Auto-Tagging Rules:</strong> Apply your custom rules with matching keywords. Set these up in the dashboard under "Category Rules". Transactions that don't match any rule will remain uncategorized.</p>
+                <p class="note"><em>Note: Recurrence defaults to "One-time" unless an auto-tag rule changes it.</em></p>
+            </div>
         </div>
     </div>
 </div>
+
+<style>
+.category-source-group {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color, #e0e0e0);
+}
+
+.category-source-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.radio-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 2px solid var(--border-color, #e0e0e0);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.radio-option:hover {
+    border-color: var(--primary-color, #4a90d9);
+    background: rgba(74, 144, 217, 0.05);
+}
+
+.radio-option input[type="radio"] {
+    margin-top: 0.25rem;
+    accent-color: var(--primary-color, #4a90d9);
+    width: 18px;
+    height: 18px;
+}
+
+.radio-option input[type="radio"]:checked + .radio-label strong {
+    color: var(--primary-color, #4a90d9);
+}
+
+.radio-option:has(input:checked) {
+    border-color: var(--primary-color, #4a90d9);
+    background: rgba(74, 144, 217, 0.08);
+}
+
+.radio-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.radio-label strong {
+    font-size: 1rem;
+}
+
+.radio-label small {
+    color: var(--text-muted, #666);
+    font-size: 0.85rem;
+}
+
+.category-info {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: var(--bg-secondary, #f8f9fa);
+    border-radius: 8px;
+}
+
+.category-info h4 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1rem;
+}
+
+.category-info p {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.category-info .note {
+    margin-top: 1rem;
+    color: var(--text-muted, #666);
+    font-size: 0.85rem;
+}
+</style>
 {% endblock %}
 

@@ -18,8 +18,8 @@ class NecessityLevel:
     NEEDS = "Needs"          # 50% - Essential expenses
     WANTS = "Wants"          # 30% - Discretionary spending
     SAVINGS = "Savings"      # 20% - Financial goals
-    INCOME = "Income"
     UNKNOWN = "Unknown"
+    # Note: Income is a CATEGORY, not a necessity level
 
 
 class RecurrenceType:
@@ -27,8 +27,8 @@ class RecurrenceType:
     SUBSCRIPTION = "Subscription"      # Recurring digital/service subscriptions
     RECURRING = "Recurring"            # Regular but non-subscription (rent, utilities)
     ONE_TIME = "One-time"              # Single purchases
-    INCOME = "Income"
     UNKNOWN = "Unknown"
+    # Note: Income transactions can still be Recurring (e.g., paychecks)
 
 
 class SpendingCategory:

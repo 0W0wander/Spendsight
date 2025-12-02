@@ -249,6 +249,7 @@ def upload():
         
         file = request.files['file']
         bank = request.form.get('bank')
+        category_source = request.form.get('category_source', 'csv')  # 'csv' or 'rules'
         
         if file.filename == '':
             flash('No file selected', 'error')
@@ -258,6 +259,9 @@ def upload():
             flash('Please select a bank', 'error')
             return redirect(request.url)
         
+        # Determine whether to use CSV categories or apply auto-tagging
+        use_csv_categories = (category_source == 'csv')
+        
         if file and allowed_file(file.filename):
             # Save file
             filename = secure_filename(file.filename)
@@ -265,12 +269,12 @@ def upload():
             file.save(str(filepath))
             
             try:
-                # Parse based on bank
+                # Parse based on bank, passing the category source preference
                 if bank == 'chase':
-                    transactions = ChaseParser.parse(str(filepath))
+                    transactions = ChaseParser.parse(str(filepath), use_csv_categories=use_csv_categories)
                     summary = ChaseParser.get_summary(transactions)
                 else:  # discover
-                    transactions = DiscoverParser.parse(str(filepath))
+                    transactions = DiscoverParser.parse(str(filepath), use_csv_categories=use_csv_categories)
                     summary = DiscoverParser.get_summary(transactions)
                 
                 # Filter out duplicate transactions
@@ -286,10 +290,17 @@ def upload():
                     flash(f'Swept {swept_count} transaction(s) based on your sweep rules.', 'info')
                 
                 # Apply category rules to new transactions
-                rule_engine.apply_to_all(unique_transactions)
+                # Rules can update any field including recurrence, even when using CSV categories
+                rules_updated = rule_engine.apply_to_all(unique_transactions)
                 
                 # Add to global storage
                 all_transactions.extend(unique_transactions)
+                
+                # Inform user about the category source used
+                if use_csv_categories:
+                    flash(f'Using categories from CSV file. {rules_updated} transaction(s) updated by your custom rules.', 'info')
+                else:
+                    flash(f'Applied auto-tagging rules. {rules_updated} transaction(s) matched custom rules.', 'info')
                 
                 # Sync to Google Sheets (only sync unique/new transactions)
                 try:
@@ -460,6 +471,7 @@ def api_transactions_filter():
     """API endpoint for filtered transactions by date range, category, period, necessity, and recurrence.
     
     Supports multiple simultaneous filters - all filters are applied with AND logic.
+    Also supports untagged filters to find transactions missing specific tags.
     """
     from datetime import datetime, timedelta
     
@@ -474,6 +486,11 @@ def api_transactions_filter():
     recurrences = request.args.getlist('recurrences')  # Support multiple recurrences
     period_type = request.args.get('period_type')  # 'day', 'week', 'month', 'year'
     period_value = request.args.get('period_value')  # e.g., '2024-01', 'Monday', '2024-W01'
+    
+    # Untagged filter parameters
+    untagged_category = request.args.get('untagged_category') == 'true'
+    untagged_necessity = request.args.get('untagged_necessity') == 'true'
+    untagged_recurrence = request.args.get('untagged_recurrence') == 'true'
     
     filtered = all_transactions.copy()
     
@@ -543,6 +560,25 @@ def api_transactions_filter():
                 filtered = [t for t in filtered if t.transaction_date.year == year]
             except ValueError:
                 pass
+    
+    # Filter for untagged transactions
+    # Categories that indicate "untagged" or generic categorization
+    untagged_categories = {'Other', 'Uncategorized', 'Unknown', ''}
+    
+    if untagged_category:
+        # Filter for transactions with generic/untagged category
+        filtered = [t for t in filtered if t.category in untagged_categories]
+    
+    if untagged_necessity:
+        # Filter for transactions with Unknown necessity, excluding Income category
+        # (Income transactions don't have necessity by design)
+        filtered = [t for t in filtered if 
+                    getattr(t, 'necessity', 'Unknown') == 'Unknown' and 
+                    t.category.lower() != 'income']
+    
+    if untagged_recurrence:
+        # Filter for transactions with Unknown recurrence
+        filtered = [t for t in filtered if getattr(t, 'recurrence', 'Unknown') == 'Unknown']
     
     # Sort by date descending
     filtered.sort(key=lambda t: t.transaction_date, reverse=True)
@@ -948,22 +984,10 @@ def api_update_transaction_field():
         if t.description == description and t.transaction_date.strftime('%Y-%m-%d') == date:
             setattr(t, field, value)
             
-            # Special handling for Income: when setting to Income, update both necessity and recurrence
-            if value == 'Income':
-                if field == 'necessity':
-                    t.recurrence = 'Income'
-                    updated_fields['recurrence'] = 'Income'
-                elif field == 'recurrence':
-                    t.necessity = 'Income'
-                    updated_fields['necessity'] = 'Income'
-            # When changing away from Income, reset the other field if it was Income
-            elif field in ['necessity', 'recurrence']:
-                if field == 'necessity' and t.recurrence == 'Income':
-                    t.recurrence = 'One-time'
-                    updated_fields['recurrence'] = 'One-time'
-                elif field == 'recurrence' and t.necessity == 'Income':
-                    t.necessity = 'Unknown'
-                    updated_fields['necessity'] = 'Unknown'
+            # Special handling for Income category: clear necessity since Income isn't Needs/Wants/Savings
+            if field == 'category' and value == 'Income':
+                t.necessity = 'Unknown'
+                updated_fields['necessity'] = 'Unknown'
             
             updated = True
             break

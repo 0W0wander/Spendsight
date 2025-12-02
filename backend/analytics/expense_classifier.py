@@ -361,8 +361,8 @@ class ExpenseClassifier:
             if keyword in desc_lower:
                 return NecessityLevel.WANTS
         
-        # Default to wants (conservative assumption)
-        return NecessityLevel.WANTS
+        # Default to Unknown - let user or rules decide
+        return NecessityLevel.UNKNOWN
     
     @classmethod
     def _classify_recurrence(cls, desc_lower: str, amount: float) -> str:

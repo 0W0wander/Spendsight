@@ -2,7 +2,7 @@
 import pandas as pd
 from datetime import datetime
 from typing import List
-from backend.models.transaction import Transaction
+from backend.models.transaction import Transaction, RecurrenceType
 from backend.analytics.expense_classifier import ExpenseClassifier
 
 class ChaseParser:
@@ -33,12 +33,14 @@ class ChaseParser:
     }
     
     @staticmethod
-    def parse(file_path: str) -> List[Transaction]:
+    def parse(file_path: str, use_csv_categories: bool = False) -> List[Transaction]:
         """
         Parse Chase CSV file and return list of transactions.
         
         Args:
             file_path: Path to the Chase CSV file
+            use_csv_categories: If True, use categories from CSV and skip auto-classification.
+                               If False, apply auto-tagging rules.
             
         Returns:
             List of Transaction objects with full classification
@@ -58,8 +60,15 @@ class ChaseParser:
                 # Try to be flexible - look for key columns
                 transactions = ChaseParser._parse_flexible(df)
             
-            # Apply multi-dimensional classification
-            return ExpenseClassifier.classify_batch(transactions)
+            # Set default recurrence to One-time for all transactions
+            for t in transactions:
+                t.recurrence = RecurrenceType.ONE_TIME
+            
+            # Only apply auto-classification if NOT using CSV categories
+            if not use_csv_categories:
+                return ExpenseClassifier.classify_batch(transactions)
+            
+            return transactions
             
         except Exception as e:
             raise Exception(f"Error parsing Chase CSV: {str(e)}")

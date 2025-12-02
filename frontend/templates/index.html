@@ -387,6 +387,53 @@
         color: var(--text-primary);
     }
     
+    /* Untagged Filter Options */
+    .untagged-options {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .untagged-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.6rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: var(--transition);
+        font-size: 0.75rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+    }
+    
+    .untagged-option:hover {
+        background: var(--bg-tertiary);
+        border-color: var(--primary-color);
+    }
+    
+    .untagged-option.selected {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(251, 191, 36, 0.15));
+        border-color: #f59e0b;
+    }
+    
+    .untagged-option input[type="checkbox"] {
+        width: 14px;
+        height: 14px;
+        accent-color: #f59e0b;
+    }
+    
+    .untagged-option span {
+        color: var(--text-primary);
+    }
+    
+    .untagged-hint {
+        font-size: 0.65rem;
+        color: var(--text-secondary);
+        font-style: italic;
+        margin-left: auto;
+    }
+    
     .filter-panel-footer {
         display: flex;
         justify-content: space-between;
@@ -1859,10 +1906,6 @@
                                 <input type="checkbox" value="Savings" onchange="toggleTagFilter('necessity', 'Savings')">
                                 <span>Savings</span>
                             </label>
-                            <label class="tag-option">
-                                <input type="checkbox" value="Income" onchange="toggleTagFilter('necessity', 'Income')">
-                                <span>Income</span>
-                            </label>
                         </div>
                     </div>
                     
@@ -1882,12 +1925,28 @@
                                 <input type="checkbox" value="One-time" onchange="toggleTagFilter('recurrence', 'One-time')">
                                 <span>One-time</span>
                             </label>
-                            <label class="tag-option">
-                                <input type="checkbox" value="Income" onchange="toggleTagFilter('recurrence', 'Income')">
-                                <span>Income</span>
-                            </label>
                         </div>
                     </div>
+                </div>
+            </div>
+            
+            <!-- Untagged Section -->
+            <div class="filter-section">
+                <div class="filter-section-title">🔍 Show Untagged Only</div>
+                <div class="untagged-options">
+                    <label class="untagged-option">
+                        <input type="checkbox" id="untaggedCategory" onchange="toggleUntaggedFilter('category')">
+                        <span>📁 Missing Category</span>
+                    </label>
+                    <label class="untagged-option">
+                        <input type="checkbox" id="untaggedNecessity" onchange="toggleUntaggedFilter('necessity')">
+                        <span>⚖️ Missing Necessity</span>
+                        <span class="untagged-hint">(excludes Income)</span>
+                    </label>
+                    <label class="untagged-option">
+                        <input type="checkbox" id="untaggedRecurrence" onchange="toggleUntaggedFilter('recurrence')">
+                        <span>🔄 Missing Recurrence</span>
+                    </label>
                 </div>
             </div>
         </div>
@@ -1936,7 +1995,7 @@
                     <div class="breakdown-option" data-value="category" onclick="selectBreakdown('category', 'Category', event)">Category</div>
                     <div class="breakdown-option" data-value="necessity" onclick="selectBreakdown('necessity', 'Needs/Wants', event)">Needs/Wants</div>
                     <div class="breakdown-option" data-value="recurrence" onclick="selectBreakdown('recurrence', 'Recurrence', event)">Recurrence</div>
-                    <div class="breakdown-option" data-value="timeframe" onclick="selectBreakdown('timeframe', 'TimeFrame', event)">TimeFrame</div>
+                    <div class="breakdown-option" data-value="transactions" onclick="selectBreakdown('transactions', 'Transactions', event)">Transactions</div>
                     <div class="breakdown-option" data-value="bank" onclick="selectBreakdown('bank', 'Bank', event)">Bank</div>
                 </div>
             </h3>
@@ -2026,7 +2085,10 @@
         periodDisplay: null,
         categories: [],
         necessities: [],
-        recurrences: []
+        recurrences: [],
+        untaggedCategory: false,
+        untaggedNecessity: false,
+        untaggedRecurrence: false
     };
     
     // Panel filter state (temporary until applied)
@@ -2035,12 +2097,15 @@
         endDate: null,
         categories: [],
         necessities: [],
-        recurrences: []
+        recurrences: [],
+        untaggedCategory: false,
+        untaggedNecessity: false,
+        untaggedRecurrence: false
     };
     
     // Colors for breakdown types
     const necessityColors = { 'Needs': '#3b82f6', 'Wants': '#ec4899', 'Savings': '#22c55e', 'Unknown': '#64748b' };
-    const recurrenceColors = { 'Subscription': '#a855f7', 'Recurring': '#14b8a6', 'One-time': '#64748b', 'Income': '#22c55e', 'Unknown': '#94a3b8' };
+    const recurrenceColors = { 'Subscription': '#a855f7', 'Recurring': '#14b8a6', 'One-time': '#64748b', 'Unknown': '#94a3b8' };
     
     const monthlyTrends = {{ monthly_trends|tojson|safe if monthly_trends else '{}' }};
     const weeklySpending = {{ weekly_spending|tojson|safe if weekly_spending else '{}' }};
@@ -2066,8 +2131,8 @@
                 currentPeriod = this.dataset.period;
                 periodOffset = 0; // Reset to current period when switching views
                 updateLineChart();
-                // Also update pie chart if timeframe is selected
-                if (currentPieFilter === 'timeframe') {
+                // Also update pie chart if transactions is selected
+                if (currentPieFilter === 'transactions') {
                     updatePieChart();
                 }
                 // Sync transactions to the new visible timeframe
@@ -2097,8 +2162,8 @@
     function navigatePeriod(direction) {
         periodOffset += direction;
         updateLineChart();
-        // Also update pie chart if timeframe is selected
-        if (currentPieFilter === 'timeframe') {
+        // Also update pie chart if transactions is selected
+        if (currentPieFilter === 'transactions') {
             updatePieChart();
         }
         // Sync transactions to the new visible timeframe
@@ -2612,7 +2677,7 @@
         } else if (currentPieFilter === 'recurrence') {
             // Aggregate recurrence from visible period
             const aggregatedRecurrence = aggregateBreakdown('recurrence');
-            const localRecurrenceColors = { 'Subscription': '#a855f7', 'Recurring': '#14b8a6', 'One-time': '#64748b', 'Income': '#22c55e', 'Unknown': '#94a3b8' };
+            const localRecurrenceColors = { 'Subscription': '#a855f7', 'Recurring': '#14b8a6', 'One-time': '#64748b', 'Unknown': '#94a3b8' };
             const sortedRec = Object.entries(aggregatedRecurrence)
                 .sort((a, b) => b[1] - a[1]);
             sortedRec.forEach(([type, total], i) => {
@@ -2621,19 +2686,64 @@
                 bgColors.push(localRecurrenceColors[type] || colors[i % colors.length]);
             });
             pieChart.filterType = 'recurrence';
-        } else if (currentPieFilter === 'timeframe') {
-            // Use the same data as the line chart based on selected time period
-            if (lineChart && lineChart.currentLabels && lineChart.currentData) {
-                lineChart.currentLabels.forEach((label, i) => {
-                    labels.push(label);
-                    data.push(lineChart.currentData[i] || 0);
-                    bgColors.push(colors[i % colors.length]);
+        } else if (currentPieFilter === 'transactions') {
+            // Show spending breakdown by transaction description (title)
+            const keys = lineChart?.selectedKeys || [];
+            let startDate, endDate;
+            
+            // Determine the date range based on current period
+            if (currentPeriod === 'days' && keys.length > 0) {
+                startDate = keys[0];
+                endDate = keys[keys.length - 1];
+            } else if (currentPeriod === 'weeks' && keys.length > 0) {
+                startDate = keys[0];
+                const lastWeekStart = new Date(keys[keys.length - 1] + 'T12:00:00');
+                const lastWeekEnd = new Date(lastWeekStart);
+                lastWeekEnd.setDate(lastWeekEnd.getDate() + 6);
+                endDate = lastWeekEnd.toISOString().split('T')[0];
+            } else if (currentPeriod === 'months' && keys.length > 0) {
+                startDate = keys[0] + '-01';
+                const lastMonth = keys[keys.length - 1];
+                const [year, month] = lastMonth.split('-');
+                const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+                endDate = `${lastMonth}-${lastDay}`;
+            } else if (currentPeriod === 'years' && keys.length > 0) {
+                startDate = `${keys[0]}-01-01`;
+                endDate = `${keys[keys.length - 1]}-12-31`;
+            }
+            
+            // Filter transactions to the visible timeframe and aggregate by description
+            const transactionsByDesc = {};
+            if (startDate && endDate) {
+                allTransactions.forEach(t => {
+                    if (t.transaction_date >= startDate && t.transaction_date <= endDate) {
+                        const amount = Math.abs(t.amount);
+                        if (amount > 0 && (t.amount < 0 || t.type === 'expense')) {
+                            const desc = t.description || 'Unknown';
+                            transactionsByDesc[desc] = (transactionsByDesc[desc] || 0) + amount;
+                        }
+                    }
                 });
             }
-            pieChart.filterType = currentPeriod === 'days' ? 'day' : 
-                                  currentPeriod === 'weeks' ? 'week' : 
-                                  currentPeriod === 'months' ? 'month' : 'year';
-            pieChart.periodData = lineChart ? lineChart.periodData : {};
+            
+            // Sort by amount and take top entries
+            const sortedTx = Object.entries(transactionsByDesc)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10); // Show top 10 transactions
+            
+            sortedTx.forEach(([desc, total], i) => {
+                // Truncate long descriptions
+                const displayDesc = desc.length > 25 ? desc.substring(0, 22) + '...' : desc;
+                labels.push(displayDesc);
+                data.push(total);
+                bgColors.push(colors[i % colors.length]);
+            });
+            
+            pieChart.filterType = 'transaction';
+            pieChart.transactionData = Object.fromEntries(sortedTx.map(([desc, total], i) => {
+                const displayDesc = desc.length > 25 ? desc.substring(0, 22) + '...' : desc;
+                return [displayDesc, desc];  // Map truncated to full description
+            }));
         } else if (currentPieFilter === 'bank') {
             // Aggregate bank from visible period
             const aggregatedBank = aggregateBreakdown('bank');
@@ -2658,17 +2768,62 @@
         let filterType = pieChart.filterType;
         let filterValue = label;
         
-        // For timeframe filter, get the actual period value from lineChart.periodData
-        if (['day', 'week', 'month', 'year'].includes(filterType) && pieChart.periodData) {
-            const periodInfo = pieChart.periodData[label];
-            if (periodInfo) {
-                activeFilters.periodType = periodInfo.type;
-                activeFilters.periodValue = periodInfo.value;
-                activeFilters.periodDisplay = periodInfo.display;
-                updateFilterChips();
-                applyMultiFilters();
-                return;
+        // For transaction filter, filter by the transaction description
+        if (filterType === 'transaction' && pieChart.transactionData) {
+            const fullDesc = pieChart.transactionData[label] || label;
+            // Filter transactions list to show only this transaction description
+            const keys = lineChart?.selectedKeys || [];
+            let startDate, endDate;
+            
+            if (currentPeriod === 'days' && keys.length > 0) {
+                startDate = keys[0];
+                endDate = keys[keys.length - 1];
+            } else if (currentPeriod === 'weeks' && keys.length > 0) {
+                startDate = keys[0];
+                const lastWeekStart = new Date(keys[keys.length - 1] + 'T12:00:00');
+                const lastWeekEnd = new Date(lastWeekStart);
+                lastWeekEnd.setDate(lastWeekEnd.getDate() + 6);
+                endDate = lastWeekEnd.toISOString().split('T')[0];
+            } else if (currentPeriod === 'months' && keys.length > 0) {
+                startDate = keys[0] + '-01';
+                const lastMonth = keys[keys.length - 1];
+                const [year, month] = lastMonth.split('-');
+                const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+                endDate = `${lastMonth}-${lastDay}`;
+            } else if (currentPeriod === 'years' && keys.length > 0) {
+                startDate = `${keys[0]}-01-01`;
+                endDate = `${keys[keys.length - 1]}-12-31`;
             }
+            
+            // Filter to matching transactions in the visible timeframe
+            const filtered = allTransactions.filter(t => {
+                if (startDate && endDate) {
+                    if (t.transaction_date < startDate || t.transaction_date > endDate) return false;
+                }
+                return t.description === fullDesc;
+            });
+            
+            // Update display
+            document.getElementById('transactionsTitle').textContent = `"${label}"`;
+            document.getElementById('timeframeRange').textContent = label;
+            
+            const amounts = filtered.filter(t => t.amount < 0 || t.type === 'expense').map(t => Math.abs(t.amount));
+            const total = amounts.reduce((a, b) => a + b, 0);
+            const avg = amounts.length > 0 ? total / amounts.length : 0;
+            const sortedAmounts = [...amounts].sort((a, b) => a - b);
+            const median = sortedAmounts.length > 0 ? 
+                (sortedAmounts.length % 2 === 0 
+                    ? (sortedAmounts[sortedAmounts.length/2 - 1] + sortedAmounts[sortedAmounts.length/2]) / 2 
+                    : sortedAmounts[Math.floor(sortedAmounts.length/2)]) 
+                : 0;
+            
+            document.getElementById('summaryCount').textContent = filtered.length;
+            document.getElementById('summarySpent').textContent = `$${total.toFixed(2)}`;
+            document.getElementById('summaryAvg').textContent = `$${avg.toFixed(2)}`;
+            document.getElementById('summaryMedian').textContent = `$${median.toFixed(2)}`;
+            
+            renderTransactions(filtered);
+            return;
         }
         
         // Add to appropriate filter array based on type
@@ -2784,18 +2939,23 @@
             // Store transaction data for click handler
             const txData = JSON.stringify(t).replace(/"/g, '&quot;');
             
-            // Check if this is marked as Income (either by necessity or recurrence)
-            const isMarkedIncome = necessity === 'Income' || recurrence === 'Income';
+            // Check if this is an Income category transaction
+            const isIncomeCategory = (t.category || '').toLowerCase() === 'income';
             
             // Build badges HTML - all clickable
             let badgesHtml = '';
             
-            if (isMarkedIncome) {
-                // If marked as Income, show only one Income badge
-                badgesHtml += `<span class="mini-badge income" 
-                    onclick="openTagEdit(this, ${txData}, 'necessity', 'Income')"
-                    title="Click to edit">Income</span>`;
+            if (isIncomeCategory) {
+                // For Income category: only show recurrence badge (if not Unknown)
+                // Income doesn't have Needs/Wants/Savings - it IS the income
+                if (recurrence && recurrence !== 'Unknown') {
+                    const recurrenceClass = recurrence.toLowerCase().replace('-', '');
+                    badgesHtml += `<span class="mini-badge ${recurrenceClass}" 
+                        onclick="openTagEdit(this, ${txData}, 'recurrence', '${escapeHtml(recurrence)}')"
+                        title="Click to edit">${recurrence}</span>`;
+                }
             } else {
+                // For expenses: show necessity and recurrence badges
                 // Show necessity badge if not Unknown
                 if (necessity && necessity !== 'Unknown') {
                     badgesHtml += `<span class="mini-badge ${necessity.toLowerCase()}" 
@@ -2845,6 +3005,9 @@
         activeFilters.categories = [];
         activeFilters.necessities = [];
         activeFilters.recurrences = [];
+        activeFilters.untaggedCategory = false;
+        activeFilters.untaggedNecessity = false;
+        activeFilters.untaggedRecurrence = false;
         
         // Update UI
         updateFilterChips();
@@ -2995,6 +3158,9 @@
         panelFilters.categories = [...activeFilters.categories];
         panelFilters.necessities = [...activeFilters.necessities];
         panelFilters.recurrences = [...activeFilters.recurrences];
+        panelFilters.untaggedCategory = activeFilters.untaggedCategory;
+        panelFilters.untaggedNecessity = activeFilters.untaggedNecessity;
+        panelFilters.untaggedRecurrence = activeFilters.untaggedRecurrence;
         
         // Update checkboxes
         syncPanelCheckboxes();
@@ -3017,10 +3183,16 @@
     }
     
     function syncPanelCheckboxes() {
-        // Reset all checkboxes
+        // Reset all tag checkboxes
         document.querySelectorAll('.tag-options input[type="checkbox"]').forEach(cb => {
             cb.checked = false;
             cb.closest('.tag-option').classList.remove('selected');
+        });
+        
+        // Reset untagged checkboxes
+        document.querySelectorAll('.untagged-option input[type="checkbox"]').forEach(cb => {
+            cb.checked = false;
+            cb.closest('.untagged-option').classList.remove('selected');
         });
         
         // Check active categories
@@ -3049,6 +3221,29 @@
                 cb.closest('.tag-option').classList.add('selected');
             }
         });
+        
+        // Check active untagged filters
+        if (panelFilters.untaggedCategory) {
+            const cb = document.getElementById('untaggedCategory');
+            if (cb) {
+                cb.checked = true;
+                cb.closest('.untagged-option').classList.add('selected');
+            }
+        }
+        if (panelFilters.untaggedNecessity) {
+            const cb = document.getElementById('untaggedNecessity');
+            if (cb) {
+                cb.checked = true;
+                cb.closest('.untagged-option').classList.add('selected');
+            }
+        }
+        if (panelFilters.untaggedRecurrence) {
+            const cb = document.getElementById('untaggedRecurrence');
+            if (cb) {
+                cb.checked = true;
+                cb.closest('.untagged-option').classList.add('selected');
+            }
+        }
     }
     
     function toggleTagFilter(type, value) {
@@ -3068,21 +3263,46 @@
         checkbox.closest('.tag-option').classList.toggle('selected', checkbox.checked);
     }
     
+    function toggleUntaggedFilter(type) {
+        const checkbox = event.target;
+        const isChecked = checkbox.checked;
+        
+        if (type === 'category') {
+            panelFilters.untaggedCategory = isChecked;
+        } else if (type === 'necessity') {
+            panelFilters.untaggedNecessity = isChecked;
+        } else if (type === 'recurrence') {
+            panelFilters.untaggedRecurrence = isChecked;
+        }
+        
+        // Update visual state
+        checkbox.closest('.untagged-option').classList.toggle('selected', isChecked);
+    }
+    
     function resetPanelFilters() {
         panelFilters.startDate = null;
         panelFilters.endDate = null;
         panelFilters.categories = [];
         panelFilters.necessities = [];
         panelFilters.recurrences = [];
+        panelFilters.untaggedCategory = false;
+        panelFilters.untaggedNecessity = false;
+        panelFilters.untaggedRecurrence = false;
         
         // Reset date inputs
         document.getElementById('filterStartDate').value = '';
         document.getElementById('filterEndDate').value = '';
         
-        // Reset all checkboxes
+        // Reset all tag checkboxes
         document.querySelectorAll('.tag-options input[type="checkbox"]').forEach(cb => {
             cb.checked = false;
             cb.closest('.tag-option').classList.remove('selected');
+        });
+        
+        // Reset untagged checkboxes
+        document.querySelectorAll('.untagged-option input[type="checkbox"]').forEach(cb => {
+            cb.checked = false;
+            cb.closest('.untagged-option').classList.remove('selected');
         });
     }
     
@@ -3106,6 +3326,11 @@
         activeFilters.categories = [...panelFilters.categories];
         activeFilters.necessities = [...panelFilters.necessities];
         activeFilters.recurrences = [...panelFilters.recurrences];
+        
+        // Apply untagged filters
+        activeFilters.untaggedCategory = panelFilters.untaggedCategory;
+        activeFilters.untaggedNecessity = panelFilters.untaggedNecessity;
+        activeFilters.untaggedRecurrence = panelFilters.untaggedRecurrence;
         
         closeFilterPanel();
         updateFilterChips();
@@ -3146,6 +3371,17 @@
             chips.push(createChipHTML('rec', rec, `recurrence:${rec}`));
         });
         
+        // Untagged chips
+        if (activeFilters.untaggedCategory) {
+            chips.push(createChipHTML('🔍', 'No Category', 'untagged:category'));
+        }
+        if (activeFilters.untaggedNecessity) {
+            chips.push(createChipHTML('🔍', 'No Necessity', 'untagged:necessity'));
+        }
+        if (activeFilters.untaggedRecurrence) {
+            chips.push(createChipHTML('🔍', 'No Recurrence', 'untagged:recurrence'));
+        }
+        
         container.innerHTML = chips.join('');
         
         // Show/hide clear all button
@@ -3181,6 +3417,12 @@
         } else if (key.startsWith('recurrence:')) {
             const rec = key.replace('recurrence:', '');
             activeFilters.recurrences = activeFilters.recurrences.filter(r => r !== rec);
+        } else if (key === 'untagged:category') {
+            activeFilters.untaggedCategory = false;
+        } else if (key === 'untagged:necessity') {
+            activeFilters.untaggedNecessity = false;
+        } else if (key === 'untagged:recurrence') {
+            activeFilters.untaggedRecurrence = false;
         }
         
         updateFilterChips();
@@ -3190,7 +3432,10 @@
                           activeFilters.periodType || 
                           activeFilters.categories.length || 
                           activeFilters.necessities.length || 
-                          activeFilters.recurrences.length;
+                          activeFilters.recurrences.length ||
+                          activeFilters.untaggedCategory ||
+                          activeFilters.untaggedNecessity ||
+                          activeFilters.untaggedRecurrence;
         
         if (hasFilters) {
             applyMultiFilters();
@@ -3242,6 +3487,17 @@
                 params.append('recurrences', rec);
             });
             
+            // Untagged filters
+            if (activeFilters.untaggedCategory) {
+                params.append('untagged_category', 'true');
+            }
+            if (activeFilters.untaggedNecessity) {
+                params.append('untagged_necessity', 'true');
+            }
+            if (activeFilters.untaggedRecurrence) {
+                params.append('untagged_recurrence', 'true');
+            }
+            
             const response = await fetch(`/api/transactions/filter?${params.toString()}`);
             const result = await response.json();
             
@@ -3263,9 +3519,94 @@
             document.getElementById('summaryMedian').textContent = `$${median.toFixed(2)}`;
             
             renderTransactions(result.transactions);
+            
+            // Update pie chart with filtered data
+            if (pieChart && result.transactions.length > 0) {
+                updatePieChartWithFilteredData(result.transactions);
+            }
         } catch (error) {
             console.error('Error applying filters:', error);
         }
+    }
+    
+    function updatePieChartWithFilteredData(transactions) {
+        // Calculate breakdown from filtered transactions
+        const expenses = transactions.filter(t => t.amount < 0);
+        if (expenses.length === 0) {
+            pieChart.data.labels = [];
+            pieChart.data.datasets[0].data = [];
+            pieChart.update();
+            return;
+        }
+        
+        let labels = [], data = [], bgColors = [];
+        
+        if (currentPieFilter === 'category') {
+            const catTotals = {};
+            expenses.forEach(t => {
+                const cat = t.category || 'Other';
+                catTotals[cat] = (catTotals[cat] || 0) + Math.abs(t.amount);
+            });
+            const sorted = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+            sorted.forEach(([cat, total], i) => {
+                labels.push(cat);
+                data.push(total);
+                bgColors.push(categoryColors[cat] || colors[i % colors.length]);
+            });
+        } else if (currentPieFilter === 'necessity') {
+            const necTotals = {};
+            expenses.forEach(t => {
+                const nec = t.necessity || 'Unknown';
+                necTotals[nec] = (necTotals[nec] || 0) + Math.abs(t.amount);
+            });
+            const localNecessityColors = { 'Needs': '#3b82f6', 'Wants': '#ec4899', 'Savings': '#22c55e', 'Unknown': '#64748b' };
+            const sorted = Object.entries(necTotals).sort((a, b) => b[1] - a[1]);
+            sorted.forEach(([type, total], i) => {
+                labels.push(type);
+                data.push(total);
+                bgColors.push(localNecessityColors[type] || colors[i % colors.length]);
+            });
+        } else if (currentPieFilter === 'recurrence') {
+            const recTotals = {};
+            expenses.forEach(t => {
+                const rec = t.recurrence || 'Unknown';
+                recTotals[rec] = (recTotals[rec] || 0) + Math.abs(t.amount);
+            });
+            const localRecurrenceColors = { 'Subscription': '#a855f7', 'Recurring': '#14b8a6', 'One-time': '#64748b', 'Unknown': '#94a3b8' };
+            const sorted = Object.entries(recTotals).sort((a, b) => b[1] - a[1]);
+            sorted.forEach(([type, total], i) => {
+                labels.push(type);
+                data.push(total);
+                bgColors.push(localRecurrenceColors[type] || colors[i % colors.length]);
+            });
+        } else if (currentPieFilter === 'transactions') {
+            // Top transactions
+            const sortedTx = [...expenses].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)).slice(0, 10);
+            sortedTx.forEach((t, i) => {
+                const label = t.description.length > 25 ? t.description.substring(0, 22) + '...' : t.description;
+                labels.push(label);
+                data.push(Math.abs(t.amount));
+                bgColors.push(colors[i % colors.length]);
+            });
+        } else if (currentPieFilter === 'bank') {
+            const bankTotals = {};
+            expenses.forEach(t => {
+                const bank = t.bank || 'Unknown';
+                bankTotals[bank] = (bankTotals[bank] || 0) + Math.abs(t.amount);
+            });
+            const bankColors = { 'chase': '#003087', 'discover': '#FF6000', 'Unknown': '#64748b' };
+            const sorted = Object.entries(bankTotals).sort((a, b) => b[1] - a[1]);
+            sorted.forEach(([bank, total], i) => {
+                labels.push(bank.charAt(0).toUpperCase() + bank.slice(1));
+                data.push(total);
+                bgColors.push(bankColors[bank] || colors[i % colors.length]);
+            });
+        }
+        
+        pieChart.data.labels = labels;
+        pieChart.data.datasets[0].data = data;
+        pieChart.data.datasets[0].backgroundColor = bgColors;
+        pieChart.update();
     }
     
     function formatDateShort(dateStr) {
@@ -3608,16 +3949,16 @@
     const knownNecessities = ['Needs', 'Wants', 'Savings'];
     const knownRecurrences = ['Subscription', 'Recurring', 'One-time'];
     
-    // Get necessity options - only show Income for positive amounts
+    // Get necessity options - Income category transactions don't have necessity
     function getNecessityOptions(transaction) {
-        const isPositive = transaction && transaction.amount > 0;
-        return isPositive ? ['Needs', 'Wants', 'Savings', 'Income'] : ['Needs', 'Wants', 'Savings'];
+        const isIncomeCategory = transaction && (transaction.category || '').toLowerCase() === 'income';
+        // Income category doesn't have Needs/Wants/Savings
+        return isIncomeCategory ? [] : ['Needs', 'Wants', 'Savings'];
     }
     
-    // Get recurrence options - only show Income for positive amounts
+    // Get recurrence options - same for all transactions
     function getRecurrenceOptions(transaction) {
-        const isPositive = transaction && transaction.amount > 0;
-        return isPositive ? ['Subscription', 'Recurring', 'One-time', 'Income'] : ['Subscription', 'Recurring', 'One-time'];
+        return ['Subscription', 'Recurring', 'One-time'];
     }
     
     // Collect known categories from transactions
@@ -3942,6 +4283,7 @@
         const necessityOpts = getNecessityOptions(transaction);
         const recurrenceOpts = getRecurrenceOptions(transaction);
         const isPositive = transaction && transaction.amount > 0;
+        const isIncomeCategory = transaction && (transaction.category || '').toLowerCase() === 'income';
         
         return `
             <div class="dropdown-columns">
@@ -3985,22 +4327,24 @@
                 <div class="dropdown-column options-column">
                     <div class="dropdown-section">
                         <div class="dropdown-section-title">Quick Add Tag</div>
-                        ${isPositive ? `
-                            <div style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 0.3rem;">Mark as Income</div>
+                        ${isPositive && !isIncomeCategory ? `
+                            <div style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 0.3rem;">Set Category to Income</div>
                             <div class="category-options" style="margin-bottom: 0.5rem;">
-                                <div class="category-option" data-value="Income" data-field="necessity">
-                                    <span class="mini-badge income" style="pointer-events: none;">Income</span>
+                                <div class="category-option" data-value="Income" data-field="category">
+                                    <span class="mini-badge income" style="pointer-events: none;">💰 Income</span>
                                 </div>
                             </div>
                         ` : ''}
-                        <div style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 0.3rem;">Necessity</div>
-                        <div class="category-options" style="margin-bottom: 0.5rem;">
-                            ${knownNecessities.map(val => `
-                                <div class="category-option" data-value="${escapeHtml(val)}" data-field="necessity">
-                                    <span class="mini-badge ${val.toLowerCase()}" style="pointer-events: none;">${val}</span>
-                                </div>
-                            `).join('')}
-                        </div>
+                        ${!isIncomeCategory ? `
+                            <div style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 0.3rem;">Necessity</div>
+                            <div class="category-options" style="margin-bottom: 0.5rem;">
+                                ${knownNecessities.map(val => `
+                                    <div class="category-option" data-value="${escapeHtml(val)}" data-field="necessity">
+                                        <span class="mini-badge ${val.toLowerCase()}" style="pointer-events: none;">${val}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
                         <div style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 0.3rem;">Recurrence</div>
                         <div class="category-options">
                             ${knownRecurrences.map(val => `
@@ -4164,9 +4508,9 @@
         // Get the right set of options based on field type
         let allOptions;
         if (fieldType === 'necessity') {
-            allOptions = [...knownNecessities, 'Income'];
+            allOptions = [...knownNecessities];
         } else if (fieldType === 'recurrence') {
-            allOptions = [...knownRecurrences, 'Income'];
+            allOptions = [...knownRecurrences];
         } else {
             allOptions = Array.from(knownCategories);
         }
@@ -4398,7 +4742,7 @@
                     t.description === description && t.transaction_date === date
                 );
                 if (tx) {
-                    // Update all fields that were changed (handles Income special case)
+                    // Update all fields that were changed (e.g., setting category to Income clears necessity)
                     if (data.updated_fields) {
                         for (const [f, v] of Object.entries(data.updated_fields)) {
                             tx[f] = v;

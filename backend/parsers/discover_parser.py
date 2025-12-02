@@ -2,7 +2,7 @@
 import pandas as pd
 from datetime import datetime
 from typing import List
-from backend.models.transaction import Transaction
+from backend.models.transaction import Transaction, RecurrenceType
 from backend.analytics.expense_classifier import ExpenseClassifier
 
 class DiscoverParser:
@@ -41,12 +41,14 @@ class DiscoverParser:
     }
     
     @staticmethod
-    def parse(file_path: str) -> List[Transaction]:
+    def parse(file_path: str, use_csv_categories: bool = False) -> List[Transaction]:
         """
         Parse Discover CSV file and return list of transactions.
         
         Args:
             file_path: Path to the Discover CSV file
+            use_csv_categories: If True, use categories from CSV and skip auto-classification.
+                               If False, apply auto-tagging rules.
             
         Returns:
             List of Transaction objects with full classification
@@ -58,8 +60,8 @@ class DiscoverParser:
             # Validate columns
             if not DiscoverParser._validate_columns(df):
                 # Try flexible parsing
-                transactions = DiscoverParser._parse_flexible(df)
-                return ExpenseClassifier.classify_batch(transactions)
+                transactions = DiscoverParser._parse_flexible(df, use_csv_categories)
+                return transactions
             
             transactions = []
             
@@ -92,15 +94,19 @@ class DiscoverParser:
                         category=category,
                         bank='discover',
                         type=trans_type,
-                        memo=None
+                        memo=None,
+                        recurrence=RecurrenceType.ONE_TIME  # Default to one-time
                     )
                     transactions.append(transaction)
                 except Exception as e:
                     print(f"Error parsing Discover row: {e}")
                     continue
             
-            # Apply multi-dimensional classification
-            return ExpenseClassifier.classify_batch(transactions)
+            # Only apply auto-classification if NOT using CSV categories
+            if not use_csv_categories:
+                return ExpenseClassifier.classify_batch(transactions)
+            
+            return transactions
             
         except Exception as e:
             raise Exception(f"Error parsing Discover CSV: {str(e)}")
@@ -113,7 +119,7 @@ class DiscoverParser:
         return required_columns.issubset(df_columns)
     
     @staticmethod
-    def _parse_flexible(df: pd.DataFrame) -> List[Transaction]:
+    def _parse_flexible(df: pd.DataFrame, use_csv_categories: bool = False) -> List[Transaction]:
         """Flexibly parse Discover CSV by finding common column names."""
         transactions = []
         columns = df.columns.tolist()
@@ -180,15 +186,19 @@ class DiscoverParser:
                     category=category,
                     bank='discover',
                     type=None,
-                    memo=None
+                    memo=None,
+                    recurrence=RecurrenceType.ONE_TIME  # Default to one-time
                 )
                 transactions.append(transaction)
             except Exception as e:
                 print(f"Error parsing Discover row: {e}")
                 continue
         
-        # Apply multi-dimensional classification
-        return ExpenseClassifier.classify_batch(transactions)
+        # Only apply auto-classification if NOT using CSV categories
+        if not use_csv_categories:
+            return ExpenseClassifier.classify_batch(transactions)
+        
+        return transactions
     
     @staticmethod
     def _normalize_category(raw_category: str) -> str:
