@@ -73,28 +73,342 @@
         background: var(--border-color);
     }
     
-    .active-filter {
-        display: none;
+    /* Multi-Filter System */
+    .filters-container {
+        display: flex;
         align-items: center;
         gap: 0.35rem;
-        padding: 0.2rem 0.5rem;
-        background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
-        border-radius: 4px;
-        font-size: 0.65rem;
-        color: var(--text-primary);
+        flex-wrap: wrap;
     }
     
-    .active-filter.visible { display: flex; }
+    .add-filter-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
+        border: 1px dashed var(--primary-light);
+        border-radius: 4px;
+        color: var(--primary-color);
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+    }
     
-    .active-filter .clear-btn {
-        padding: 0.1rem 0.3rem;
+    .add-filter-btn:hover {
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.25));
+        border-style: solid;
+        transform: scale(1.05);
+    }
+    
+    .filter-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.15rem 0.4rem;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(139, 92, 246, 0.12));
+        border: 1px solid rgba(99, 102, 241, 0.25);
+        border-radius: 12px;
+        font-size: 0.65rem;
+        color: var(--text-primary);
+        animation: chipIn 0.2s ease-out;
+    }
+    
+    @keyframes chipIn {
+        from { opacity: 0; transform: scale(0.8); }
+        to { opacity: 1; transform: scale(1); }
+    }
+    
+    .filter-chip .chip-type {
+        color: var(--text-secondary);
+        font-weight: 500;
+        text-transform: uppercase;
+        font-size: 0.55rem;
+    }
+    
+    .filter-chip .chip-value {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+    
+    .filter-chip .chip-remove {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 14px;
+        height: 14px;
+        background: transparent;
+        border: none;
+        border-radius: 50%;
+        color: var(--text-light);
+        font-size: 0.6rem;
+        cursor: pointer;
+        transition: var(--transition);
+        padding: 0;
+        margin-left: 0.1rem;
+    }
+    
+    .filter-chip .chip-remove:hover {
+        background: var(--danger-color);
+        color: white;
+    }
+    
+    .clear-all-filters {
+        padding: 0.15rem 0.35rem;
         background: var(--danger-color);
         color: white;
         border: none;
-        border-radius: 3px;
+        border-radius: 4px;
         font-size: 0.6rem;
+        font-weight: 500;
         cursor: pointer;
-        margin-left: 0.25rem;
+        transition: var(--transition);
+    }
+    
+    .clear-all-filters:hover {
+        background: #dc2626;
+    }
+    
+    /* Filter Panel */
+    .filter-panel-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(2px);
+        z-index: 999;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+    
+    .filter-panel-overlay.show {
+        opacity: 1;
+        visibility: visible;
+    }
+    
+    .filter-panel {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(0.95);
+        background: var(--bg-primary);
+        border-radius: 12px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        z-index: 1000;
+        width: 580px;
+        max-width: 95vw;
+        max-height: 85vh;
+        overflow: hidden;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.25s ease;
+    }
+    
+    .filter-panel.show {
+        opacity: 1;
+        visibility: visible;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    
+    .filter-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+    }
+    
+    .filter-panel-header h3 {
+        font-size: 0.9rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    
+    .filter-panel-close {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: var(--transition);
+    }
+    
+    .filter-panel-close:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+    
+    .filter-panel-body {
+        padding: 1rem;
+        overflow-y: auto;
+        max-height: calc(85vh - 120px);
+    }
+    
+    .filter-section {
+        margin-bottom: 1rem;
+    }
+    
+    .filter-section:last-child {
+        margin-bottom: 0;
+    }
+    
+    .filter-section-title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    
+    .date-range-inputs {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+    
+    .date-input-group {
+        flex: 1;
+    }
+    
+    .date-input-group label {
+        display: block;
+        font-size: 0.65rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.2rem;
+    }
+    
+    .date-input-group input {
+        width: 100%;
+        padding: 0.4rem 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    
+    .date-input-group input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+    }
+    
+    .tag-columns {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.75rem;
+    }
+    
+    .tag-column {
+        background: var(--bg-secondary);
+        border-radius: 8px;
+        padding: 0.5rem;
+    }
+    
+    .tag-column-title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.4rem;
+        padding-bottom: 0.3rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .tag-options {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    .tag-option {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.3rem 0.4rem;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: var(--transition);
+        font-size: 0.7rem;
+    }
+    
+    .tag-option:hover {
+        background: var(--bg-tertiary);
+    }
+    
+    .tag-option.selected {
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
+    }
+    
+    .tag-option input[type="checkbox"] {
+        width: 14px;
+        height: 14px;
+        accent-color: var(--primary-color);
+    }
+    
+    .tag-option span {
+        color: var(--text-primary);
+    }
+    
+    .filter-panel-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        background: var(--bg-secondary);
+        border-top: 1px solid var(--border-color);
+    }
+    
+    .filter-panel-footer .btn-reset {
+        padding: 0.4rem 0.75rem;
+        background: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .filter-panel-footer .btn-reset:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+    
+    .filter-panel-footer .btn-apply {
+        padding: 0.4rem 1rem;
+        background: var(--primary-color);
+        border: none;
+        border-radius: 6px;
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .filter-panel-footer .btn-apply:hover {
+        background: var(--primary-dark);
+    }
+    
+    /* Legacy support */
+    .active-filter {
+        display: none;
     }
     
     /* Charts Container */
@@ -103,6 +417,9 @@
         grid-template-columns: 1.4fr 1fr;
         gap: 0.5rem;
         margin-bottom: 0.5rem;
+        overflow: visible;
+        position: relative;
+        z-index: 1;
     }
     
     .chart-card {
@@ -111,6 +428,7 @@
         padding: 0.5rem;
         box-shadow: var(--shadow-sm);
         border: 1px solid var(--border-color);
+        overflow: visible;
     }
     
     .chart-title {
@@ -124,8 +442,8 @@
         position: relative;
     }
     
-    .line-chart-container { position: relative; height: 180px; }
-    .pie-chart-container { position: relative; height: 180px; }
+    .line-chart-container { position: relative; height: 180px; overflow: visible; }
+    .pie-chart-container { position: relative; height: 180px; overflow: visible; }
     
     .chart-card canvas { cursor: pointer; }
     
@@ -184,6 +502,88 @@
     .breakdown-option.selected {
         background: var(--primary-color);
         color: white;
+    }
+    
+    /* Line chart breakdown dropdown */
+    .line-breakdown-selector {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        color: var(--primary-color);
+        cursor: pointer;
+        padding: 0.1rem 0.4rem;
+        border-radius: 4px;
+        transition: var(--transition);
+        margin-left: auto;
+        font-size: 0.7rem;
+        font-weight: 500;
+        background: rgba(99, 102, 241, 0.08);
+        border: 1px solid transparent;
+    }
+    
+    .line-breakdown-selector:hover {
+        background: rgba(99, 102, 241, 0.15);
+        border-color: rgba(99, 102, 241, 0.3);
+    }
+    
+    .line-breakdown-menu {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        min-width: 140px;
+        z-index: 100;
+        display: none;
+        overflow: hidden;
+    }
+    
+    .line-breakdown-menu.show {
+        display: block;
+    }
+    
+    .line-breakdown-option {
+        padding: 0.45rem 0.7rem;
+        font-size: 0.7rem;
+        font-weight: 400;
+        cursor: pointer;
+        transition: var(--transition);
+        color: var(--text-primary);
+    }
+    
+    .line-breakdown-option:hover {
+        background: var(--bg-secondary);
+    }
+    
+    .line-breakdown-option.selected {
+        background: var(--primary-color);
+        color: white;
+    }
+    
+    .line-breakdown-divider {
+        height: 1px;
+        background: var(--border-color);
+        margin: 0.25rem 0;
+    }
+    
+    .line-toggle-option {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    
+    .toggle-check {
+        font-size: 0.65rem;
+        opacity: 0;
+        color: var(--success-color);
+        font-weight: 600;
+        width: 0.8rem;
+    }
+    
+    .toggle-check.active {
+        opacity: 1;
     }
     
     /* Period label in chart title */
@@ -920,13 +1320,188 @@
         background: rgba(99, 102, 241, 0.1);
     }
     
-    .rules-badge {
-        background: var(--primary-color);
+    .sweep-toggle-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--warning-color);
+        cursor: pointer;
+        padding: 0.15rem 0.35rem;
+        border-radius: 4px;
+        transition: var(--transition);
+        background: transparent;
+        border: none;
+        font-size: 0.85rem;
+        margin-left: 0.1rem;
+    }
+    
+    .sweep-toggle-btn:hover {
+        background: rgba(245, 158, 11, 0.15);
+        transform: scale(1.1);
+    }
+    
+    /* Sweep Panel */
+    .sweep-panel {
+        position: fixed;
+        top: 0;
+        right: -450px;
+        width: 450px;
+        height: 100vh;
+        background: var(--bg-primary);
+        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+        transition: right 0.3s ease;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .sweep-panel.open {
+        right: 0;
+    }
+    
+    .sweep-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border-color);
+        background: linear-gradient(135deg, #f59e0b, #d97706);
         color: white;
-        padding: 0.05rem 0.3rem;
+    }
+    
+    .sweep-panel-header h3 {
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    
+    .sweep-panel-close {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        font-size: 1rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: var(--transition);
+    }
+    
+    .sweep-panel-close:hover {
+        background: rgba(255,255,255,0.3);
+    }
+    
+    .sweep-panel-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+    }
+    
+    .sweep-form {
+        background: var(--bg-secondary);
         border-radius: 8px;
-        font-size: 0.6rem;
-        margin-left: 0.15rem;
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    
+    .sweep-form h4 {
+        font-size: 0.8rem;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+    }
+    
+    .sweep-info {
+        background: #fef3c7;
+        border-left: 3px solid var(--warning-color);
+        padding: 0.5rem 0.75rem;
+        border-radius: 0 6px 6px 0;
+        margin-bottom: 0.75rem;
+        font-size: 0.7rem;
+        color: #92400e;
+    }
+    
+    .sweep-item {
+        background: var(--bg-secondary);
+        border-radius: 6px;
+        padding: 0.6rem 0.75rem;
+        border-left: 3px solid var(--warning-color);
+        margin-bottom: 0.5rem;
+    }
+    
+    .sweep-item.disabled {
+        opacity: 0.5;
+        border-left-color: var(--text-light);
+    }
+    
+    .sweep-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.3rem;
+    }
+    
+    .sweep-keyword-display {
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: var(--warning-color);
+    }
+    
+    .sweep-actions {
+        display: flex;
+        gap: 0.25rem;
+    }
+    
+    .sweep-actions button {
+        padding: 0.15rem 0.35rem;
+        border: none;
+        border-radius: 3px;
+        font-size: 0.65rem;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .btn-delete-sweep {
+        background: var(--danger-color);
+        color: white;
+    }
+    
+    .btn-toggle-sweep {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+    
+    .sweep-keywords {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.2rem;
+        align-items: center;
+        font-size: 0.7rem;
+    }
+    
+    .sweep-keyword {
+        background: #fef3c7;
+        color: #92400e;
+        padding: 0.1rem 0.3rem;
+        border-radius: 3px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.68rem;
+    }
+    
+    .sweep-stats {
+        font-size: 0.68rem;
+        color: var(--text-secondary);
+        margin-top: 0.25rem;
+    }
+    
+    .btn-save-sweep {
+        background: var(--warning-color);
+        color: white;
+    }
+    
+    .btn-save-sweep:hover {
+        background: #d97706;
     }
     
     /* Category autocomplete */
@@ -1067,7 +1642,7 @@
 
 {% block content %}
 <!-- Panel Overlay -->
-<div class="panel-overlay" id="panelOverlay" onclick="closeRulesPanel()"></div>
+<div class="panel-overlay" id="panelOverlay" onclick="closeAllPanels()"></div>
 
 <!-- Rules Panel -->
 <div class="rules-panel" id="rulesPanel">
@@ -1115,6 +1690,50 @@
     </div>
 </div>
 
+<!-- Sweep Panel (Exclusion Rules) -->
+<div class="sweep-panel" id="sweepPanel">
+    <div class="sweep-panel-header">
+        <h3>🧹 Sweep Rules</h3>
+        <button class="sweep-panel-close" onclick="closeSweepPanel()">✕</button>
+    </div>
+    <div class="sweep-panel-body">
+        <div class="sweep-info">
+            <strong>What is Sweep?</strong><br>
+            Transactions matching these keywords will be automatically removed — both for existing entries and any future CSV uploads.
+        </div>
+        
+        <!-- Create New Sweep Rule Form -->
+        <div class="sweep-form" id="sweepForm">
+            <h4>➕ Create Sweep Rule</h4>
+            <div class="rule-form-group">
+                <label>Keywords (ALL must match)</label>
+                <div class="keywords-input-wrapper" id="sweepKeywordsWrapper" onclick="document.getElementById('sweepKeywordInput').focus()">
+                    <input type="text" class="keyword-input" id="sweepKeywordInput" placeholder="Type and press Enter...">
+                </div>
+                <div class="rule-form-hint">
+                    Press Enter to add each keyword. Transactions with ALL these keywords will be swept away. Case doesn't matter.
+                </div>
+            </div>
+            <div class="preview-section" id="sweepPreviewSection" style="display: none;">
+                <span class="preview-count" id="sweepPreviewCount">0</span> transactions will be swept
+                <div class="preview-matches" id="sweepPreviewMatches"></div>
+            </div>
+            <div class="rule-form-actions">
+                <button class="btn-cancel" onclick="resetSweepForm()">Clear</button>
+                <button class="btn-save-sweep" onclick="saveSweepRule()">Sweep & Save</button>
+            </div>
+        </div>
+        
+        <!-- Existing Sweep Rules List -->
+        <h4 style="margin-bottom: 0.5rem; font-size: 0.8rem;">🧹 Active Sweep Rules</h4>
+        <div class="rules-list" id="sweepRulesList">
+            <div style="color: var(--text-secondary); font-size: 0.75rem; text-align: center; padding: 1rem;">
+                Loading sweep rules...
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="dashboard">
     {% if statistics and statistics.count > 0 %}
     
@@ -1148,16 +1767,132 @@
         
         <div class="divider"></div>
         
+        <!-- Multi-Filter System -->
+        <div class="filters-container" id="filtersContainer">
+            <button class="add-filter-btn" onclick="openFilterPanel()" title="Add filters">+</button>
+            <div id="filterChips"></div>
+            <button class="clear-all-filters" id="clearAllBtn" onclick="clearAllFilters()" style="display: none;">Clear All</button>
+        </div>
+        
+        <!-- Legacy (hidden) -->
         <div class="active-filter" id="activeFilter">
             <span>Showing: <strong id="filterLabel"></strong></span>
             <button class="clear-btn" onclick="clearAllFilters()">✕</button>
         </div>
     </div>
     
+    <!-- Filter Panel -->
+    <div class="filter-panel-overlay" id="filterPanelOverlay" onclick="closeFilterPanel()"></div>
+    <div class="filter-panel" id="filterPanel">
+        <div class="filter-panel-header">
+            <h3>🔍 Filter Transactions</h3>
+            <button class="filter-panel-close" onclick="closeFilterPanel()">✕</button>
+        </div>
+        <div class="filter-panel-body">
+            <!-- Date Range Section -->
+            <div class="filter-section">
+                <div class="filter-section-title">📅 Date Range</div>
+                <div class="date-range-inputs">
+                    <div class="date-input-group">
+                        <label>From</label>
+                        <input type="date" id="filterStartDate">
+                    </div>
+                    <div class="date-input-group">
+                        <label>To</label>
+                        <input type="date" id="filterEndDate">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tag Columns Section -->
+            <div class="filter-section">
+                <div class="filter-section-title">🏷️ Tags</div>
+                <div class="tag-columns">
+                    <!-- Category Column -->
+                    <div class="tag-column">
+                        <div class="tag-column-title">Category</div>
+                        <div class="tag-options" id="categoryTagOptions">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                    
+                    <!-- Necessity Column -->
+                    <div class="tag-column">
+                        <div class="tag-column-title">Necessity</div>
+                        <div class="tag-options" id="necessityTagOptions">
+                            <label class="tag-option">
+                                <input type="checkbox" value="Needs" onchange="toggleTagFilter('necessity', 'Needs')">
+                                <span>Needs</span>
+                            </label>
+                            <label class="tag-option">
+                                <input type="checkbox" value="Wants" onchange="toggleTagFilter('necessity', 'Wants')">
+                                <span>Wants</span>
+                            </label>
+                            <label class="tag-option">
+                                <input type="checkbox" value="Savings" onchange="toggleTagFilter('necessity', 'Savings')">
+                                <span>Savings</span>
+                            </label>
+                            <label class="tag-option">
+                                <input type="checkbox" value="Income" onchange="toggleTagFilter('necessity', 'Income')">
+                                <span>Income</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Recurrence Column -->
+                    <div class="tag-column">
+                        <div class="tag-column-title">Recurrence</div>
+                        <div class="tag-options" id="recurrenceTagOptions">
+                            <label class="tag-option">
+                                <input type="checkbox" value="Subscription" onchange="toggleTagFilter('recurrence', 'Subscription')">
+                                <span>Subscription</span>
+                            </label>
+                            <label class="tag-option">
+                                <input type="checkbox" value="Recurring" onchange="toggleTagFilter('recurrence', 'Recurring')">
+                                <span>Recurring</span>
+                            </label>
+                            <label class="tag-option">
+                                <input type="checkbox" value="One-time" onchange="toggleTagFilter('recurrence', 'One-time')">
+                                <span>One-time</span>
+                            </label>
+                            <label class="tag-option">
+                                <input type="checkbox" value="Income" onchange="toggleTagFilter('recurrence', 'Income')">
+                                <span>Income</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="filter-panel-footer">
+            <button class="btn-reset" onclick="resetPanelFilters()">Reset</button>
+            <button class="btn-apply" onclick="applyPanelFilters()">Apply Filters</button>
+        </div>
+    </div>
+    
     <!-- Charts Row -->
     <div class="charts-container">
         <div class="chart-card">
-            <h3 class="chart-title">📈 Spending Over Time <span class="chart-period-label" id="chartPeriodLabel"></span></h3>
+            <h3 class="chart-title">
+                📈 Spending Over Time <span class="chart-period-label" id="chartPeriodLabel"></span>
+                <span class="line-breakdown-selector" id="lineBreakdownSelector" onclick="toggleLineBreakdownMenu(event)">
+                    <span id="lineBreakdownLabel">Total</span>
+                    <span class="dropdown-arrow">▾</span>
+                </span>
+                <div class="line-breakdown-menu" id="lineBreakdownMenu">
+                    <div class="line-breakdown-option" data-value="total" onclick="selectLineBreakdown('total', 'Total', event)">Total Spending</div>
+                    <div class="line-breakdown-option" data-value="category" onclick="selectLineBreakdown('category', 'Category', event)">By Category</div>
+                    <div class="line-breakdown-option" data-value="necessity" onclick="selectLineBreakdown('necessity', 'Needs/Wants', event)">By Needs/Wants</div>
+                    <div class="line-breakdown-option" data-value="recurrence" onclick="selectLineBreakdown('recurrence', 'Recurrence', event)">By Recurrence</div>
+                    <div class="line-breakdown-divider"></div>
+                    <div class="line-breakdown-option line-toggle-option" data-value="average" onclick="toggleLineOption('average', event)">
+                        <span class="toggle-check" id="avgCheck">✓</span> Average
+                    </div>
+                    <div class="line-breakdown-option line-toggle-option" data-value="median" onclick="toggleLineOption('median', event)">
+                        <span class="toggle-check" id="medianCheck">✓</span> Median
+                    </div>
+                </div>
+            </h3>
             <div class="line-chart-container">
                 <canvas id="spendingLineChart"></canvas>
             </div>
@@ -1174,7 +1909,7 @@
                     <div class="breakdown-option" data-value="category" onclick="selectBreakdown('category', 'Category', event)">Category</div>
                     <div class="breakdown-option" data-value="necessity" onclick="selectBreakdown('necessity', 'Needs/Wants', event)">Needs/Wants</div>
                     <div class="breakdown-option" data-value="recurrence" onclick="selectBreakdown('recurrence', 'Recurrence', event)">Recurrence</div>
-                    <div class="breakdown-option" data-value="day_of_week" onclick="selectBreakdown('day_of_week', 'Day of Week', event)">Day of Week</div>
+                    <div class="breakdown-option" data-value="timeframe" onclick="selectBreakdown('timeframe', 'TimeFrame', event)">TimeFrame</div>
                     <div class="breakdown-option" data-value="bank" onclick="selectBreakdown('bank', 'Bank', event)">Bank</div>
                 </div>
             </h3>
@@ -1194,11 +1929,22 @@
                     <span class="value" id="summaryCount">{{ statistics.count }}</span>
                 </div>
                 <div class="summary-stat">
+                    <span class="label">Avg:</span>
+                    <span class="value" id="summaryAvg">${{ "%.2f"|format(statistics.mean if statistics.mean else 0) }}</span>
+                </div>
+                <div class="summary-stat">
+                    <span class="label">Median:</span>
+                    <span class="value" id="summaryMedian">${{ "%.2f"|format(statistics.median if statistics.median else 0) }}</span>
+                </div>
+                <div class="summary-stat">
                     <span class="label">Total:</span>
                     <span class="value expense" id="summarySpent">${{ "%.2f"|format(statistics.total) }}</span>
                 </div>
                 <button class="rules-toggle-btn" onclick="toggleRulesPanel()">
-                    🏷️ Rules <span class="rules-badge" id="rulesCount">0</span>
+                    Rules
+                </button>
+                <button class="sweep-toggle-btn" onclick="toggleSweepPanel()" title="Sweep: Remove transactions matching keywords">
+                    🧹
                 </button>
             </div>
         </div>
@@ -1233,12 +1979,41 @@
     
     let currentPeriod = 'days';
     let currentPieFilter = 'category';
+    let currentLineBreakdown = 'total'; // 'total', 'category', 'necessity', 'recurrence'
+    let showAverage = false;
+    let showMedian = false;
     let currentSort = 'date-desc';
     let lineChart = null;
     let periodOffset = 0; // For navigation: 0 = current, -1 = previous, 1 = next, etc.
     let pieChart = null;
     let allTransactions = [];
     let displayedTransactions = [];
+    let selectedPeriodIndex = null; // Track which period point is clicked on line chart
+    
+    // Multi-filter state management
+    const activeFilters = {
+        startDate: null,
+        endDate: null,
+        periodType: null,
+        periodValue: null,
+        periodDisplay: null,
+        categories: [],
+        necessities: [],
+        recurrences: []
+    };
+    
+    // Panel filter state (temporary until applied)
+    let panelFilters = {
+        startDate: null,
+        endDate: null,
+        categories: [],
+        necessities: [],
+        recurrences: []
+    };
+    
+    // Colors for breakdown types
+    const necessityColors = { 'Needs': '#3b82f6', 'Wants': '#ec4899', 'Savings': '#22c55e', 'Unknown': '#64748b' };
+    const recurrenceColors = { 'Subscription': '#a855f7', 'Recurring': '#14b8a6', 'One-time': '#64748b', 'Income': '#22c55e', 'Unknown': '#94a3b8' };
     
     const monthlyTrends = {{ monthly_trends|tojson|safe if monthly_trends else '{}' }};
     const weeklySpending = {{ weekly_spending|tojson|safe if weekly_spending else '{}' }};
@@ -1251,7 +2026,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         initLineChart();
         initPieChart();
-        loadAllTransactions();
+        loadAllTransactions().then(() => initFilterPanel());
         
         document.querySelectorAll('.time-toggle button').forEach(btn => {
             btn.addEventListener('click', function() {
@@ -1260,16 +2035,26 @@
                 currentPeriod = this.dataset.period;
                 periodOffset = 0; // Reset to current period when switching views
                 updateLineChart();
+                // Also update pie chart if timeframe is selected
+                if (currentPieFilter === 'timeframe') {
+                    updatePieChart();
+                }
                 clearAllFilters();
             });
         });
         
-        // Close breakdown menu when clicking outside
+        // Close breakdown menus when clicking outside
         document.addEventListener('click', function(e) {
             const menu = document.getElementById('breakdownMenu');
             const selector = document.getElementById('breakdownSelector');
             if (menu && selector && !selector.contains(e.target) && !menu.contains(e.target)) {
                 menu.classList.remove('show');
+            }
+            
+            const lineMenu = document.getElementById('lineBreakdownMenu');
+            const lineSelector = document.getElementById('lineBreakdownSelector');
+            if (lineMenu && lineSelector && !lineSelector.contains(e.target) && !lineMenu.contains(e.target)) {
+                lineMenu.classList.remove('show');
             }
         });
         
@@ -1280,6 +2065,10 @@
     function navigatePeriod(direction) {
         periodOffset += direction;
         updateLineChart();
+        // Also update pie chart if timeframe is selected
+        if (currentPieFilter === 'timeframe') {
+            updatePieChart();
+        }
         clearAllFilters();
     }
     
@@ -1299,13 +2088,45 @@
         document.getElementById('breakdownLabel').textContent = label;
         document.getElementById('breakdownMenu').classList.remove('show');
         updateBreakdownSelection();
-            updatePieChart();
-            clearAllFilters();
+        updatePieChart();
     }
     
     function updateBreakdownSelection() {
         document.querySelectorAll('.breakdown-option').forEach(opt => {
             opt.classList.toggle('selected', opt.dataset.value === currentPieFilter);
+        });
+    }
+    
+    // Line chart breakdown functions
+    function toggleLineBreakdownMenu(event) {
+        if (event) event.stopPropagation();
+        document.getElementById('lineBreakdownMenu').classList.toggle('show');
+    }
+    
+    function selectLineBreakdown(value, label, event) {
+        if (event) event.stopPropagation();
+        currentLineBreakdown = value;
+        document.getElementById('lineBreakdownLabel').textContent = label;
+        document.getElementById('lineBreakdownMenu').classList.remove('show');
+        updateLineBreakdownSelection();
+        updateLineChart();
+    }
+    
+    function toggleLineOption(option, event) {
+        if (event) event.stopPropagation();
+        if (option === 'average') {
+            showAverage = !showAverage;
+            document.getElementById('avgCheck').classList.toggle('active', showAverage);
+        } else if (option === 'median') {
+            showMedian = !showMedian;
+            document.getElementById('medianCheck').classList.toggle('active', showMedian);
+        }
+        updateLineChart();
+    }
+    
+    function updateLineBreakdownSelection() {
+        document.querySelectorAll('.line-breakdown-option:not(.line-toggle-option)').forEach(opt => {
+            opt.classList.toggle('selected', opt.dataset.value === currentLineBreakdown);
         });
     }
     
@@ -1316,58 +2137,78 @@
             type: 'line',
             data: {
                 labels: [],
-                datasets: [{
-                    data: [],
-                    borderColor: '#6366f1',
-                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 3,
-                    pointHoverRadius: 5,
-                    pointBackgroundColor: '#6366f1',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 1.5
-                }]
+                datasets: []
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
                 plugins: {
-                    legend: { display: false },
+                    legend: { 
+                        display: true,
+                        position: 'top',
+                        align: 'end',
+                        labels: { 
+                            boxWidth: 12, 
+                            boxHeight: 2,
+                            padding: 6,
+                            font: { size: 9 },
+                            usePointStyle: false,
+                            filter: (item) => item.text !== '_avg' && item.text !== '_median'
+                        }
+                    },
                     tooltip: {
-                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                        padding: 6,
-                        cornerRadius: 4,
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        padding: 8,
+                        cornerRadius: 6,
                         titleFont: { size: 10 },
                         bodyFont: { size: 10 },
+                        boxPadding: 3,
                         callbacks: {
-                            label: ctx => `$${ctx.raw.toFixed(2)}`,
-                            afterLabel: () => 'Click to filter'
-                        }
+                            label: ctx => `${ctx.dataset.label}: $${ctx.raw.toFixed(2)}`
+                        },
+                        // Allow tooltip to overflow chart bounds
+                        position: 'nearest',
+                        external: null
                     }
                 },
+                layout: {
+                    padding: { top: 5, right: 5 }
+                },
+                clip: false,
                 scales: {
                     y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.03)' }, ticks: { callback: v => '$' + v, font: { size: 9 } } },
                     x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0 } }
                 },
-                onClick: (e, elements) => { if (elements.length > 0) handleLineChartClick(elements[0].index); }
+                onClick: (e, elements) => { if (elements.length > 0 && !lineChart.data.datasets[elements[0].datasetIndex].isStatLine) handleLineChartClick(elements[0].index); }
             }
         });
+        updateLineBreakdownSelection();
         updateLineChart();
     }
     
     function updateLineChart() {
-        let labels = [], data = [], periodData = {};
+        let labels = [], periodData = {}, selectedKeys = [];
         const periodLabel = document.getElementById('chartPeriodLabel');
         const prevBtn = document.getElementById('periodPrev');
         const nextBtn = document.getElementById('periodNext');
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         
+        // Get the right data source based on period
+        let dataSource;
         if (currentPeriod === 'days') {
-            // Show individual days of a week
+            dataSource = dailySpending;
+        } else if (currentPeriod === 'weeks') {
+            dataSource = weeklySpending;
+        } else if (currentPeriod === 'months') {
+            dataSource = monthlyTrends;
+        } else {
+            dataSource = monthlyTrends; // for years, we'll aggregate
+        }
+        
+        // Determine which keys to show and build labels
+        if (currentPeriod === 'days') {
             const allDates = Object.keys(dailySpending).sort();
-            
-            // Group dates by week (Sunday to Saturday)
             const weeks = [];
             let currentWeek = [];
             allDates.forEach(date => {
@@ -1381,127 +2222,236 @@
             });
             if (currentWeek.length > 0) weeks.push(currentWeek);
             
-            // Get the week based on offset
             const weekIndex = Math.max(0, Math.min(weeks.length - 1 + periodOffset, weeks.length - 1));
-            const selectedWeek = weeks[weekIndex] || allDates.slice(-7);
+            selectedKeys = weeks[weekIndex] || allDates.slice(-7);
             
-            selectedWeek.forEach(date => {
+            selectedKeys.forEach(date => {
                 const d = new Date(date + 'T12:00:00');
                 const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
                 labels.push(label);
-                data.push(dailySpending[date]?.spent || 0);
                 periodData[label] = { type: 'day', value: date, display: label };
             });
             
-            // Show week range in period label
-            if (selectedWeek.length > 0) {
-                const startDate = new Date(selectedWeek[0] + 'T12:00:00');
-                const endDate = new Date(selectedWeek[selectedWeek.length - 1] + 'T12:00:00');
+            if (selectedKeys.length > 0) {
+                const startDate = new Date(selectedKeys[0] + 'T12:00:00');
+                const endDate = new Date(selectedKeys[selectedKeys.length - 1] + 'T12:00:00');
                 periodLabel.textContent = `${startDate.toLocaleDateString('en-US', {month: 'numeric', day: 'numeric'})} - ${endDate.toLocaleDateString('en-US', {month: 'numeric', day: 'numeric'})}`;
             }
-            
-            // Update nav buttons
             prevBtn.disabled = weekIndex <= 0;
             nextBtn.disabled = weekIndex >= weeks.length - 1;
             
         } else if (currentPeriod === 'weeks') {
-            // Show weeks with date ranges
             const sortedWeeks = Object.keys(weeklySpending).sort();
             const totalWeeks = sortedWeeks.length;
             const weeksToShow = 4;
-            
-            // Calculate which weeks to show based on offset
             let endIndex = totalWeeks + periodOffset;
             let startIndex = Math.max(0, endIndex - weeksToShow);
             endIndex = Math.min(totalWeeks, startIndex + weeksToShow);
+            selectedKeys = sortedWeeks.slice(startIndex, endIndex);
             
-            const selectedWeeks = sortedWeeks.slice(startIndex, endIndex);
-            
-            selectedWeeks.forEach(week => {
+            selectedKeys.forEach(week => {
                 const startD = new Date(week + 'T12:00:00');
                 const endD = new Date(startD);
                 endD.setDate(endD.getDate() + 6);
                 const label = `${startD.toLocaleDateString('en-US', {month: 'numeric', day: 'numeric'})}-${endD.toLocaleDateString('en-US', {month: 'numeric', day: 'numeric'})}`;
                 labels.push(label);
-                data.push(weeklySpending[week]?.spent || 0);
                 periodData[label] = { type: 'week', value: week, display: label };
             });
             
-            // Period label shows month/year context
-            if (selectedWeeks.length > 0) {
-                const firstWeek = new Date(selectedWeeks[0] + 'T12:00:00');
+            if (selectedKeys.length > 0) {
+                const firstWeek = new Date(selectedKeys[0] + 'T12:00:00');
                 periodLabel.textContent = firstWeek.toLocaleDateString('en-US', {month: 'short', year: 'numeric'});
             }
-            
-            // Update nav buttons
             prevBtn.disabled = startIndex <= 0;
             nextBtn.disabled = endIndex >= totalWeeks;
             
         } else if (currentPeriod === 'months') {
-            // Show months
             const sortedMonths = Object.keys(monthlyTrends).sort();
             const totalMonths = sortedMonths.length;
-            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            
-            // Calculate which months to show based on offset (show 6 months at a time)
             const monthsToShow = 6;
             let endIndex = totalMonths + periodOffset;
             let startIndex = Math.max(0, endIndex - monthsToShow);
             endIndex = Math.min(totalMonths, startIndex + monthsToShow);
-            
-            const selectedMonths = sortedMonths.slice(startIndex, endIndex);
+            selectedKeys = sortedMonths.slice(startIndex, endIndex);
             let displayYear = '';
             
-            selectedMonths.forEach(month => {
+            selectedKeys.forEach(month => {
                 const [year, monthNum] = month.split('-');
                 const monthName = monthNames[parseInt(monthNum, 10) - 1];
                 labels.push(monthName);
-                data.push(monthlyTrends[month]?.spent || 0);
                 periodData[monthName] = { type: 'month', value: month, display: `${monthName} ${year}` };
                 displayYear = year;
             });
             
-            // Show year in period label
             periodLabel.textContent = displayYear;
-            
-            // Update nav buttons  
             prevBtn.disabled = startIndex <= 0;
             nextBtn.disabled = endIndex >= totalMonths;
             
         } else if (currentPeriod === 'years') {
-            // Show years
             const sortedMonths = Object.keys(monthlyTrends).sort();
-            
-            // Group by year and sum
-            const yearlyData = {};
-            sortedMonths.forEach(month => {
-                const [year] = month.split('-');
-                if (!yearlyData[year]) yearlyData[year] = 0;
-                yearlyData[year] += monthlyTrends[month]?.spent || 0;
-            });
-            
-            const years = Object.keys(yearlyData).sort();
+            const years = [...new Set(sortedMonths.map(m => m.split('-')[0]))].sort();
+            selectedKeys = years;
             
             years.forEach(year => {
                 labels.push(year);
-                data.push(yearlyData[year]);
                 periodData[year] = { type: 'year', value: year, display: year };
             });
             
-            // Period label shows range
             if (years.length > 0) {
                 periodLabel.textContent = years.length > 1 ? `${years[0]}-${years[years.length-1]}` : years[0];
             }
-            
-            // Nav not really needed for years but disable if only one year
             prevBtn.disabled = true;
             nextBtn.disabled = true;
         }
         
+        // Build datasets based on breakdown type
+        let datasets = [];
+        let totalData = [];
+        
+        if (currentLineBreakdown === 'total') {
+            // Single line for total spending
+            if (currentPeriod === 'years') {
+                const yearlyData = {};
+                Object.keys(monthlyTrends).forEach(month => {
+                    const [year] = month.split('-');
+                    if (!yearlyData[year]) yearlyData[year] = 0;
+                    yearlyData[year] += monthlyTrends[month]?.spent || 0;
+                });
+                totalData = selectedKeys.map(year => yearlyData[year] || 0);
+            } else {
+                totalData = selectedKeys.map(key => dataSource[key]?.spent || 0);
+            }
+            
+            datasets.push({
+                label: 'Spending',
+                data: totalData,
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                pointBackgroundColor: '#6366f1',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 1.5
+            });
+        } else {
+            // Multiple lines for breakdown
+            const breakdownField = currentLineBreakdown === 'category' ? 'categories' : currentLineBreakdown;
+            const colorMap = currentLineBreakdown === 'category' ? categoryColors :
+                            currentLineBreakdown === 'necessity' ? necessityColors : recurrenceColors;
+            
+            // Collect all unique breakdown keys
+            const allBreakdownKeys = new Set();
+            if (currentPeriod === 'years') {
+                // Aggregate by year
+                selectedKeys.forEach(year => {
+                    Object.keys(monthlyTrends).filter(m => m.startsWith(year)).forEach(month => {
+                        const breakdown = monthlyTrends[month]?.[breakdownField] || {};
+                        Object.keys(breakdown).forEach(k => allBreakdownKeys.add(k));
+                    });
+                });
+            } else {
+                selectedKeys.forEach(key => {
+                    const breakdown = dataSource[key]?.[breakdownField] || {};
+                    Object.keys(breakdown).forEach(k => allBreakdownKeys.add(k));
+                });
+            }
+            
+            // Create a dataset for each breakdown key
+            let colorIndex = 0;
+            allBreakdownKeys.forEach(breakdownKey => {
+                let data;
+                if (currentPeriod === 'years') {
+                    data = selectedKeys.map(year => {
+                        let sum = 0;
+                        Object.keys(monthlyTrends).filter(m => m.startsWith(year)).forEach(month => {
+                            sum += monthlyTrends[month]?.[breakdownField]?.[breakdownKey] || 0;
+                        });
+                        return sum;
+                    });
+                } else {
+                    data = selectedKeys.map(key => dataSource[key]?.[breakdownField]?.[breakdownKey] || 0);
+                }
+                
+                const color = colorMap[breakdownKey] || colors[colorIndex % colors.length];
+                datasets.push({
+                    label: breakdownKey,
+                    data: data,
+                    borderColor: color,
+                    backgroundColor: color + '20',
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: 2,
+                    pointHoverRadius: 4,
+                    pointBackgroundColor: color,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 1
+                });
+                colorIndex++;
+            });
+            
+            // Calculate total for avg/median
+            if (currentPeriod === 'years') {
+                const yearlyData = {};
+                Object.keys(monthlyTrends).forEach(month => {
+                    const [year] = month.split('-');
+                    if (!yearlyData[year]) yearlyData[year] = 0;
+                    yearlyData[year] += monthlyTrends[month]?.spent || 0;
+                });
+                totalData = selectedKeys.map(year => yearlyData[year] || 0);
+            } else {
+                totalData = selectedKeys.map(key => dataSource[key]?.spent || 0);
+            }
+        }
+        
+        // Add average line if enabled
+        if (showAverage && totalData.length > 0) {
+            const sum = totalData.reduce((a, b) => a + b, 0);
+            const avg = sum / totalData.length;
+            datasets.push({
+                label: 'Average',
+                data: totalData.map(() => avg),
+                borderColor: '#f97316',
+                borderWidth: 2,
+                borderDash: [6, 4],
+                fill: false,
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                isStatLine: true
+            });
+        }
+        
+        // Add median line if enabled
+        if (showMedian && totalData.length > 0) {
+            const sorted = [...totalData].sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+            datasets.push({
+                label: 'Median',
+                data: totalData.map(() => median),
+                borderColor: '#22c55e',
+                borderWidth: 2,
+                borderDash: [3, 3],
+                fill: false,
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                isStatLine: true
+            });
+        }
+        
         lineChart.data.labels = labels;
-        lineChart.data.datasets[0].data = data;
+        lineChart.data.datasets = datasets;
         lineChart.periodData = periodData;
+        lineChart.currentData = totalData;
+        lineChart.currentLabels = labels;
+        lineChart.selectedKeys = selectedKeys;  // Store for pie chart to use
         lineChart.update();
+        
+        // Update pie chart to reflect the visible time range
+        if (pieChart) {
+            updatePieChart();
+        }
     }
     
     function handleLineChartClick(index) {
@@ -1509,8 +2459,14 @@
         const periodInfo = lineChart.periodData[label];
         
         if (periodInfo) {
-            showActiveFilter(periodInfo.display);
-            loadFilteredTransactions(periodInfo.type, periodInfo.value);
+            selectedPeriodIndex = index;  // Track the clicked period
+            // Add period filter to active filters
+            activeFilters.periodType = periodInfo.type;
+            activeFilters.periodValue = periodInfo.value;
+            activeFilters.periodDisplay = periodInfo.display;
+            updateFilterChips();
+            applyMultiFilters();
+            updatePieChart();  // Update pie chart to show only this period's breakdown
         }
     }
     
@@ -1530,15 +2486,14 @@
                 plugins: {
                     legend: { position: 'right', labels: { padding: 6, usePointStyle: true, font: { size: 9 } } },
                     tooltip: {
-                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                        padding: 6,
-                        cornerRadius: 4,
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        padding: 8,
+                        cornerRadius: 6,
                         callbacks: {
                             label: ctx => {
                                 const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
                                 return `$${ctx.raw.toFixed(2)} (${((ctx.raw / total) * 100).toFixed(1)}%)`;
-                            },
-                            afterLabel: () => 'Click to filter'
+                            }
                         }
                     }
                 },
@@ -1551,46 +2506,107 @@
     function updatePieChart() {
         let labels = [], data = [], bgColors = [];
         
+        // Get the data source based on current period view
+        const getDataSource = () => {
+            if (currentPeriod === 'days') return dailySpending;
+            if (currentPeriod === 'weeks') return weeklySpending;
+            return monthlyTrends; // months and years
+        };
+        
+        // Get the keys to aggregate - either just the selected period or all visible periods
+        const getKeysToAggregate = () => {
+            const allKeys = lineChart?.selectedKeys || [];
+            if (selectedPeriodIndex !== null && selectedPeriodIndex >= 0 && selectedPeriodIndex < allKeys.length) {
+                return [allKeys[selectedPeriodIndex]];  // Only the clicked period
+            }
+            return allKeys;  // All visible periods
+        };
+        
+        // Aggregate breakdown data from selected/visible periods
+        const aggregateBreakdown = (breakdownField) => {
+            const aggregated = {};
+            const dataSource = getDataSource();
+            const keysToUse = getKeysToAggregate();
+            
+            if (currentPeriod === 'years') {
+                // For years, aggregate all months within those years
+                keysToUse.forEach(year => {
+                    Object.keys(monthlyTrends)
+                        .filter(m => m.startsWith(year))
+                        .forEach(month => {
+                            const breakdown = monthlyTrends[month]?.[breakdownField] || {};
+                            Object.entries(breakdown).forEach(([key, val]) => {
+                                aggregated[key] = (aggregated[key] || 0) + val;
+                            });
+                        });
+                });
+            } else {
+                keysToUse.forEach(key => {
+                    const breakdown = dataSource[key]?.[breakdownField] || {};
+                    Object.entries(breakdown).forEach(([k, val]) => {
+                        aggregated[k] = (aggregated[k] || 0) + val;
+                    });
+                });
+            }
+            return aggregated;
+        };
+        
         if (currentPieFilter === 'category') {
-            Object.keys(categories).forEach((cat, i) => {
+            // Aggregate categories from visible period
+            const aggregatedCategories = aggregateBreakdown('categories');
+            const sortedCats = Object.entries(aggregatedCategories)
+                .sort((a, b) => b[1] - a[1]);
+            sortedCats.forEach(([cat, total], i) => {
                 labels.push(cat);
-                data.push(categories[cat].total);
+                data.push(total);
                 bgColors.push(categoryColors[cat] || colors[i % colors.length]);
             });
             pieChart.filterType = 'category';
         } else if (currentPieFilter === 'necessity') {
-            // Needs vs Wants vs Savings (50/30/20 rule)
-            const necessityData = classification.by_necessity || {};
-            const necessityColors = { 'Needs': '#3b82f6', 'Wants': '#ec4899', 'Savings': '#22c55e', 'Unknown': '#64748b' };
-            Object.keys(necessityData).forEach((type, i) => {
+            // Aggregate necessity from visible period
+            const aggregatedNecessity = aggregateBreakdown('necessity');
+            const localNecessityColors = { 'Needs': '#3b82f6', 'Wants': '#ec4899', 'Savings': '#22c55e', 'Unknown': '#64748b' };
+            const sortedNec = Object.entries(aggregatedNecessity)
+                .sort((a, b) => b[1] - a[1]);
+            sortedNec.forEach(([type, total], i) => {
                 labels.push(type);
-                data.push(necessityData[type].total);
-                bgColors.push(necessityColors[type] || colors[i % colors.length]);
+                data.push(total);
+                bgColors.push(localNecessityColors[type] || colors[i % colors.length]);
             });
             pieChart.filterType = 'necessity';
         } else if (currentPieFilter === 'recurrence') {
-            // Subscription / Recurring / One-time
-            const recurrenceData = classification.by_recurrence || {};
-            const recurrenceColors = { 'Subscription': '#a855f7', 'Recurring': '#14b8a6', 'One-time': '#64748b', 'Income': '#22c55e', 'Unknown': '#94a3b8' };
-            Object.keys(recurrenceData).forEach((type, i) => {
+            // Aggregate recurrence from visible period
+            const aggregatedRecurrence = aggregateBreakdown('recurrence');
+            const localRecurrenceColors = { 'Subscription': '#a855f7', 'Recurring': '#14b8a6', 'One-time': '#64748b', 'Income': '#22c55e', 'Unknown': '#94a3b8' };
+            const sortedRec = Object.entries(aggregatedRecurrence)
+                .sort((a, b) => b[1] - a[1]);
+            sortedRec.forEach(([type, total], i) => {
                 labels.push(type);
-                data.push(recurrenceData[type].total);
-                bgColors.push(recurrenceColors[type] || colors[i % colors.length]);
+                data.push(total);
+                bgColors.push(localRecurrenceColors[type] || colors[i % colors.length]);
             });
             pieChart.filterType = 'recurrence';
-        } else if (currentPieFilter === 'day_of_week') {
-            ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach((day, i) => {
-                const fullDay = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][i];
-                labels.push(day);
-                data.push(dayOfWeek[fullDay]?.total || 0);
-                bgColors.push(colors[i % colors.length]);
-            });
-            pieChart.filterType = 'day_of_week';
-            pieChart.dayMap = { 'Mon': 'Monday', 'Tue': 'Tuesday', 'Wed': 'Wednesday', 'Thu': 'Thursday', 'Fri': 'Friday', 'Sat': 'Saturday', 'Sun': 'Sunday' };
+        } else if (currentPieFilter === 'timeframe') {
+            // Use the same data as the line chart based on selected time period
+            if (lineChart && lineChart.currentLabels && lineChart.currentData) {
+                lineChart.currentLabels.forEach((label, i) => {
+                    labels.push(label);
+                    data.push(lineChart.currentData[i] || 0);
+                    bgColors.push(colors[i % colors.length]);
+                });
+            }
+            pieChart.filterType = currentPeriod === 'days' ? 'day' : 
+                                  currentPeriod === 'weeks' ? 'week' : 
+                                  currentPeriod === 'months' ? 'month' : 'year';
+            pieChart.periodData = lineChart ? lineChart.periodData : {};
         } else if (currentPieFilter === 'bank') {
-            Object.keys(spendingByBank).forEach((bank) => {
+            // Aggregate bank from visible period
+            const aggregatedBank = aggregateBreakdown('bank');
+            const sortedBank = Object.entries(aggregatedBank)
+                .sort((a, b) => b[1] - a[1]);
+            sortedBank.forEach(([bank, total]) => {
                 labels.push(bank);
-                data.push(spendingByBank[bank].spent);
+                data.push(total);
                 bgColors.push(bank.toLowerCase() === 'chase' ? '#0066b2' : '#ff6000');
             });
             pieChart.filterType = 'bank';
@@ -1607,13 +2623,36 @@
         let filterType = pieChart.filterType;
         let filterValue = label;
         
-        // Map abbreviated day to full day name for filtering
-        if (filterType === 'day_of_week' && pieChart.dayMap) {
-            filterValue = pieChart.dayMap[label] || label;
+        // For timeframe filter, get the actual period value from lineChart.periodData
+        if (['day', 'week', 'month', 'year'].includes(filterType) && pieChart.periodData) {
+            const periodInfo = pieChart.periodData[label];
+            if (periodInfo) {
+                activeFilters.periodType = periodInfo.type;
+                activeFilters.periodValue = periodInfo.value;
+                activeFilters.periodDisplay = periodInfo.display;
+                updateFilterChips();
+                applyMultiFilters();
+                return;
+            }
         }
         
-        showActiveFilter(label);
-        loadFilteredTransactions(filterType, filterValue);
+        // Add to appropriate filter array based on type
+        if (filterType === 'category') {
+            if (!activeFilters.categories.includes(filterValue)) {
+                activeFilters.categories.push(filterValue);
+            }
+        } else if (filterType === 'necessity') {
+            if (!activeFilters.necessities.includes(filterValue)) {
+                activeFilters.necessities.push(filterValue);
+            }
+        } else if (filterType === 'recurrence') {
+            if (!activeFilters.recurrences.includes(filterValue)) {
+                activeFilters.recurrences.push(filterValue);
+            }
+        }
+        
+        updateFilterChips();
+        applyMultiFilters();
     }
     
     function showActiveFilter(label) {
@@ -1645,6 +2684,20 @@
             
             document.getElementById('summaryCount').textContent = result.summary.count;
             document.getElementById('summarySpent').textContent = `$${result.summary.total_spent.toFixed(2)}`;
+            
+            // Calculate avg and median for filtered transactions
+            const filteredAmounts = result.transactions
+                .filter(t => t.amount < 0 || t.type === 'expense')
+                .map(t => Math.abs(t.amount));
+            const avg = filteredAmounts.length > 0 ? filteredAmounts.reduce((a, b) => a + b, 0) / filteredAmounts.length : 0;
+            const sortedAmounts = [...filteredAmounts].sort((a, b) => a - b);
+            const median = sortedAmounts.length > 0 ? 
+                (sortedAmounts.length % 2 === 0 
+                    ? (sortedAmounts[sortedAmounts.length/2 - 1] + sortedAmounts[sortedAmounts.length/2]) / 2 
+                    : sortedAmounts[Math.floor(sortedAmounts.length/2)]) 
+                : 0;
+            document.getElementById('summaryAvg').textContent = `$${avg.toFixed(2)}`;
+            document.getElementById('summaryMedian').textContent = `$${median.toFixed(2)}`;
             
             renderTransactions(result.transactions);
         } catch (error) {
@@ -1748,11 +2801,352 @@
     }
     
     function clearAllFilters() {
+        // Reset all active filters
+        activeFilters.startDate = null;
+        activeFilters.endDate = null;
+        activeFilters.periodType = null;
+        activeFilters.periodValue = null;
+        activeFilters.periodDisplay = null;
+        activeFilters.categories = [];
+        activeFilters.necessities = [];
+        activeFilters.recurrences = [];
+        
+        // Update UI
+        updateFilterChips();
         document.getElementById('activeFilter').classList.remove('visible');
         document.getElementById('transactionsTitle').textContent = 'All Transactions';
         document.getElementById('summaryCount').textContent = '{{ statistics.count }}';
+        document.getElementById('summaryAvg').textContent = '${{ "%.2f"|format(statistics.mean if statistics.mean else 0) }}';
+        document.getElementById('summaryMedian').textContent = '${{ "%.2f"|format(statistics.median if statistics.median else 0) }}';
         document.getElementById('summarySpent').textContent = '${{ "%.2f"|format(statistics.total) }}';
         renderTransactions(allTransactions);
+        
+        // Reset selected period and update pie chart to show full visible range
+        selectedPeriodIndex = null;
+        if (pieChart) {
+            updatePieChart();
+        }
+    }
+    
+    // =========================================================================
+    // MULTI-FILTER SYSTEM
+    // =========================================================================
+    
+    function initFilterPanel() {
+        // Populate category options from server-rendered data
+        const categoryContainer = document.getElementById('categoryTagOptions');
+        const allCategories = Object.keys(categories).sort();
+        
+        if (categoryContainer && allCategories.length > 0) {
+            categoryContainer.innerHTML = allCategories.map(cat => `
+                <label class="tag-option">
+                    <input type="checkbox" value="${escapeHtml(cat)}" onchange="toggleTagFilter('category', '${escapeHtml(cat)}')">
+                    <span>${escapeHtml(cat)}</span>
+                </label>
+            `).join('');
+        }
+        
+        // Set min/max date values based on loaded transactions
+        if (allTransactions && allTransactions.length > 0) {
+            const dates = allTransactions.map(t => new Date(t.transaction_date + 'T12:00:00'));
+            const minDate = new Date(Math.min(...dates));
+            const maxDate = new Date(Math.max(...dates));
+            
+            const startInput = document.getElementById('filterStartDate');
+            const endInput = document.getElementById('filterEndDate');
+            
+            if (startInput && endInput) {
+                startInput.min = minDate.toISOString().split('T')[0];
+                startInput.max = maxDate.toISOString().split('T')[0];
+                endInput.min = minDate.toISOString().split('T')[0];
+                endInput.max = maxDate.toISOString().split('T')[0];
+            }
+        }
+    }
+    
+    function openFilterPanel() {
+        // Sync panel state with active filters
+        panelFilters.startDate = activeFilters.startDate;
+        panelFilters.endDate = activeFilters.endDate;
+        panelFilters.categories = [...activeFilters.categories];
+        panelFilters.necessities = [...activeFilters.necessities];
+        panelFilters.recurrences = [...activeFilters.recurrences];
+        
+        // Update checkboxes
+        syncPanelCheckboxes();
+        
+        // Update date inputs
+        if (activeFilters.startDate) {
+            document.getElementById('filterStartDate').value = activeFilters.startDate;
+        }
+        if (activeFilters.endDate) {
+            document.getElementById('filterEndDate').value = activeFilters.endDate;
+        }
+        
+        document.getElementById('filterPanelOverlay').classList.add('show');
+        document.getElementById('filterPanel').classList.add('show');
+    }
+    
+    function closeFilterPanel() {
+        document.getElementById('filterPanelOverlay').classList.remove('show');
+        document.getElementById('filterPanel').classList.remove('show');
+    }
+    
+    function syncPanelCheckboxes() {
+        // Reset all checkboxes
+        document.querySelectorAll('.tag-options input[type="checkbox"]').forEach(cb => {
+            cb.checked = false;
+            cb.closest('.tag-option').classList.remove('selected');
+        });
+        
+        // Check active categories
+        panelFilters.categories.forEach(cat => {
+            const cb = document.querySelector(`#categoryTagOptions input[value="${cat}"]`);
+            if (cb) {
+                cb.checked = true;
+                cb.closest('.tag-option').classList.add('selected');
+            }
+        });
+        
+        // Check active necessities
+        panelFilters.necessities.forEach(nec => {
+            const cb = document.querySelector(`#necessityTagOptions input[value="${nec}"]`);
+            if (cb) {
+                cb.checked = true;
+                cb.closest('.tag-option').classList.add('selected');
+            }
+        });
+        
+        // Check active recurrences
+        panelFilters.recurrences.forEach(rec => {
+            const cb = document.querySelector(`#recurrenceTagOptions input[value="${rec}"]`);
+            if (cb) {
+                cb.checked = true;
+                cb.closest('.tag-option').classList.add('selected');
+            }
+        });
+    }
+    
+    function toggleTagFilter(type, value) {
+        const arr = type === 'category' ? panelFilters.categories : 
+                    type === 'necessity' ? panelFilters.necessities : 
+                    panelFilters.recurrences;
+        
+        const idx = arr.indexOf(value);
+        if (idx === -1) {
+            arr.push(value);
+        } else {
+            arr.splice(idx, 1);
+        }
+        
+        // Update visual state
+        const checkbox = event.target;
+        checkbox.closest('.tag-option').classList.toggle('selected', checkbox.checked);
+    }
+    
+    function resetPanelFilters() {
+        panelFilters.startDate = null;
+        panelFilters.endDate = null;
+        panelFilters.categories = [];
+        panelFilters.necessities = [];
+        panelFilters.recurrences = [];
+        
+        // Reset date inputs
+        document.getElementById('filterStartDate').value = '';
+        document.getElementById('filterEndDate').value = '';
+        
+        // Reset all checkboxes
+        document.querySelectorAll('.tag-options input[type="checkbox"]').forEach(cb => {
+            cb.checked = false;
+            cb.closest('.tag-option').classList.remove('selected');
+        });
+    }
+    
+    function applyPanelFilters() {
+        // Get date values
+        const startDate = document.getElementById('filterStartDate').value;
+        const endDate = document.getElementById('filterEndDate').value;
+        
+        // Clear period filter if date range is specified
+        if (startDate || endDate) {
+            activeFilters.periodType = null;
+            activeFilters.periodValue = null;
+            activeFilters.periodDisplay = null;
+        }
+        
+        // Apply date filters
+        activeFilters.startDate = startDate || null;
+        activeFilters.endDate = endDate || null;
+        
+        // Apply tag filters
+        activeFilters.categories = [...panelFilters.categories];
+        activeFilters.necessities = [...panelFilters.necessities];
+        activeFilters.recurrences = [...panelFilters.recurrences];
+        
+        closeFilterPanel();
+        updateFilterChips();
+        applyMultiFilters();
+    }
+    
+    function updateFilterChips() {
+        const container = document.getElementById('filterChips');
+        const chips = [];
+        
+        // Date range chip
+        if (activeFilters.startDate || activeFilters.endDate) {
+            const dateLabel = activeFilters.startDate && activeFilters.endDate 
+                ? `${formatDateShort(activeFilters.startDate)} - ${formatDateShort(activeFilters.endDate)}`
+                : activeFilters.startDate 
+                    ? `From ${formatDateShort(activeFilters.startDate)}`
+                    : `Until ${formatDateShort(activeFilters.endDate)}`;
+            chips.push(createChipHTML('date', dateLabel, 'date'));
+        }
+        
+        // Period chip (from line chart click)
+        if (activeFilters.periodDisplay) {
+            chips.push(createChipHTML('period', activeFilters.periodDisplay, 'period'));
+        }
+        
+        // Category chips
+        activeFilters.categories.forEach(cat => {
+            chips.push(createChipHTML('cat', cat, `category:${cat}`));
+        });
+        
+        // Necessity chips
+        activeFilters.necessities.forEach(nec => {
+            chips.push(createChipHTML('need', nec, `necessity:${nec}`));
+        });
+        
+        // Recurrence chips
+        activeFilters.recurrences.forEach(rec => {
+            chips.push(createChipHTML('rec', rec, `recurrence:${rec}`));
+        });
+        
+        container.innerHTML = chips.join('');
+        
+        // Show/hide clear all button
+        const hasFilters = chips.length > 0;
+        document.getElementById('clearAllBtn').style.display = hasFilters ? 'block' : 'none';
+    }
+    
+    function createChipHTML(type, value, removeKey) {
+        return `
+            <span class="filter-chip">
+                <span class="chip-type">${type}</span>
+                <span class="chip-value">${escapeHtml(value)}</span>
+                <button class="chip-remove" onclick="removeFilter('${removeKey}')">✕</button>
+            </span>
+        `;
+    }
+    
+    function removeFilter(key) {
+        if (key === 'date') {
+            activeFilters.startDate = null;
+            activeFilters.endDate = null;
+        } else if (key === 'period') {
+            activeFilters.periodType = null;
+            activeFilters.periodValue = null;
+            activeFilters.periodDisplay = null;
+            selectedPeriodIndex = null;
+        } else if (key.startsWith('category:')) {
+            const cat = key.replace('category:', '');
+            activeFilters.categories = activeFilters.categories.filter(c => c !== cat);
+        } else if (key.startsWith('necessity:')) {
+            const nec = key.replace('necessity:', '');
+            activeFilters.necessities = activeFilters.necessities.filter(n => n !== nec);
+        } else if (key.startsWith('recurrence:')) {
+            const rec = key.replace('recurrence:', '');
+            activeFilters.recurrences = activeFilters.recurrences.filter(r => r !== rec);
+        }
+        
+        updateFilterChips();
+        
+        // Check if any filters remain
+        const hasFilters = activeFilters.startDate || activeFilters.endDate || 
+                          activeFilters.periodType || 
+                          activeFilters.categories.length || 
+                          activeFilters.necessities.length || 
+                          activeFilters.recurrences.length;
+        
+        if (hasFilters) {
+            applyMultiFilters();
+        } else {
+            // Reset to all transactions
+            document.getElementById('transactionsTitle').textContent = 'All Transactions';
+            document.getElementById('summaryCount').textContent = '{{ statistics.count }}';
+            document.getElementById('summaryAvg').textContent = '${{ "%.2f"|format(statistics.mean if statistics.mean else 0) }}';
+            document.getElementById('summaryMedian').textContent = '${{ "%.2f"|format(statistics.median if statistics.median else 0) }}';
+            document.getElementById('summarySpent').textContent = '${{ "%.2f"|format(statistics.total) }}';
+            renderTransactions(allTransactions);
+            
+            if (pieChart) {
+                updatePieChart();
+            }
+        }
+    }
+    
+    async function applyMultiFilters() {
+        document.getElementById('transactionsTitle').textContent = 'Filtered';
+        
+        try {
+            // Build query string with all active filters
+            const params = new URLSearchParams();
+            
+            if (activeFilters.startDate) {
+                params.append('start_date', activeFilters.startDate);
+            }
+            if (activeFilters.endDate) {
+                params.append('end_date', activeFilters.endDate);
+            }
+            if (activeFilters.periodType && activeFilters.periodValue) {
+                params.append('period_type', activeFilters.periodType);
+                params.append('period_value', activeFilters.periodValue);
+            }
+            
+            // Multiple categories
+            activeFilters.categories.forEach(cat => {
+                params.append('categories', cat);
+            });
+            
+            // Multiple necessities
+            activeFilters.necessities.forEach(nec => {
+                params.append('necessities', nec);
+            });
+            
+            // Multiple recurrences
+            activeFilters.recurrences.forEach(rec => {
+                params.append('recurrences', rec);
+            });
+            
+            const response = await fetch(`/api/transactions/filter?${params.toString()}`);
+            const result = await response.json();
+            
+            document.getElementById('summaryCount').textContent = result.summary.count;
+            document.getElementById('summarySpent').textContent = `$${result.summary.total_spent.toFixed(2)}`;
+            
+            // Calculate avg and median for filtered transactions
+            const filteredAmounts = result.transactions
+                .filter(t => t.amount < 0 || t.type === 'expense')
+                .map(t => Math.abs(t.amount));
+            const avg = filteredAmounts.length > 0 ? filteredAmounts.reduce((a, b) => a + b, 0) / filteredAmounts.length : 0;
+            const sortedAmounts = [...filteredAmounts].sort((a, b) => a - b);
+            const median = sortedAmounts.length > 0 ? 
+                (sortedAmounts.length % 2 === 0 
+                    ? (sortedAmounts[sortedAmounts.length/2 - 1] + sortedAmounts[sortedAmounts.length/2]) / 2 
+                    : sortedAmounts[Math.floor(sortedAmounts.length/2)]) 
+                : 0;
+            document.getElementById('summaryAvg').textContent = `$${avg.toFixed(2)}`;
+            document.getElementById('summaryMedian').textContent = `$${median.toFixed(2)}`;
+            
+            renderTransactions(result.transactions);
+        } catch (error) {
+            console.error('Error applying filters:', error);
+        }
+    }
+    
+    function formatDateShort(dateStr) {
+        const date = new Date(dateStr + 'T12:00:00');
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
     
     function escapeHtml(text) {
@@ -1798,7 +3192,6 @@
             const data = await response.json();
             categoryRules = data.rules || [];
             renderRulesList();
-            document.getElementById('rulesCount').textContent = categoryRules.length;
         } catch (error) {
             console.error('Error loading rules:', error);
         }
@@ -2950,6 +4343,254 @@
             clearTimeout(timeout);
             timeout = setTimeout(() => func.apply(this, args), wait);
         };
+    }
+    
+    // =========================================================================
+    // SWEEP RULES MANAGEMENT (Exclusion Rules)
+    // =========================================================================
+    
+    let sweepRules = [];
+    let newSweepKeywords = [];
+    
+    // Load sweep rules on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSweepRules();
+        setupSweepKeywordInput();
+    });
+    
+    function toggleSweepPanel() {
+        closeCategoryDropdown();
+        document.getElementById('sweepPanel').classList.toggle('open');
+        document.getElementById('panelOverlay').classList.toggle('show');
+    }
+    
+    function closeSweepPanel() {
+        document.getElementById('sweepPanel').classList.remove('open');
+        document.getElementById('panelOverlay').classList.remove('show');
+    }
+    
+    function closeAllPanels() {
+        closeRulesPanel();
+        closeSweepPanel();
+    }
+    
+    async function loadSweepRules() {
+        try {
+            const response = await fetch('/api/sweep-rules');
+            const data = await response.json();
+            sweepRules = data.rules || [];
+            renderSweepRulesList();
+        } catch (error) {
+            console.error('Error loading sweep rules:', error);
+        }
+    }
+    
+    function renderSweepRulesList() {
+        const container = document.getElementById('sweepRulesList');
+        
+        if (sweepRules.length === 0) {
+            container.innerHTML = `
+                <div style="color: var(--text-secondary); font-size: 0.75rem; text-align: center; padding: 1rem;">
+                    No sweep rules yet. Create one above!
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = sweepRules.map(rule => `
+            <div class="sweep-item ${rule.enabled ? '' : 'disabled'}">
+                <div class="sweep-item-header">
+                    <span class="sweep-keyword-display">🧹 Sweep Rule</span>
+                    <div class="sweep-actions">
+                        <button class="btn-toggle-sweep" onclick="toggleSweepRule('${rule.id}')" title="${rule.enabled ? 'Disable' : 'Enable'}">
+                            ${rule.enabled ? '✓' : '○'}
+                        </button>
+                        <button class="btn-delete-sweep" onclick="deleteSweepRule('${rule.id}')" title="Delete">✕</button>
+                    </div>
+                </div>
+                <div class="sweep-keywords">
+                    ${rule.keywords.map((kw, i) => `
+                        ${i > 0 ? '<span class="and-connector">AND</span>' : ''}
+                        <span class="sweep-keyword">${escapeHtml(kw)}</span>
+                    `).join('')}
+                </div>
+                ${rule.swept_count ? `<div class="sweep-stats">Swept ${rule.swept_count} transaction(s)</div>` : ''}
+            </div>
+        `).join('');
+    }
+    
+    function setupSweepKeywordInput() {
+        const input = document.getElementById('sweepKeywordInput');
+        if (!input) return;
+        
+        const wrapper = document.getElementById('sweepKeywordsWrapper');
+        
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && this.value.trim()) {
+                e.preventDefault();
+                addSweepKeyword(this.value.trim());
+                this.value = '';
+            } else if (e.key === 'Backspace' && !this.value && newSweepKeywords.length > 0) {
+                removeSweepKeyword(newSweepKeywords.length - 1);
+            }
+        });
+        
+        input.addEventListener('input', debounce(previewSweepRule, 500));
+    }
+    
+    function addSweepKeyword(keyword) {
+        if (!newSweepKeywords.includes(keyword.toLowerCase())) {
+            newSweepKeywords.push(keyword);
+            renderSweepKeywords();
+            previewSweepRule();
+        }
+    }
+    
+    function removeSweepKeyword(index) {
+        newSweepKeywords.splice(index, 1);
+        renderSweepKeywords();
+        previewSweepRule();
+    }
+    
+    function renderSweepKeywords() {
+        const wrapper = document.getElementById('sweepKeywordsWrapper');
+        const input = document.getElementById('sweepKeywordInput');
+        
+        // Remove existing tags
+        wrapper.querySelectorAll('.keyword-tag, .and-connector').forEach(el => el.remove());
+        
+        // Add tags before input
+        newSweepKeywords.forEach((kw, i) => {
+            if (i > 0) {
+                const connector = document.createElement('span');
+                connector.className = 'and-connector';
+                connector.textContent = 'AND';
+                wrapper.insertBefore(connector, input);
+            }
+            
+            const tag = document.createElement('span');
+            tag.className = 'keyword-tag';
+            tag.innerHTML = `${escapeHtml(kw)} <span class="remove-keyword" onclick="removeSweepKeyword(${i})">×</span>`;
+            wrapper.insertBefore(tag, input);
+        });
+    }
+    
+    async function previewSweepRule() {
+        const previewSection = document.getElementById('sweepPreviewSection');
+        
+        if (newSweepKeywords.length === 0) {
+            previewSection.style.display = 'none';
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/sweep-rules/preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keywords: newSweepKeywords })
+            });
+            
+            const data = await response.json();
+            
+            previewSection.style.display = 'block';
+            document.getElementById('sweepPreviewCount').textContent = data.match_count || 0;
+            
+            const matchesDiv = document.getElementById('sweepPreviewMatches');
+            if (data.sample_matches && data.sample_matches.length > 0) {
+                matchesDiv.innerHTML = data.sample_matches.slice(0, 3).map(m => 
+                    `<div style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 0.15rem;">• ${escapeHtml(m)}</div>`
+                ).join('');
+            } else {
+                matchesDiv.innerHTML = '';
+            }
+        } catch (error) {
+            console.error('Preview error:', error);
+        }
+    }
+    
+    function resetSweepForm() {
+        document.getElementById('sweepKeywordInput').value = '';
+        newSweepKeywords = [];
+        renderSweepKeywords();
+        document.getElementById('sweepPreviewSection').style.display = 'none';
+    }
+    
+    async function saveSweepRule() {
+        if (newSweepKeywords.length === 0) {
+            alert('Please add at least one keyword.');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/sweep-rules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    keywords: newSweepKeywords
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                resetSweepForm();
+                await loadSweepRules();
+                await loadAllTransactions(); // Refresh transactions list
+                
+                // Mark as unsynced since transactions were removed
+                if (typeof markAsUnsynced === 'function') {
+                    markAsUnsynced();
+                }
+                
+                if (data.swept_count > 0) {
+                    alert(`Swept ${data.swept_count} transaction(s)!`);
+                }
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error saving sweep rule:', error);
+            alert('Error saving sweep rule. Please try again.');
+        }
+    }
+    
+    async function deleteSweepRule(ruleId) {
+        if (!confirm('Delete this sweep rule? Previously swept transactions will NOT be restored.')) return;
+        
+        try {
+            const response = await fetch(`/api/sweep-rules/${ruleId}`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                await loadSweepRules();
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+        }
+    }
+    
+    async function toggleSweepRule(ruleId) {
+        const rule = sweepRules.find(r => r.id === ruleId);
+        if (!rule) return;
+        
+        try {
+            const response = await fetch(`/api/sweep-rules/${ruleId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: !rule.enabled })
+            });
+            
+            if (response.ok) {
+                await loadSweepRules();
+            }
+        } catch (error) {
+            console.error('Toggle error:', error);
+        }
     }
 </script>
 {% endblock %}

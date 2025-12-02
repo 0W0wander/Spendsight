@@ -12,6 +12,7 @@ from backend.analytics.categorizer import TransactionCategorizer
 from backend.analytics.insights import InsightsGenerator
 from backend.analytics.expense_classifier import ExpenseClassifier
 from backend.models.category_rule import rule_engine, CategoryRule
+from backend.models.exclusion_rule import exclusion_engine, ExclusionRule
 
 # Initialize Flask app
 app = Flask(__name__, 
@@ -278,6 +279,12 @@ def upload():
                 if duplicate_count > 0:
                     flash(f'Skipped {duplicate_count} duplicate transaction(s).', 'info')
                 
+                # Apply sweep/exclusion rules to filter out unwanted transactions
+                unique_transactions, swept_count = exclusion_engine.filter_new_transactions(unique_transactions)
+                
+                if swept_count > 0:
+                    flash(f'Swept {swept_count} transaction(s) based on your sweep rules.', 'info')
+                
                 # Apply category rules to new transactions
                 rule_engine.apply_to_all(unique_transactions)
                 
@@ -450,13 +457,21 @@ def api_budget_categories():
 
 @app.route('/api/transactions/filter')
 def api_transactions_filter():
-    """API endpoint for filtered transactions by date range, category, or period."""
+    """API endpoint for filtered transactions by date range, category, period, necessity, and recurrence.
+    
+    Supports multiple simultaneous filters - all filters are applied with AND logic.
+    """
     from datetime import datetime, timedelta
     
     # Get filter parameters
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     category = request.args.get('category')
+    categories = request.args.getlist('categories')  # Support multiple categories
+    necessity = request.args.get('necessity')
+    necessities = request.args.getlist('necessities')  # Support multiple necessities
+    recurrence = request.args.get('recurrence')
+    recurrences = request.args.getlist('recurrences')  # Support multiple recurrences
     period_type = request.args.get('period_type')  # 'day', 'week', 'month', 'year'
     period_value = request.args.get('period_value')  # e.g., '2024-01', 'Monday', '2024-W01'
     
@@ -477,9 +492,23 @@ def api_transactions_filter():
         except ValueError:
             pass
     
-    # Filter by category
+    # Filter by category (single or multiple)
     if category:
         filtered = [t for t in filtered if t.category == category]
+    elif categories:
+        filtered = [t for t in filtered if t.category in categories]
+    
+    # Filter by necessity (single or multiple)
+    if necessity:
+        filtered = [t for t in filtered if getattr(t, 'necessity', 'Unknown') == necessity]
+    elif necessities:
+        filtered = [t for t in filtered if getattr(t, 'necessity', 'Unknown') in necessities]
+    
+    # Filter by recurrence (single or multiple)
+    if recurrence:
+        filtered = [t for t in filtered if getattr(t, 'recurrence', 'One-time') == recurrence]
+    elif recurrences:
+        filtered = [t for t in filtered if getattr(t, 'recurrence', 'One-time') in recurrences]
     
     # Filter by period type
     if period_type and period_value:
@@ -727,6 +756,126 @@ def api_preview_rule():
     return jsonify({
         'matching_count': len(matches),
         'matches': matches[:20]  # Limit to first 20 for preview
+    })
+
+
+# =========================================================================
+# SWEEP/EXCLUSION RULES API ENDPOINTS
+# =========================================================================
+
+@app.route('/api/sweep-rules', methods=['GET'])
+def api_get_sweep_rules():
+    """Get all sweep/exclusion rules."""
+    rules = exclusion_engine.get_all_rules()
+    return jsonify({
+        'rules': [r.to_dict() for r in rules]
+    })
+
+@app.route('/api/sweep-rules', methods=['POST'])
+def api_create_sweep_rule():
+    """Create a new sweep rule and apply it to existing transactions."""
+    global all_transactions
+    
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    keywords = data.get('keywords', [])
+    
+    if not keywords or not isinstance(keywords, list) or len(keywords) == 0:
+        return jsonify({'error': 'At least one keyword is required'}), 400
+    
+    # Clean up keywords
+    keywords = [k.strip() for k in keywords if k.strip()]
+    
+    if len(keywords) == 0:
+        return jsonify({'error': 'At least one valid keyword is required'}), 400
+    
+    # Create the rule
+    rule = exclusion_engine.add_rule(keywords)
+    
+    # Apply to existing transactions (sweep them away)
+    all_transactions, swept_count = exclusion_engine.sweep_transactions(all_transactions)
+    
+    return jsonify({
+        'success': True,
+        'rule': rule.to_dict(),
+        'swept_count': swept_count
+    })
+
+@app.route('/api/sweep-rules/<rule_id>', methods=['PUT'])
+def api_update_sweep_rule(rule_id):
+    """Update an existing sweep rule."""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    keywords = data.get('keywords')
+    enabled = data.get('enabled')
+    
+    rule = exclusion_engine.update_rule(
+        rule_id,
+        keywords=keywords,
+        enabled=enabled
+    )
+    
+    if not rule:
+        return jsonify({'error': 'Rule not found'}), 404
+    
+    return jsonify({
+        'success': True,
+        'rule': rule.to_dict()
+    })
+
+@app.route('/api/sweep-rules/<rule_id>', methods=['DELETE'])
+def api_delete_sweep_rule(rule_id):
+    """Delete a sweep rule."""
+    success = exclusion_engine.delete_rule(rule_id)
+    
+    if not success:
+        return jsonify({'error': 'Rule not found'}), 404
+    
+    return jsonify({'success': True})
+
+@app.route('/api/sweep-rules/preview', methods=['POST'])
+def api_preview_sweep_rule():
+    """Preview how many transactions a sweep rule would match."""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    keywords = data.get('keywords', [])
+    
+    if not keywords or not isinstance(keywords, list):
+        return jsonify({'match_count': 0, 'sample_matches': []})
+    
+    # Clean up keywords
+    keywords = [k.strip() for k in keywords if k.strip()]
+    
+    if len(keywords) == 0:
+        return jsonify({'match_count': 0, 'sample_matches': []})
+    
+    # Count matching transactions
+    count, samples = exclusion_engine.count_matches(keywords, all_transactions)
+    
+    return jsonify({
+        'match_count': count,
+        'sample_matches': samples
+    })
+
+@app.route('/api/sweep-rules/apply-all', methods=['POST'])
+def api_apply_all_sweep_rules():
+    """Re-apply all sweep rules to all transactions."""
+    global all_transactions
+    
+    all_transactions, swept_count = exclusion_engine.sweep_transactions(all_transactions)
+    
+    return jsonify({
+        'success': True,
+        'swept_count': swept_count
     })
 
 

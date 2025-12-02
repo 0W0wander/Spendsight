@@ -198,7 +198,10 @@ class TransactionCategorizer:
             'spent': 0,
             'income': 0,
             'transactions': 0,
-            'categories': defaultdict(float)
+            'categories': defaultdict(float),
+            'necessity': defaultdict(float),
+            'recurrence': defaultdict(float),
+            'bank': defaultdict(float)
         })
         
         for transaction in transactions:
@@ -208,6 +211,16 @@ class TransactionCategorizer:
                 amount = abs(transaction.amount)
                 monthly_data[month]['spent'] += amount
                 monthly_data[month]['categories'][transaction.category] += amount
+                monthly_data[month]['bank'][transaction.bank.title()] += amount
+                # Get necessity and recurrence from transaction (can be enum or string)
+                necessity = getattr(transaction, 'necessity', None)
+                if necessity:
+                    nec_val = necessity.value if hasattr(necessity, 'value') else necessity
+                    monthly_data[month]['necessity'][nec_val] += amount
+                recurrence = getattr(transaction, 'recurrence', None)
+                if recurrence:
+                    rec_val = recurrence.value if hasattr(recurrence, 'value') else recurrence
+                    monthly_data[month]['recurrence'][rec_val] += amount
             else:
                 monthly_data[month]['income'] += transaction.amount
             
@@ -223,7 +236,10 @@ class TransactionCategorizer:
                 'net': round(data['income'] - data['spent'], 2),
                 'transactions': data['transactions'],
                 'top_category': max(data['categories'].items(), key=lambda x: x[1])[0] if data['categories'] else 'N/A',
-                'categories': dict(data['categories'])
+                'categories': {k: round(v, 2) for k, v in data['categories'].items()},
+                'necessity': {k: round(v, 2) for k, v in data['necessity'].items()},
+                'recurrence': {k: round(v, 2) for k, v in data['recurrence'].items()},
+                'bank': {k: round(v, 2) for k, v in data['bank'].items()}
             }
         
         return result
@@ -240,7 +256,10 @@ class TransactionCategorizer:
             'spent': 0,
             'income': 0,
             'transactions': 0,
-            'categories': defaultdict(float)
+            'categories': defaultdict(float),
+            'necessity': defaultdict(float),
+            'recurrence': defaultdict(float),
+            'bank': defaultdict(float)
         })
         
         for transaction in transactions:
@@ -253,6 +272,16 @@ class TransactionCategorizer:
                 amount = abs(transaction.amount)
                 weekly_data[week_key]['spent'] += amount
                 weekly_data[week_key]['categories'][transaction.category] += amount
+                weekly_data[week_key]['bank'][transaction.bank.title()] += amount
+                # Get necessity and recurrence from transaction (can be enum or string)
+                necessity = getattr(transaction, 'necessity', None)
+                if necessity:
+                    nec_val = necessity.value if hasattr(necessity, 'value') else necessity
+                    weekly_data[week_key]['necessity'][nec_val] += amount
+                recurrence = getattr(transaction, 'recurrence', None)
+                if recurrence:
+                    rec_val = recurrence.value if hasattr(recurrence, 'value') else recurrence
+                    weekly_data[week_key]['recurrence'][rec_val] += amount
             else:
                 weekly_data[week_key]['income'] += transaction.amount
             
@@ -268,6 +297,9 @@ class TransactionCategorizer:
                 'net': round(data['income'] - data['spent'], 2),
                 'transactions': data['transactions'],
                 'categories': {k: round(v, 2) for k, v in data['categories'].items()},
+                'necessity': {k: round(v, 2) for k, v in data['necessity'].items()},
+                'recurrence': {k: round(v, 2) for k, v in data['recurrence'].items()},
+                'bank': {k: round(v, 2) for k, v in data['bank'].items()},
                 'daily_avg': round(data['spent'] / 7, 2)
             }
         
@@ -283,9 +315,17 @@ class TransactionCategorizer:
             days: Number of days to analyze (default 30)
             
         Returns:
-            Dictionary with daily spending data
+            Dictionary with daily spending data including category, necessity, and recurrence breakdowns
         """
-        daily_data = defaultdict(lambda: {'spent': 0, 'income': 0, 'transactions': 0})
+        daily_data = defaultdict(lambda: {
+            'spent': 0, 
+            'income': 0, 
+            'transactions': 0,
+            'categories': defaultdict(float),
+            'necessity': defaultdict(float),
+            'recurrence': defaultdict(float),
+            'bank': defaultdict(float)
+        })
         
         # Get date range
         if transactions:
@@ -299,7 +339,19 @@ class TransactionCategorizer:
                 date_key = transaction.transaction_date.strftime('%Y-%m-%d')
                 
                 if transaction.is_expense:
-                    daily_data[date_key]['spent'] += abs(transaction.amount)
+                    amount = abs(transaction.amount)
+                    daily_data[date_key]['spent'] += amount
+                    daily_data[date_key]['categories'][transaction.category] += amount
+                    daily_data[date_key]['bank'][transaction.bank.title()] += amount
+                    # Get necessity and recurrence from transaction (can be enum or string)
+                    necessity = getattr(transaction, 'necessity', None)
+                    if necessity:
+                        nec_val = necessity.value if hasattr(necessity, 'value') else necessity
+                        daily_data[date_key]['necessity'][nec_val] += amount
+                    recurrence = getattr(transaction, 'recurrence', None)
+                    if recurrence:
+                        rec_val = recurrence.value if hasattr(recurrence, 'value') else recurrence
+                        daily_data[date_key]['recurrence'][rec_val] += amount
                 else:
                     daily_data[date_key]['income'] += transaction.amount
                 
@@ -314,10 +366,14 @@ class TransactionCategorizer:
                 result[date_key] = {
                     'spent': round(daily_data[date_key]['spent'], 2),
                     'income': round(daily_data[date_key]['income'], 2),
-                    'transactions': daily_data[date_key]['transactions']
+                    'transactions': daily_data[date_key]['transactions'],
+                    'categories': {k: round(v, 2) for k, v in daily_data[date_key]['categories'].items()},
+                    'necessity': {k: round(v, 2) for k, v in daily_data[date_key]['necessity'].items()},
+                    'recurrence': {k: round(v, 2) for k, v in daily_data[date_key]['recurrence'].items()},
+                    'bank': {k: round(v, 2) for k, v in daily_data[date_key]['bank'].items()}
                 }
             else:
-                result[date_key] = {'spent': 0, 'income': 0, 'transactions': 0}
+                result[date_key] = {'spent': 0, 'income': 0, 'transactions': 0, 'categories': {}, 'necessity': {}, 'recurrence': {}, 'bank': {}}
             current_date += timedelta(days=1)
         
         return result
