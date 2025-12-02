@@ -11,6 +11,7 @@ from backend.sheets.sheets_client import SheetsClient
 from backend.analytics.categorizer import TransactionCategorizer
 from backend.analytics.insights import InsightsGenerator
 from backend.analytics.expense_classifier import ExpenseClassifier
+from backend.models.category_rule import rule_engine, CategoryRule
 
 # Initialize Flask app
 app = Flask(__name__, 
@@ -77,6 +78,30 @@ def allowed_file(filename):
     """Check if file extension is allowed."""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in Config.ALLOWED_EXTENSIONS
+
+def is_duplicate_transaction(new_transaction, existing_transactions):
+    """Check if a transaction already exists based on date, description, and amount."""
+    for existing in existing_transactions:
+        # Check if all key fields match
+        if (existing.transaction_date == new_transaction.transaction_date and
+            existing.description == new_transaction.description and
+            abs(existing.amount - new_transaction.amount) < 0.01 and  # Float comparison tolerance
+            existing.bank == new_transaction.bank):
+            return True
+    return False
+
+def filter_duplicates(new_transactions, existing_transactions):
+    """Filter out duplicate transactions and return unique ones with duplicate count."""
+    unique_transactions = []
+    duplicate_count = 0
+    
+    for new_tx in new_transactions:
+        if is_duplicate_transaction(new_tx, existing_transactions):
+            duplicate_count += 1
+        else:
+            unique_transactions.append(new_tx)
+    
+    return unique_transactions, duplicate_count
 
 @app.before_request
 def check_setup():
@@ -175,6 +200,10 @@ def restart_server():
 @app.route('/')
 def index():
     """Home page with interactive dashboard."""
+    # If no transactions exist, redirect to upload page
+    if len(all_transactions) == 0:
+        return redirect(url_for('upload'))
+    
     expense_transactions = [t for t in all_transactions if t.is_expense]
     
     # Get analytics data for the interactive dashboard
@@ -243,14 +272,24 @@ def upload():
                     transactions = DiscoverParser.parse(str(filepath))
                     summary = DiscoverParser.get_summary(transactions)
                 
-                # Add to global storage
-                all_transactions.extend(transactions)
+                # Filter out duplicate transactions
+                unique_transactions, duplicate_count = filter_duplicates(transactions, all_transactions)
                 
-                # Sync to Google Sheets
+                if duplicate_count > 0:
+                    flash(f'Skipped {duplicate_count} duplicate transaction(s).', 'info')
+                
+                # Apply category rules to new transactions
+                rule_engine.apply_to_all(unique_transactions)
+                
+                # Add to global storage
+                all_transactions.extend(unique_transactions)
+                
+                # Sync to Google Sheets (only sync unique/new transactions)
                 try:
                     sheets_client = SheetsClient()
                     if sheets_client.is_connected():
-                        sync_result = sheets_client.sync_transactions(transactions)
+                        if len(unique_transactions) > 0:
+                            sync_result = sheets_client.sync_transactions(unique_transactions)
                         sheets_client.create_monthly_summary(all_transactions)
                         
                         if 'error' in sync_result:
@@ -262,7 +301,10 @@ def upload():
                 except Exception as e:
                     flash(f'Warning: Could not sync to Google Sheets: {str(e)}', 'warning')
                 
-                flash(f'Successfully uploaded {len(transactions)} transactions from {bank.title()}!', 'success')
+                if len(unique_transactions) > 0:
+                    flash(f'Successfully uploaded {len(unique_transactions)} new transaction(s) from {bank.title()}!', 'success')
+                elif duplicate_count > 0:
+                    flash(f'All {duplicate_count} transaction(s) from {bank.title()} were already in the system.', 'info')
                 return redirect(url_for('index'))
                 
             except Exception as e:
@@ -491,12 +533,6 @@ def api_transactions_filter():
         }
     })
 
-@app.route('/transactions')
-def transactions_page():
-    """View all transactions."""
-    return render_template('transactions.html',
-                         transactions=all_transactions)
-
 @app.route('/extra-analytics')
 def extra_analytics_page():
     """Extra detailed analytics page."""
@@ -551,6 +587,281 @@ def extra_analytics_page():
                          budget_health=budget_health,
                          subscriptions=subscriptions,
                          reduction_opportunities=reduction_opportunities)
+
+# =========================================================================
+# CATEGORY RULES API ENDPOINTS
+# =========================================================================
+
+@app.route('/api/category-rules', methods=['GET'])
+def api_get_category_rules():
+    """Get all category rules."""
+    rules = rule_engine.get_all_rules()
+    return jsonify({
+        'rules': [r.to_dict() for r in rules]
+    })
+
+@app.route('/api/category-rules', methods=['POST'])
+def api_create_category_rule():
+    """Create a new category rule."""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    category = data.get('category', '').strip()
+    keywords = data.get('keywords', [])
+    priority = data.get('priority', 0)
+    field = data.get('field', 'category').strip()
+    
+    if not category:
+        return jsonify({'error': 'Category/value is required'}), 400
+    
+    if not keywords or not isinstance(keywords, list) or len(keywords) == 0:
+        return jsonify({'error': 'At least one keyword is required'}), 400
+    
+    # Clean up keywords
+    keywords = [k.strip() for k in keywords if k.strip()]
+    
+    if len(keywords) == 0:
+        return jsonify({'error': 'At least one non-empty keyword is required'}), 400
+    
+    # Validate field
+    allowed_fields = ['category', 'necessity', 'recurrence', 'expense_type', 'budget_category']
+    if field not in allowed_fields:
+        field = 'category'
+    
+    # Create the rule
+    rule = rule_engine.add_rule(category, keywords, priority, field)
+    
+    # Apply rule to all existing transactions
+    updated_count = rule_engine.apply_single_rule(rule, all_transactions)
+    
+    return jsonify({
+        'success': True,
+        'rule': rule.to_dict(),
+        'transactions_updated': updated_count
+    })
+
+@app.route('/api/category-rules/<rule_id>', methods=['PUT'])
+def api_update_category_rule(rule_id):
+    """Update an existing category rule."""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    category = data.get('category')
+    keywords = data.get('keywords')
+    priority = data.get('priority')
+    enabled = data.get('enabled')
+    
+    # Clean up keywords if provided
+    if keywords is not None:
+        keywords = [k.strip() for k in keywords if k.strip()]
+        if len(keywords) == 0:
+            return jsonify({'error': 'At least one non-empty keyword is required'}), 400
+    
+    rule = rule_engine.update_rule(rule_id, category, keywords, priority, enabled)
+    
+    if not rule:
+        return jsonify({'error': 'Rule not found'}), 404
+    
+    # Re-apply all rules to all transactions
+    rule_engine.apply_to_all(all_transactions)
+    
+    return jsonify({
+        'success': True,
+        'rule': rule.to_dict()
+    })
+
+@app.route('/api/category-rules/<rule_id>', methods=['DELETE'])
+def api_delete_category_rule(rule_id):
+    """Delete a category rule."""
+    success = rule_engine.delete_rule(rule_id)
+    
+    if not success:
+        return jsonify({'error': 'Rule not found'}), 404
+    
+    return jsonify({'success': True})
+
+@app.route('/api/category-rules/apply-all', methods=['POST'])
+def api_apply_all_rules():
+    """Re-apply all category rules to all transactions."""
+    updated_count = rule_engine.apply_to_all(all_transactions)
+    return jsonify({
+        'success': True,
+        'transactions_updated': updated_count
+    })
+
+@app.route('/api/category-rules/preview', methods=['POST'])
+def api_preview_rule():
+    """Preview how many transactions a rule would match."""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    keywords = data.get('keywords', [])
+    
+    if not keywords or not isinstance(keywords, list):
+        return jsonify({'matching_count': 0, 'matches': []})
+    
+    # Clean up keywords
+    keywords = [k.strip().lower() for k in keywords if k.strip()]
+    
+    if len(keywords) == 0:
+        return jsonify({'matching_count': 0, 'matches': []})
+    
+    # Find matching transactions
+    matches = []
+    for t in all_transactions:
+        desc_lower = t.description.lower()
+        if all(kw in desc_lower for kw in keywords):
+            matches.append({
+                'description': t.description,
+                'current_category': t.category,
+                'amount': t.amount,
+                'date': t.transaction_date.strftime('%Y-%m-%d')
+            })
+    
+    return jsonify({
+        'matching_count': len(matches),
+        'matches': matches[:20]  # Limit to first 20 for preview
+    })
+
+
+# =========================================================================
+# TRANSACTION CATEGORY UPDATE ENDPOINT
+# =========================================================================
+
+@app.route('/api/transactions/update-category', methods=['POST'])
+def api_update_transaction_category():
+    """Update the category of a specific transaction."""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    description = data.get('description')
+    date = data.get('date')
+    new_category = data.get('category', '').strip()
+    
+    if not description or not date:
+        return jsonify({'error': 'Transaction description and date are required'}), 400
+    
+    if not new_category:
+        return jsonify({'error': 'New category is required'}), 400
+    
+    # Find and update the transaction
+    updated = False
+    for t in all_transactions:
+        if t.description == description and t.transaction_date.strftime('%Y-%m-%d') == date:
+            t.category = new_category
+            updated = True
+            break
+    
+    if not updated:
+        return jsonify({'error': 'Transaction not found'}), 404
+    
+    return jsonify({'success': True, 'new_category': new_category})
+
+
+@app.route('/api/transactions/update-field', methods=['POST'])
+def api_update_transaction_field():
+    """Update any field of a specific transaction."""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    description = data.get('description')
+    date = data.get('date')
+    field = data.get('field', '').strip()
+    value = data.get('value', '').strip()
+    
+    if not description or not date:
+        return jsonify({'error': 'Transaction description and date are required'}), 400
+    
+    if not field:
+        return jsonify({'error': 'Field name is required'}), 400
+    
+    # Allowed fields to update
+    allowed_fields = ['category', 'necessity', 'recurrence', 'expense_type', 'budget_category']
+    
+    if field not in allowed_fields:
+        return jsonify({'error': f'Field "{field}" is not editable'}), 400
+    
+    # Find and update the transaction
+    updated = False
+    updated_fields = {field: value}
+    
+    for t in all_transactions:
+        if t.description == description and t.transaction_date.strftime('%Y-%m-%d') == date:
+            setattr(t, field, value)
+            
+            # Special handling for Income: when setting to Income, update both necessity and recurrence
+            if value == 'Income':
+                if field == 'necessity':
+                    t.recurrence = 'Income'
+                    updated_fields['recurrence'] = 'Income'
+                elif field == 'recurrence':
+                    t.necessity = 'Income'
+                    updated_fields['necessity'] = 'Income'
+            # When changing away from Income, reset the other field if it was Income
+            elif field in ['necessity', 'recurrence']:
+                if field == 'necessity' and t.recurrence == 'Income':
+                    t.recurrence = 'One-time'
+                    updated_fields['recurrence'] = 'One-time'
+                elif field == 'recurrence' and t.necessity == 'Income':
+                    t.necessity = 'Unknown'
+                    updated_fields['necessity'] = 'Unknown'
+            
+            updated = True
+            break
+    
+    if not updated:
+        return jsonify({'error': 'Transaction not found'}), 404
+    
+    return jsonify({'success': True, 'field': field, 'value': value, 'updated_fields': updated_fields})
+
+
+# =========================================================================
+# GOOGLE SHEETS SYNC ENDPOINT
+# =========================================================================
+
+@app.route('/api/sync-to-sheets', methods=['POST'])
+def api_sync_to_sheets():
+    """Manually sync all transactions to Google Sheets."""
+    if len(all_transactions) == 0:
+        return jsonify({'success': False, 'error': 'No transactions to sync'})
+    
+    try:
+        sheets_client = SheetsClient()
+        
+        if not sheets_client.is_connected():
+            return jsonify({
+                'success': False, 
+                'error': 'Google Sheets not configured. Please complete setup first.'
+            })
+        
+        # Clear and re-sync all transactions
+        sync_result = sheets_client.sync_transactions(all_transactions, clear_first=True)
+        
+        # Also update the monthly summary
+        sheets_client.create_monthly_summary(all_transactions)
+        
+        if 'error' in sync_result:
+            return jsonify({'success': False, 'error': sync_result['error']})
+        
+        return jsonify({
+            'success': True,
+            'synced_count': sync_result.get('synced_count', len(all_transactions)),
+            'message': f'Successfully synced {sync_result.get("synced_count", len(all_transactions))} transactions to Google Sheets'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 
 if __name__ == '__main__':
     app.run(

@@ -17,8 +17,17 @@
             <ul class="nav-menu">
                 <li><a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">Dashboard</a></li>
                 <li><a href="{{ url_for('upload') }}" class="{% if request.endpoint == 'upload' %}active{% endif %}">Upload</a></li>
-                <li><a href="{{ url_for('transactions_page') }}" class="{% if request.endpoint == 'transactions_page' %}active{% endif %}">Transactions</a></li>
                 <li><a href="{{ url_for('extra_analytics_page') }}" class="{% if request.endpoint == 'extra_analytics_page' %}active{% endif %}">Extra Analytics</a></li>
+                <li>
+                    <button class="sync-btn" id="syncBtn" onclick="syncToGoogleSheets()" title="Sync to Google Sheets">
+                        <svg class="sync-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 2v6h-6"></path>
+                            <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+                            <path d="M3 22v-6h6"></path>
+                            <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+                        </svg>
+                    </button>
+                </li>
             </ul>
         </div>
     </nav>
@@ -47,34 +56,110 @@
     </footer>
 
     <script>
-        // Navbar hide on scroll
+        // Track sync state
+        window.isSyncedToSheets = true; // Assume synced initially
+        window.hasUnsyncedData = false;
+        
+        // Auto-fade alerts after delay
         (function() {
-            let lastScrollY = window.scrollY;
-            let ticking = false;
-            const navbar = document.getElementById('navbar');
-            
-            function updateNavbar() {
-                const currentScrollY = window.scrollY;
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach((alert, index) => {
+                // Stagger the fade timing for multiple alerts
+                const delay = 4000 + (index * 500); // 4 seconds + stagger
                 
-                if (currentScrollY > lastScrollY && currentScrollY > 80) {
-                    // Scrolling down - hide navbar
-                    navbar.classList.add('navbar-hidden');
-                } else {
-                    // Scrolling up - show navbar
-                    navbar.classList.remove('navbar-hidden');
-                }
-                
-                lastScrollY = currentScrollY;
-                ticking = false;
-            }
-            
-            window.addEventListener('scroll', function() {
-                if (!ticking) {
-                    requestAnimationFrame(updateNavbar);
-                    ticking = true;
-                }
+                setTimeout(() => {
+                    alert.classList.add('fade-out');
+                    // Remove from DOM after animation completes
+                    setTimeout(() => {
+                        if (alert.parentElement) {
+                            alert.remove();
+                        }
+                    }, 800);
+                }, delay);
             });
         })();
+        
+        // Sync to Google Sheets function
+        async function syncToGoogleSheets() {
+            const btn = document.getElementById('syncBtn');
+            
+            if (btn.classList.contains('syncing')) return;
+            
+            btn.classList.add('syncing');
+            btn.classList.remove('synced');
+            btn.title = 'Syncing...';
+            
+            try {
+                const response = await fetch('/api/sync-to-sheets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    btn.classList.remove('syncing');
+                    btn.classList.add('synced');
+                    btn.title = 'Synced to Google Sheets!';
+                    window.isSyncedToSheets = true;
+                    window.hasUnsyncedData = false;
+                    
+                    // Reset button after 3 seconds
+                    setTimeout(() => {
+                        btn.classList.remove('synced');
+                        btn.title = 'Sync to Google Sheets';
+                    }, 3000);
+                } else {
+                    throw new Error(data.error || 'Sync failed');
+                }
+            } catch (error) {
+                btn.classList.remove('syncing');
+                btn.title = 'Sync failed - click to retry';
+                console.error('Sync error:', error);
+                
+                // Show error alert
+                const container = document.querySelector('.main-content .container');
+                if (container) {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-error';
+                    alertDiv.innerHTML = `
+                        Sync failed: ${error.message}
+                        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+                    `;
+                    container.insertBefore(alertDiv, container.firstChild);
+                    
+                    // Auto-fade the error alert
+                    setTimeout(() => {
+                        alertDiv.classList.add('fade-out');
+                        setTimeout(() => alertDiv.remove(), 800);
+                    }, 5000);
+                }
+                
+                // Reset button title after 3 seconds
+                setTimeout(() => {
+                    btn.title = 'Sync to Google Sheets';
+                }, 3000);
+            }
+        }
+        
+        // Mark data as unsynced when changes occur (called from other scripts)
+        function markAsUnsynced() {
+            window.isSyncedToSheets = false;
+            window.hasUnsyncedData = true;
+            const btn = document.getElementById('syncBtn');
+            if (btn) {
+                btn.classList.remove('synced');
+            }
+        }
+        
+        // Warn before leaving if data hasn't been synced
+        window.addEventListener('beforeunload', function(e) {
+            if (window.hasUnsyncedData && !window.isSyncedToSheets) {
+                const message = 'You have unsynced data. Are you sure you want to leave?';
+                e.returnValue = message;
+                return message;
+            }
+        });
     </script>
     {% block extra_js %}{% endblock %}
 </body>

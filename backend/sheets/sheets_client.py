@@ -51,12 +51,13 @@ class SheetsClient:
         
         return worksheet
     
-    def sync_transactions(self, transactions: List[Transaction]) -> dict:
+    def sync_transactions(self, transactions: List[Transaction], clear_first: bool = False) -> dict:
         """
         Sync transactions to Google Sheets.
         
         Args:
             transactions: List of Transaction objects
+            clear_first: If True, clear sheets before syncing (full re-sync)
             
         Returns:
             Dictionary with sync results
@@ -85,20 +86,30 @@ class SheetsClient:
             # Sync to "All Transactions" sheet
             all_transactions_sheet = self._get_or_create_worksheet('All Transactions', headers)
             
-            # Get existing data to avoid duplicates
-            existing_data = all_transactions_sheet.get_all_values()
-            existing_rows = set(tuple(row) for row in existing_data[1:])  # Skip header
-            
-            # Prepare new rows
-            new_rows = []
-            for transaction in transactions:
-                row = [str(val) for val in transaction.to_sheet_row()]
-                if tuple(row) not in existing_rows:
-                    new_rows.append(row)
-            
-            # Append new rows
-            if new_rows:
-                all_transactions_sheet.append_rows(new_rows)
+            if clear_first:
+                # Clear and re-sync all data
+                all_transactions_sheet.clear()
+                all_transactions_sheet.append_row(headers)
+                new_rows = [[str(val) for val in t.to_sheet_row()] for t in transactions]
+                if new_rows:
+                    all_transactions_sheet.append_rows(new_rows)
+                synced_count = len(new_rows)
+            else:
+                # Incremental sync - avoid duplicates
+                existing_data = all_transactions_sheet.get_all_values()
+                existing_rows = set(tuple(row) for row in existing_data[1:])  # Skip header
+                
+                # Prepare new rows
+                new_rows = []
+                for transaction in transactions:
+                    row = [str(val) for val in transaction.to_sheet_row()]
+                    if tuple(row) not in existing_rows:
+                        new_rows.append(row)
+                
+                # Append new rows
+                if new_rows:
+                    all_transactions_sheet.append_rows(new_rows)
+                synced_count = len(new_rows)
             
             # Sync by bank
             chase_transactions = [t for t in transactions if t.bank == 'chase']
@@ -106,19 +117,27 @@ class SheetsClient:
             
             if chase_transactions:
                 chase_sheet = self._get_or_create_worksheet('Chase', headers)
+                if clear_first:
+                    chase_sheet.clear()
+                    chase_sheet.append_row(headers)
                 chase_rows = [[str(val) for val in t.to_sheet_row()] for t in chase_transactions]
-                chase_sheet.append_rows(chase_rows)
+                if chase_rows:
+                    chase_sheet.append_rows(chase_rows)
             
             if discover_transactions:
                 discover_sheet = self._get_or_create_worksheet('Discover', headers)
+                if clear_first:
+                    discover_sheet.clear()
+                    discover_sheet.append_row(headers)
                 discover_rows = [[str(val) for val in t.to_sheet_row()] for t in discover_transactions]
-                discover_sheet.append_rows(discover_rows)
+                if discover_rows:
+                    discover_sheet.append_rows(discover_rows)
             
             return {
                 'success': True,
-                'synced_count': len(new_rows),
+                'synced_count': synced_count,
                 'total_count': len(transactions),
-                'duplicate_count': len(transactions) - len(new_rows)
+                'duplicate_count': len(transactions) - synced_count if not clear_first else 0
             }
             
         except Exception as e:

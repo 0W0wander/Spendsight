@@ -121,12 +121,116 @@
         display: flex;
         align-items: center;
         gap: 0.25rem;
+        position: relative;
     }
     
     .line-chart-container { position: relative; height: 180px; }
     .pie-chart-container { position: relative; height: 180px; }
     
     .chart-card canvas { cursor: pointer; }
+    
+    /* Breakdown Selector in Title */
+    .breakdown-selector {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        color: var(--primary-color);
+        cursor: pointer;
+        padding: 0.1rem 0.3rem;
+        border-radius: 4px;
+        transition: var(--transition);
+    }
+    
+    .breakdown-selector:hover {
+        background: rgba(99, 102, 241, 0.1);
+    }
+    
+    .dropdown-arrow {
+        font-size: 0.6rem;
+        opacity: 0.7;
+    }
+    
+    .breakdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        min-width: 130px;
+        z-index: 100;
+        display: none;
+        overflow: hidden;
+    }
+    
+    .breakdown-menu.show {
+        display: block;
+    }
+    
+    .breakdown-option {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.7rem;
+        font-weight: 400;
+        color: var(--text-primary);
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .breakdown-option:hover {
+        background: var(--bg-tertiary);
+    }
+    
+    .breakdown-option.selected {
+        background: var(--primary-color);
+        color: white;
+    }
+    
+    /* Period label in chart title */
+    .chart-period-label {
+        font-size: 0.65rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        background: var(--bg-tertiary);
+        padding: 0.1rem 0.4rem;
+        border-radius: 4px;
+        margin-left: 0.35rem;
+    }
+    
+    /* Period navigation arrows */
+    .period-nav {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.15rem;
+        margin-left: 0.25rem;
+    }
+    
+    .period-nav-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        background: rgba(139, 92, 246, 0.15);
+        border: none;
+        border-radius: 3px;
+        color: var(--secondary-color);
+        cursor: pointer;
+        font-size: 0.65rem;
+        transition: var(--transition);
+        opacity: 0.7;
+    }
+    
+    .period-nav-btn:hover {
+        background: rgba(139, 92, 246, 0.3);
+        opacity: 1;
+    }
+    
+    .period-nav-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
     
     /* Transactions Section - Compact */
     .transactions-section {
@@ -180,7 +284,7 @@
     
     /* Transactions List - Compact */
     .transactions-list {
-        max-height: 320px;
+        max-height: 450px;
         overflow-y: auto;
     }
     
@@ -218,6 +322,32 @@
         color: var(--text-secondary);
     }
     
+    .add-tag-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        border-radius: 3px;
+        font-size: 0.7rem;
+        font-weight: 500;
+        color: var(--text-light);
+        background: transparent;
+        cursor: pointer;
+        transition: var(--transition);
+        opacity: 0.4;
+    }
+    
+    .transaction-item:hover .add-tag-btn {
+        opacity: 0.7;
+    }
+    
+    .add-tag-btn:hover {
+        opacity: 1 !important;
+        background: var(--primary-color);
+        color: white;
+    }
+    
     .transaction-category {
         padding: 0.05rem 0.25rem;
         border-radius: 2px;
@@ -226,6 +356,638 @@
         background: var(--bg-tertiary);
         color: var(--text-primary);
         white-space: nowrap;
+        cursor: pointer;
+        transition: var(--transition);
+        position: relative;
+    }
+    
+    .transaction-category:hover {
+        background: var(--primary-light);
+        color: white;
+    }
+    
+    .transaction-category.editing {
+        background: var(--primary-color);
+        color: white;
+    }
+    
+    /* Category edit dropdown */
+    .category-edit-wrapper {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.15rem;
+    }
+    
+    .category-dropdown {
+        position: fixed;
+        z-index: 1000;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        padding: 0.5rem;
+        max-height: 420px;
+        overflow-y: auto;
+        display: none;
+    }
+    
+    .category-dropdown.show {
+        display: block;
+    }
+    
+    .category-dropdown.wide {
+        width: 520px;
+    }
+    
+    .category-dropdown.narrow {
+        width: 300px;
+    }
+    
+    .dropdown-columns {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .dropdown-column {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .dropdown-column.rule-column {
+        flex: 1.1;
+        border-right: 1px solid var(--border-color);
+        padding-right: 0.5rem;
+    }
+    
+    .dropdown-column.options-column {
+        flex: 0.9;
+    }
+    
+    .dropdown-section {
+        margin-bottom: 0.5rem;
+    }
+    
+    .dropdown-section:last-child {
+        margin-bottom: 0;
+    }
+    
+    .dropdown-section-title {
+        font-size: 0.6rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.25rem;
+        padding-left: 0.1rem;
+    }
+    
+    .category-dropdown .input-with-autocomplete {
+        position: relative;
+    }
+    
+    .category-dropdown input {
+        width: 100%;
+        padding: 0.35rem 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+    
+    .category-dropdown input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+    }
+    
+    .category-options {
+        max-height: 120px;
+        overflow-y: auto;
+        margin-top: 0.25rem;
+    }
+    
+    .category-option {
+        padding: 0.3rem 0.4rem;
+        font-size: 0.7rem;
+        cursor: pointer;
+        border-radius: 3px;
+        transition: var(--transition);
+    }
+    
+    .category-option:hover {
+        background: var(--bg-tertiary);
+    }
+    
+    .category-option.selected {
+        background: var(--primary-color);
+        color: white;
+    }
+    
+    .dropdown-divider {
+        height: 1px;
+        background: var(--border-color);
+        margin: 0.5rem 0;
+    }
+    
+    /* Inline rule creation in dropdown */
+    .inline-rule-form {
+        background: var(--bg-secondary);
+        border-radius: 6px;
+        padding: 0.5rem;
+    }
+    
+    .inline-rule-form .rule-form-group {
+        margin-bottom: 0.4rem;
+    }
+    
+    .inline-rule-form .rule-form-group:last-of-type {
+        margin-bottom: 0;
+    }
+    
+    .inline-rule-form label {
+        display: block;
+        font-size: 0.62rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        margin-bottom: 0.15rem;
+    }
+    
+    .inline-keywords-wrapper {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.2rem;
+        padding: 0.3rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background: white;
+        min-height: 32px;
+        cursor: text;
+    }
+    
+    .inline-keywords-wrapper:focus-within {
+        border-color: var(--primary-color);
+    }
+    
+    .inline-keyword-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.15rem;
+        padding: 0.1rem 0.3rem;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 3px;
+        font-size: 0.62rem;
+        font-weight: 500;
+    }
+    
+    .inline-keyword-tag .remove {
+        cursor: pointer;
+        opacity: 0.7;
+        font-size: 0.75rem;
+    }
+    
+    .inline-keyword-tag .remove:hover {
+        opacity: 1;
+    }
+    
+    .inline-keyword-input {
+        border: none !important;
+        outline: none !important;
+        padding: 0.1rem !important;
+        font-size: 0.68rem !important;
+        flex: 1;
+        min-width: 60px;
+        background: transparent !important;
+    }
+    
+    .inline-and-connector {
+        font-size: 0.55rem;
+        color: var(--accent-color);
+        font-weight: 600;
+    }
+    
+    .inline-rule-actions {
+        display: flex;
+        gap: 0.25rem;
+        margin-top: 0.4rem;
+    }
+    
+    .inline-rule-actions button {
+        flex: 1;
+        padding: 0.3rem 0.4rem;
+        font-size: 0.68rem;
+        font-weight: 500;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .btn-save-inline-rule {
+        background: var(--success-color);
+        color: white;
+    }
+    
+    .btn-save-inline-rule:hover {
+        background: #059669;
+    }
+    
+    .inline-preview {
+        font-size: 0.62rem;
+        color: var(--text-secondary);
+        margin-top: 0.3rem;
+        padding: 0.25rem;
+        background: var(--bg-tertiary);
+        border-radius: 3px;
+    }
+    
+    .inline-preview strong {
+        color: var(--primary-color);
+    }
+    
+    /* Rules Panel */
+    .rules-panel {
+        position: fixed;
+        top: 0;
+        right: -450px;
+        width: 450px;
+        height: 100vh;
+        background: var(--bg-primary);
+        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+        transition: right 0.3s ease;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .rules-panel.open {
+        right: 0;
+    }
+    
+    .rules-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border-color);
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+    }
+    
+    .rules-panel-header h3 {
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    
+    .rules-panel-close {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        width: 28px;
+        height: 28px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: var(--transition);
+    }
+    
+    .rules-panel-close:hover {
+        background: rgba(255,255,255,0.3);
+    }
+    
+    .rules-panel-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+    }
+    
+    /* Rule Form */
+    .rule-form {
+        background: var(--bg-secondary);
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    
+    .rule-form h4 {
+        font-size: 0.8rem;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+    }
+    
+    .rule-form-group {
+        margin-bottom: 0.5rem;
+    }
+    
+    .rule-form-group label {
+        display: block;
+        font-size: 0.7rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        margin-bottom: 0.2rem;
+    }
+    
+    .rule-form-group input {
+        width: 100%;
+        padding: 0.4rem 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+    
+    .rule-form-group input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+    }
+    
+    .keywords-input-wrapper {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        padding: 0.35rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background: white;
+        min-height: 36px;
+        cursor: text;
+    }
+    
+    .keywords-input-wrapper:focus-within {
+        border-color: var(--primary-color);
+    }
+    
+    .keyword-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        padding: 0.15rem 0.35rem;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 3px;
+        font-size: 0.68rem;
+        font-weight: 500;
+    }
+    
+    .keyword-tag .remove {
+        cursor: pointer;
+        opacity: 0.7;
+        font-size: 0.8rem;
+    }
+    
+    .keyword-tag .remove:hover {
+        opacity: 1;
+    }
+    
+    .keyword-input {
+        border: none !important;
+        outline: none !important;
+        padding: 0.15rem !important;
+        font-size: 0.7rem !important;
+        flex: 1;
+        min-width: 80px;
+        background: transparent !important;
+    }
+    
+    .and-connector {
+        font-size: 0.6rem;
+        color: var(--accent-color);
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .rule-form-hint {
+        font-size: 0.65rem;
+        color: var(--text-secondary);
+        margin-top: 0.15rem;
+    }
+    
+    .preview-section {
+        background: var(--bg-tertiary);
+        border-radius: 6px;
+        padding: 0.5rem;
+        margin-top: 0.5rem;
+        font-size: 0.7rem;
+    }
+    
+    .preview-count {
+        color: var(--primary-color);
+        font-weight: 600;
+    }
+    
+    .preview-matches {
+        max-height: 100px;
+        overflow-y: auto;
+        margin-top: 0.3rem;
+    }
+    
+    .preview-match {
+        padding: 0.2rem 0;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 0.65rem;
+        color: var(--text-secondary);
+    }
+    
+    .rule-form-actions {
+        display: flex;
+        gap: 0.35rem;
+        margin-top: 0.5rem;
+    }
+    
+    .rule-form-actions button {
+        flex: 1;
+        padding: 0.4rem 0.6rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .btn-save-rule {
+        background: var(--success-color);
+        color: white;
+    }
+    
+    .btn-save-rule:hover {
+        background: #059669;
+    }
+    
+    .btn-cancel {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+    
+    .btn-cancel:hover {
+        background: var(--border-color);
+    }
+    
+    /* Rule List */
+    .rules-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .rule-item {
+        background: var(--bg-secondary);
+        border-radius: 6px;
+        padding: 0.6rem 0.75rem;
+        border-left: 3px solid var(--primary-color);
+    }
+    
+    .rule-item.disabled {
+        opacity: 0.5;
+        border-left-color: var(--text-light);
+    }
+    
+    .rule-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.3rem;
+    }
+    
+    .rule-category {
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: var(--primary-color);
+    }
+    
+    .rule-actions {
+        display: flex;
+        gap: 0.25rem;
+    }
+    
+    .rule-actions button {
+        padding: 0.15rem 0.35rem;
+        border: none;
+        border-radius: 3px;
+        font-size: 0.65rem;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .btn-edit-rule {
+        background: var(--info-color);
+        color: white;
+    }
+    
+    .btn-delete-rule {
+        background: var(--danger-color);
+        color: white;
+    }
+    
+    .btn-toggle-rule {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+    
+    .rule-keywords {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.2rem;
+        align-items: center;
+        font-size: 0.7rem;
+    }
+    
+    .rule-keyword {
+        background: var(--bg-tertiary);
+        padding: 0.1rem 0.3rem;
+        border-radius: 3px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.68rem;
+    }
+    
+    .rules-toggle-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        color: var(--primary-color);
+        cursor: pointer;
+        padding: 0.1rem 0.3rem;
+        border-radius: 4px;
+        transition: var(--transition);
+        background: transparent;
+        border: none;
+        font-size: 0.7rem;
+        font-weight: 500;
+    }
+    
+    .rules-toggle-btn:hover {
+        background: rgba(99, 102, 241, 0.1);
+    }
+    
+    .rules-badge {
+        background: var(--primary-color);
+        color: white;
+        padding: 0.05rem 0.3rem;
+        border-radius: 8px;
+        font-size: 0.6rem;
+        margin-left: 0.15rem;
+    }
+    
+    /* Category autocomplete */
+    .autocomplete-list {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-top: none;
+        border-radius: 0 0 4px 4px;
+        max-height: 150px;
+        overflow-y: auto;
+        z-index: 10;
+        box-shadow: var(--shadow-md);
+        display: none;
+    }
+    
+    .autocomplete-list.show {
+        display: block;
+    }
+    
+    .autocomplete-item {
+        padding: 0.35rem 0.5rem;
+        font-size: 0.7rem;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .autocomplete-item:hover, .autocomplete-item.selected {
+        background: var(--bg-tertiary);
+    }
+    
+    .autocomplete-item .match {
+        background: rgba(99, 102, 241, 0.2);
+        color: var(--primary-color);
+        font-weight: 600;
+    }
+    
+    .input-with-autocomplete {
+        position: relative;
+    }
+    
+    /* Panel overlay */
+    .panel-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.3);
+        z-index: 999;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .panel-overlay.show {
+        opacity: 1;
+        visibility: visible;
     }
     
     .transaction-amount {
@@ -272,6 +1034,13 @@
         border-radius: 2px;
         font-size: 0.55rem;
         font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .mini-badge:hover {
+        opacity: 0.8;
+        transform: scale(1.05);
     }
     
     .mini-badge.needs { background: #dbeafe; color: #1d4ed8; }
@@ -279,7 +1048,7 @@
     .mini-badge.savings { background: #dcfce7; color: #15803d; }
     .mini-badge.subscription { background: #f3e8ff; color: #7c3aed; }
     .mini-badge.recurring { background: #ccfbf1; color: #0f766e; }
-    .mini-badge.one-time { background: #f1f5f9; color: #64748b; }
+    .mini-badge.one-time, .mini-badge.onetime { background: #f1f5f9; color: #64748b; }
     .mini-badge.income { background: #dcfce7; color: #15803d; }
     
     /* Responsive */
@@ -297,30 +1066,83 @@
 {% endblock %}
 
 {% block content %}
+<!-- Panel Overlay -->
+<div class="panel-overlay" id="panelOverlay" onclick="closeRulesPanel()"></div>
+
+<!-- Rules Panel -->
+<div class="rules-panel" id="rulesPanel">
+    <div class="rules-panel-header">
+        <h3>🏷️ Category Rules</h3>
+        <button class="rules-panel-close" onclick="closeRulesPanel()">✕</button>
+    </div>
+    <div class="rules-panel-body">
+        <!-- Create New Rule Form -->
+        <div class="rule-form" id="ruleForm">
+            <h4>➕ Create New Rule</h4>
+            <div class="rule-form-group">
+                <label>Category (tag to assign)</label>
+                <div class="input-with-autocomplete">
+                    <input type="text" id="ruleCategory" placeholder="e.g., Groceries, Bills, Entertainment" autocomplete="off">
+                    <div class="autocomplete-list" id="ruleCategoryAutocomplete"></div>
+                </div>
+            </div>
+            <div class="rule-form-group">
+                <label>Keywords (ALL must match)</label>
+                <div class="keywords-input-wrapper" id="keywordsWrapper" onclick="document.getElementById('keywordInput').focus()">
+                    <input type="text" class="keyword-input" id="keywordInput" placeholder="Type and press Enter...">
+                </div>
+                <div class="rule-form-hint">
+                    Press Enter to add each keyword. All keywords must be in the description (AND logic). Case doesn't matter.
+                </div>
+            </div>
+            <div class="preview-section" id="previewSection" style="display: none;">
+                <span class="preview-count" id="previewCount">0</span> transactions will be tagged
+                <div class="preview-matches" id="previewMatches"></div>
+            </div>
+            <div class="rule-form-actions">
+                <button class="btn-cancel" onclick="resetRuleForm()">Clear</button>
+                <button class="btn-save-rule" onclick="saveRule()">Save Rule</button>
+            </div>
+        </div>
+        
+        <!-- Existing Rules List -->
+        <h4 style="margin-bottom: 0.5rem; font-size: 0.8rem;">📋 Existing Rules</h4>
+        <div class="rules-list" id="rulesList">
+            <div style="color: var(--text-secondary); font-size: 0.75rem; text-align: center; padding: 1rem;">
+                Loading rules...
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="dashboard">
     {% if statistics and statistics.count > 0 %}
     
     <!-- Unified Control Bar -->
     <div class="control-bar">
         <div class="control-group">
-            <span class="control-label">Period:</span>
+            <span class="control-label">View:</span>
             <div class="time-toggle">
-                <button data-period="week" class="active">Week</button>
-                <button data-period="month">Month</button>
-                <button data-period="year">Year</button>
+                <button data-period="days" class="active">Days</button>
+                <button data-period="weeks">Weeks</button>
+                <button data-period="months">Months</button>
+                <button data-period="years">Years</button>
+            </div>
+            <div class="period-nav">
+                <button class="period-nav-btn" id="periodPrev" onclick="navigatePeriod(-1)" title="Previous">◀</button>
+                <button class="period-nav-btn" id="periodNext" onclick="navigatePeriod(1)" title="Next">▶</button>
             </div>
         </div>
         
         <div class="divider"></div>
         
         <div class="control-group">
-            <span class="control-label">Breakdown:</span>
-            <select class="filter-select" id="pieFilterType">
-                <option value="category">Category</option>
-                <option value="necessity">Needs/Wants</option>
-                <option value="recurrence">Recurrence</option>
-                <option value="day_of_week">Day of Week</option>
-                <option value="bank">Bank</option>
+            <span class="control-label">Sort:</span>
+            <select class="filter-select" id="sortOrder" onchange="applySorting()">
+                <option value="date-desc">Date (Newest)</option>
+                <option value="date-asc">Date (Oldest)</option>
+                <option value="amount-desc">Amount (High→Low)</option>
+                <option value="amount-asc">Amount (Low→High)</option>
             </select>
         </div>
         
@@ -335,14 +1157,27 @@
     <!-- Charts Row -->
     <div class="charts-container">
         <div class="chart-card">
-            <h3 class="chart-title">📈 Spending Over Time</h3>
+            <h3 class="chart-title">📈 Spending Over Time <span class="chart-period-label" id="chartPeriodLabel"></span></h3>
             <div class="line-chart-container">
                 <canvas id="spendingLineChart"></canvas>
             </div>
         </div>
         
         <div class="chart-card">
-            <h3 class="chart-title">🥧 Breakdown</h3>
+            <h3 class="chart-title">
+                🥧 Breakdown: 
+                <span class="breakdown-selector" id="breakdownSelector" onclick="toggleBreakdownMenu(event)">
+                    <span id="breakdownLabel">Category</span>
+                    <span class="dropdown-arrow">▾</span>
+                </span>
+                <div class="breakdown-menu" id="breakdownMenu">
+                    <div class="breakdown-option" data-value="category" onclick="selectBreakdown('category', 'Category', event)">Category</div>
+                    <div class="breakdown-option" data-value="necessity" onclick="selectBreakdown('necessity', 'Needs/Wants', event)">Needs/Wants</div>
+                    <div class="breakdown-option" data-value="recurrence" onclick="selectBreakdown('recurrence', 'Recurrence', event)">Recurrence</div>
+                    <div class="breakdown-option" data-value="day_of_week" onclick="selectBreakdown('day_of_week', 'Day of Week', event)">Day of Week</div>
+                    <div class="breakdown-option" data-value="bank" onclick="selectBreakdown('bank', 'Bank', event)">Bank</div>
+                </div>
+            </h3>
             <div class="pie-chart-container">
                 <canvas id="spendingPieChart"></canvas>
             </div>
@@ -362,6 +1197,9 @@
                     <span class="label">Total:</span>
                     <span class="value expense" id="summarySpent">${{ "%.2f"|format(statistics.total) }}</span>
                 </div>
+                <button class="rules-toggle-btn" onclick="toggleRulesPanel()">
+                    🏷️ Rules <span class="rules-badge" id="rulesCount">0</span>
+                </button>
             </div>
         </div>
         <div class="transactions-list" id="transactionsList">
@@ -393,11 +1231,14 @@
     const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6'];
     const categoryColors = {{ category_colors|tojson|safe if category_colors else '{}' }};
     
-    let currentPeriod = 'week';
+    let currentPeriod = 'days';
     let currentPieFilter = 'category';
+    let currentSort = 'date-desc';
     let lineChart = null;
+    let periodOffset = 0; // For navigation: 0 = current, -1 = previous, 1 = next, etc.
     let pieChart = null;
     let allTransactions = [];
+    let displayedTransactions = [];
     
     const monthlyTrends = {{ monthly_trends|tojson|safe if monthly_trends else '{}' }};
     const weeklySpending = {{ weekly_spending|tojson|safe if weekly_spending else '{}' }};
@@ -417,17 +1258,56 @@
                 document.querySelectorAll('.time-toggle button').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 currentPeriod = this.dataset.period;
+                periodOffset = 0; // Reset to current period when switching views
                 updateLineChart();
                 clearAllFilters();
             });
         });
         
-        document.getElementById('pieFilterType').addEventListener('change', function() {
-            currentPieFilter = this.value;
+        // Close breakdown menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('breakdownMenu');
+            const selector = document.getElementById('breakdownSelector');
+            if (menu && selector && !selector.contains(e.target) && !menu.contains(e.target)) {
+                menu.classList.remove('show');
+            }
+        });
+        
+        // Mark initial selected option
+        updateBreakdownSelection();
+    });
+    
+    function navigatePeriod(direction) {
+        periodOffset += direction;
+        updateLineChart();
+        clearAllFilters();
+    }
+    
+    function toggleBreakdownMenu(event) {
+        if (event) {
+            event.stopPropagation();
+        }
+        const menu = document.getElementById('breakdownMenu');
+        menu.classList.toggle('show');
+    }
+    
+    function selectBreakdown(value, label, event) {
+        if (event) {
+            event.stopPropagation();
+        }
+        currentPieFilter = value;
+        document.getElementById('breakdownLabel').textContent = label;
+        document.getElementById('breakdownMenu').classList.remove('show');
+        updateBreakdownSelection();
             updatePieChart();
             clearAllFilters();
+    }
+    
+    function updateBreakdownSelection() {
+        document.querySelectorAll('.breakdown-option').forEach(opt => {
+            opt.classList.toggle('selected', opt.dataset.value === currentPieFilter);
         });
-    });
+    }
     
     function initLineChart() {
         const ctx = document.getElementById('spendingLineChart').getContext('2d');
@@ -479,34 +1359,143 @@
     
     function updateLineChart() {
         let labels = [], data = [], periodData = {};
+        const periodLabel = document.getElementById('chartPeriodLabel');
+        const prevBtn = document.getElementById('periodPrev');
+        const nextBtn = document.getElementById('periodNext');
         
-        if (currentPeriod === 'week') {
-            // Get all dates and filter to last 7 days that have data
+        if (currentPeriod === 'days') {
+            // Show individual days of a week
             const allDates = Object.keys(dailySpending).sort();
-            const recentDates = allDates.slice(-7);
-            recentDates.forEach(date => {
+            
+            // Group dates by week (Sunday to Saturday)
+            const weeks = [];
+            let currentWeek = [];
+            allDates.forEach(date => {
+                const d = new Date(date + 'T12:00:00');
+                if (currentWeek.length === 0 || d.getDay() === 0) {
+                    if (currentWeek.length > 0) weeks.push(currentWeek);
+                    currentWeek = [date];
+                } else {
+                    currentWeek.push(date);
+                }
+            });
+            if (currentWeek.length > 0) weeks.push(currentWeek);
+            
+            // Get the week based on offset
+            const weekIndex = Math.max(0, Math.min(weeks.length - 1 + periodOffset, weeks.length - 1));
+            const selectedWeek = weeks[weekIndex] || allDates.slice(-7);
+            
+            selectedWeek.forEach(date => {
                 const d = new Date(date + 'T12:00:00');
                 const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
                 labels.push(label);
                 data.push(dailySpending[date]?.spent || 0);
                 periodData[label] = { type: 'day', value: date, display: label };
             });
-        } else if (currentPeriod === 'month') {
-            const sortedWeeks = Object.keys(weeklySpending).sort().slice(-4);
-            sortedWeeks.forEach(week => {
-                const d = new Date(week + 'T12:00:00');
-                const label = 'Wk ' + d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
+            
+            // Show week range in period label
+            if (selectedWeek.length > 0) {
+                const startDate = new Date(selectedWeek[0] + 'T12:00:00');
+                const endDate = new Date(selectedWeek[selectedWeek.length - 1] + 'T12:00:00');
+                periodLabel.textContent = `${startDate.toLocaleDateString('en-US', {month: 'numeric', day: 'numeric'})} - ${endDate.toLocaleDateString('en-US', {month: 'numeric', day: 'numeric'})}`;
+            }
+            
+            // Update nav buttons
+            prevBtn.disabled = weekIndex <= 0;
+            nextBtn.disabled = weekIndex >= weeks.length - 1;
+            
+        } else if (currentPeriod === 'weeks') {
+            // Show weeks with date ranges
+            const sortedWeeks = Object.keys(weeklySpending).sort();
+            const totalWeeks = sortedWeeks.length;
+            const weeksToShow = 4;
+            
+            // Calculate which weeks to show based on offset
+            let endIndex = totalWeeks + periodOffset;
+            let startIndex = Math.max(0, endIndex - weeksToShow);
+            endIndex = Math.min(totalWeeks, startIndex + weeksToShow);
+            
+            const selectedWeeks = sortedWeeks.slice(startIndex, endIndex);
+            
+            selectedWeeks.forEach(week => {
+                const startD = new Date(week + 'T12:00:00');
+                const endD = new Date(startD);
+                endD.setDate(endD.getDate() + 6);
+                const label = `${startD.toLocaleDateString('en-US', {month: 'numeric', day: 'numeric'})}-${endD.toLocaleDateString('en-US', {month: 'numeric', day: 'numeric'})}`;
                 labels.push(label);
                 data.push(weeklySpending[week]?.spent || 0);
                 periodData[label] = { type: 'week', value: week, display: label };
             });
-        } else if (currentPeriod === 'year') {
+            
+            // Period label shows month/year context
+            if (selectedWeeks.length > 0) {
+                const firstWeek = new Date(selectedWeeks[0] + 'T12:00:00');
+                periodLabel.textContent = firstWeek.toLocaleDateString('en-US', {month: 'short', year: 'numeric'});
+            }
+            
+            // Update nav buttons
+            prevBtn.disabled = startIndex <= 0;
+            nextBtn.disabled = endIndex >= totalWeeks;
+            
+        } else if (currentPeriod === 'months') {
+            // Show months
             const sortedMonths = Object.keys(monthlyTrends).sort();
-            sortedMonths.forEach(month => {
-                labels.push(month);
+            const totalMonths = sortedMonths.length;
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            // Calculate which months to show based on offset (show 6 months at a time)
+            const monthsToShow = 6;
+            let endIndex = totalMonths + periodOffset;
+            let startIndex = Math.max(0, endIndex - monthsToShow);
+            endIndex = Math.min(totalMonths, startIndex + monthsToShow);
+            
+            const selectedMonths = sortedMonths.slice(startIndex, endIndex);
+            let displayYear = '';
+            
+            selectedMonths.forEach(month => {
+                const [year, monthNum] = month.split('-');
+                const monthName = monthNames[parseInt(monthNum, 10) - 1];
+                labels.push(monthName);
                 data.push(monthlyTrends[month]?.spent || 0);
-                periodData[month] = { type: 'month', value: month, display: month };
+                periodData[monthName] = { type: 'month', value: month, display: `${monthName} ${year}` };
+                displayYear = year;
             });
+            
+            // Show year in period label
+            periodLabel.textContent = displayYear;
+            
+            // Update nav buttons  
+            prevBtn.disabled = startIndex <= 0;
+            nextBtn.disabled = endIndex >= totalMonths;
+            
+        } else if (currentPeriod === 'years') {
+            // Show years
+            const sortedMonths = Object.keys(monthlyTrends).sort();
+            
+            // Group by year and sum
+            const yearlyData = {};
+            sortedMonths.forEach(month => {
+                const [year] = month.split('-');
+                if (!yearlyData[year]) yearlyData[year] = 0;
+                yearlyData[year] += monthlyTrends[month]?.spent || 0;
+            });
+            
+            const years = Object.keys(yearlyData).sort();
+            
+            years.forEach(year => {
+                labels.push(year);
+                data.push(yearlyData[year]);
+                periodData[year] = { type: 'year', value: year, display: year };
+            });
+            
+            // Period label shows range
+            if (years.length > 0) {
+                periodLabel.textContent = years.length > 1 ? `${years[0]}-${years[years.length-1]}` : years[0];
+            }
+            
+            // Nav not really needed for years but disable if only one year
+            prevBtn.disabled = true;
+            nextBtn.disabled = true;
         }
         
         lineChart.data.labels = labels;
@@ -663,30 +1652,75 @@
         }
     }
     
+    function applySorting() {
+        currentSort = document.getElementById('sortOrder').value;
+        renderTransactions(displayedTransactions);
+    }
+    
+    function sortTransactions(transactions) {
+        const sorted = [...transactions];
+        
+        sorted.sort((a, b) => {
+            if (currentSort === 'date-desc') {
+                return new Date(b.transaction_date) - new Date(a.transaction_date);
+            } else if (currentSort === 'date-asc') {
+                return new Date(a.transaction_date) - new Date(b.transaction_date);
+            } else if (currentSort === 'amount-desc') {
+                return Math.abs(b.amount) - Math.abs(a.amount);
+            } else if (currentSort === 'amount-asc') {
+                return Math.abs(a.amount) - Math.abs(b.amount);
+            }
+            return 0;
+        });
+        
+        return sorted;
+    }
+    
     function renderTransactions(transactions) {
         const container = document.getElementById('transactionsList');
+        displayedTransactions = transactions;
         
         if (!transactions || transactions.length === 0) {
             container.innerHTML = `<div class="no-transactions"><div class="icon">📭</div><p>No transactions found</p></div>`;
             return;
         }
         
-        transactions.sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date));
+        transactions = sortTransactions(transactions);
         
-        container.innerHTML = transactions.map(t => {
+        container.innerHTML = transactions.map((t, idx) => {
             const isExpense = t.amount < 0 || t.type === 'expense';
             const amount = Math.abs(t.amount);
             const necessity = t.necessity || 'Unknown';
             const recurrence = t.recurrence || 'One-time';
             
-            // Build badges HTML
+            // Store transaction data for click handler
+            const txData = JSON.stringify(t).replace(/"/g, '&quot;');
+            
+            // Check if this is marked as Income (either by necessity or recurrence)
+            const isMarkedIncome = necessity === 'Income' || recurrence === 'Income';
+            
+            // Build badges HTML - all clickable
             let badgesHtml = '';
-            if (necessity && necessity !== 'Unknown' && necessity !== 'Income') {
-                badgesHtml += `<span class="mini-badge ${necessity.toLowerCase()}">${necessity}</span>`;
-            }
-            if (recurrence && recurrence !== 'Unknown') {
-                const recurrenceClass = recurrence.toLowerCase().replace('-', '');
-                badgesHtml += `<span class="mini-badge ${recurrenceClass}">${recurrence}</span>`;
+            
+            if (isMarkedIncome) {
+                // If marked as Income, show only one Income badge
+                badgesHtml += `<span class="mini-badge income" 
+                    onclick="openTagEdit(this, ${txData}, 'necessity', 'Income')"
+                    title="Click to edit">Income</span>`;
+            } else {
+                // Show necessity badge if not Unknown
+                if (necessity && necessity !== 'Unknown') {
+                    badgesHtml += `<span class="mini-badge ${necessity.toLowerCase()}" 
+                        onclick="openTagEdit(this, ${txData}, 'necessity', '${escapeHtml(necessity)}')"
+                        title="Click to edit">${necessity}</span>`;
+                }
+                // Show recurrence badge if not Unknown
+                if (recurrence && recurrence !== 'Unknown') {
+                    const recurrenceClass = recurrence.toLowerCase().replace('-', '');
+                    badgesHtml += `<span class="mini-badge ${recurrenceClass}" 
+                        onclick="openTagEdit(this, ${txData}, 'recurrence', '${escapeHtml(recurrence)}')"
+                        title="Click to edit">${recurrence}</span>`;
+                }
             }
             
             return `
@@ -700,7 +1734,12 @@
                         </div>
                     </div>
                     <div class="transaction-badges">
-                        <span class="transaction-category">${t.category || 'Other'}</span>
+                        <span class="add-tag-btn" onclick="openAddTagMenu(this, ${txData})" title="Add tag">+</span>
+                            <span class="transaction-category" 
+                              onclick="openTagEdit(this, ${txData}, 'category', '${escapeHtml(t.category || 'Other')}')" 
+                                  title="Click to edit category">
+                                ${escapeHtml(t.category || 'Other')}
+                            </span>
                         ${badgesHtml}
                     </div>
                     <span class="transaction-amount ${isExpense ? 'expense' : 'income'}">${isExpense ? '-' : '+'}$${amount.toFixed(2)}</span>
@@ -727,6 +1766,1190 @@
         const date = new Date(dateStr + 'T12:00:00');
         if (isNaN(date.getTime())) return dateStr;
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    
+    // =========================================================================
+    // CATEGORY RULES MANAGEMENT
+    // =========================================================================
+    
+    let categoryRules = [];
+    let newRuleKeywords = [];
+    let editingRuleId = null;
+    
+    // Load rules on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCategoryRules();
+        setupKeywordInput();
+    });
+    
+    function toggleRulesPanel() {
+        document.getElementById('rulesPanel').classList.toggle('open');
+        document.getElementById('panelOverlay').classList.toggle('show');
+    }
+    
+    function closeRulesPanel() {
+        document.getElementById('rulesPanel').classList.remove('open');
+        document.getElementById('panelOverlay').classList.remove('show');
+    }
+    
+    async function loadCategoryRules() {
+        try {
+            const response = await fetch('/api/category-rules');
+            const data = await response.json();
+            categoryRules = data.rules || [];
+            renderRulesList();
+            document.getElementById('rulesCount').textContent = categoryRules.length;
+        } catch (error) {
+            console.error('Error loading rules:', error);
+        }
+    }
+    
+    function renderRulesList() {
+        const container = document.getElementById('rulesList');
+        
+        if (categoryRules.length === 0) {
+            container.innerHTML = `
+                <div style="color: var(--text-secondary); font-size: 0.75rem; text-align: center; padding: 1rem;">
+                    No rules yet. Create one above!
+                </div>
+            `;
+            return;
+        }
+        
+        const fieldLabels = {
+            'category': '📁',
+            'necessity': '⚖️',
+            'recurrence': '🔄',
+            'expense_type': '💰',
+            'budget_category': '📊'
+        };
+        
+        container.innerHTML = categoryRules.map(rule => {
+            const fieldIcon = fieldLabels[rule.field] || fieldLabels['category'];
+            const fieldName = rule.field || 'category';
+            return `
+            <div class="rule-item ${rule.enabled ? '' : 'disabled'}">
+                <div class="rule-item-header">
+                    <span class="rule-category">
+                        <span title="${fieldName}">${fieldIcon}</span>
+                        ${escapeHtml(rule.category)}
+                    </span>
+                    <div class="rule-actions">
+                        <button class="btn-toggle-rule" onclick="toggleRule('${rule.id}')" title="${rule.enabled ? 'Disable' : 'Enable'}">
+                            ${rule.enabled ? '✓' : '○'}
+                        </button>
+                        <button class="btn-edit-rule" onclick="editRule('${rule.id}')" title="Edit">✎</button>
+                        <button class="btn-delete-rule" onclick="deleteRule('${rule.id}')" title="Delete">✕</button>
+                    </div>
+                </div>
+                <div class="rule-keywords">
+                    ${rule.keywords.map((kw, i) => `
+                        ${i > 0 ? '<span class="and-connector">AND</span>' : ''}
+                        <span class="rule-keyword">${escapeHtml(kw)}</span>
+                    `).join('')}
+                </div>
+            </div>
+        `}).join('');
+    }
+    
+    function setupKeywordInput() {
+        const input = document.getElementById('keywordInput');
+        const wrapper = document.getElementById('keywordsWrapper');
+        const categoryInput = document.getElementById('ruleCategory');
+        const categoryAutocomplete = document.getElementById('ruleCategoryAutocomplete');
+        
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && this.value.trim()) {
+                e.preventDefault();
+                addKeyword(this.value.trim());
+                this.value = '';
+            } else if (e.key === 'Backspace' && !this.value && newRuleKeywords.length > 0) {
+                removeKeyword(newRuleKeywords.length - 1);
+            }
+        });
+        
+        input.addEventListener('input', debounce(previewRule, 500));
+        
+        // Setup category autocomplete in rules panel
+        categoryInput.addEventListener('input', function() {
+            refreshKnownCategories();
+            showCategoryAutocomplete(categoryAutocomplete, this.value.toLowerCase(), (cat) => {
+                categoryInput.value = cat;
+                categoryAutocomplete.classList.remove('show');
+            });
+        });
+        
+        categoryInput.addEventListener('blur', function() {
+            setTimeout(() => categoryAutocomplete.classList.remove('show'), 200);
+        });
+        
+        categoryInput.addEventListener('focus', function() {
+            if (this.value) {
+                refreshKnownCategories();
+                showCategoryAutocomplete(categoryAutocomplete, this.value.toLowerCase(), (cat) => {
+                    categoryInput.value = cat;
+                    categoryAutocomplete.classList.remove('show');
+                });
+            }
+        });
+    }
+    
+    function addKeyword(keyword) {
+        if (!newRuleKeywords.includes(keyword.toLowerCase())) {
+            newRuleKeywords.push(keyword);
+            renderKeywords();
+            previewRule();
+        }
+    }
+    
+    function removeKeyword(index) {
+        newRuleKeywords.splice(index, 1);
+        renderKeywords();
+        previewRule();
+    }
+    
+    function renderKeywords() {
+        const wrapper = document.getElementById('keywordsWrapper');
+        const input = document.getElementById('keywordInput');
+        
+        // Remove existing tags
+        wrapper.querySelectorAll('.keyword-tag, .and-connector').forEach(el => el.remove());
+        
+        // Add keyword tags before input
+        newRuleKeywords.forEach((kw, i) => {
+            if (i > 0) {
+                const connector = document.createElement('span');
+                connector.className = 'and-connector';
+                connector.textContent = 'AND';
+                wrapper.insertBefore(connector, input);
+            }
+            
+            const tag = document.createElement('span');
+            tag.className = 'keyword-tag';
+            tag.innerHTML = `${escapeHtml(kw)}<span class="remove" onclick="removeKeyword(${i})">×</span>`;
+            wrapper.insertBefore(tag, input);
+        });
+    }
+    
+    async function previewRule() {
+        const previewSection = document.getElementById('previewSection');
+        
+        if (newRuleKeywords.length === 0) {
+            previewSection.style.display = 'none';
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/category-rules/preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keywords: newRuleKeywords })
+            });
+            const data = await response.json();
+            
+            previewSection.style.display = 'block';
+            document.getElementById('previewCount').textContent = data.matching_count;
+            
+            const matchesContainer = document.getElementById('previewMatches');
+            if (data.matches.length > 0) {
+                matchesContainer.innerHTML = data.matches.slice(0, 5).map(m => 
+                    `<div class="preview-match">${escapeHtml(m.description.substring(0, 50))}...</div>`
+                ).join('');
+            } else {
+                matchesContainer.innerHTML = '<div class="preview-match" style="color: var(--text-light);">No matching transactions</div>';
+            }
+        } catch (error) {
+            console.error('Preview error:', error);
+        }
+    }
+    
+    function resetRuleForm() {
+        document.getElementById('ruleCategory').value = '';
+        document.getElementById('keywordInput').value = '';
+        newRuleKeywords = [];
+        editingRuleId = null;
+        renderKeywords();
+        document.getElementById('previewSection').style.display = 'none';
+        document.querySelector('#ruleForm h4').textContent = '➕ Create New Rule';
+    }
+    
+    async function saveRule() {
+        const category = document.getElementById('ruleCategory').value.trim();
+        
+        if (!category) {
+            alert('Please enter a category name');
+            return;
+        }
+        
+        if (newRuleKeywords.length === 0) {
+            alert('Please add at least one keyword');
+            return;
+        }
+        
+        try {
+            let response;
+            if (editingRuleId) {
+                response = await fetch(`/api/category-rules/${editingRuleId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category, keywords: newRuleKeywords })
+                });
+            } else {
+                response = await fetch('/api/category-rules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category, keywords: newRuleKeywords })
+                });
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                resetRuleForm();
+                await loadCategoryRules();
+                await loadAllTransactions(); // Refresh transactions to show new categories
+                
+                // Mark as unsynced since transactions were updated
+                if (data.transactions_updated && data.transactions_updated > 0 && typeof markAsUnsynced === 'function') {
+                    markAsUnsynced();
+                }
+                
+                if (data.transactions_updated && data.transactions_updated > 0) {
+                    alert(`Rule saved! ${data.transactions_updated} transaction(s) have been updated.`);
+                }
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Save error:', error);
+            alert('Error saving rule');
+        }
+    }
+    
+    function editRule(ruleId) {
+        const rule = categoryRules.find(r => r.id === ruleId);
+        if (!rule) return;
+        
+        editingRuleId = ruleId;
+        document.getElementById('ruleCategory').value = rule.category;
+        newRuleKeywords = [...rule.keywords];
+        renderKeywords();
+        previewRule();
+        document.querySelector('#ruleForm h4').textContent = '✏️ Edit Rule';
+        
+        // Scroll to form
+        document.getElementById('ruleForm').scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    async function deleteRule(ruleId) {
+        if (!confirm('Delete this rule?')) return;
+        
+        try {
+            const response = await fetch(`/api/category-rules/${ruleId}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                await loadCategoryRules();
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+        }
+    }
+    
+    async function toggleRule(ruleId) {
+        const rule = categoryRules.find(r => r.id === ruleId);
+        if (!rule) return;
+        
+        try {
+            const response = await fetch(`/api/category-rules/${ruleId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: !rule.enabled })
+            });
+            
+            if (response.ok) {
+                await loadCategoryRules();
+            }
+        } catch (error) {
+            console.error('Toggle error:', error);
+        }
+    }
+    
+    // =========================================================================
+    // INLINE CATEGORY EDITING
+    // =========================================================================
+    
+    let activeDropdown = null;
+    let activeDropdownData = null;
+    let activeTagType = null;
+    let inlineRuleKeywords = [];
+    const knownCategories = new Set();
+    const knownNecessities = ['Needs', 'Wants', 'Savings'];
+    const knownRecurrences = ['Subscription', 'Recurring', 'One-time'];
+    
+    // Get necessity options - only show Income for positive amounts
+    function getNecessityOptions(transaction) {
+        const isPositive = transaction && transaction.amount > 0;
+        return isPositive ? ['Needs', 'Wants', 'Savings', 'Income'] : ['Needs', 'Wants', 'Savings'];
+    }
+    
+    // Get recurrence options - only show Income for positive amounts
+    function getRecurrenceOptions(transaction) {
+        const isPositive = transaction && transaction.amount > 0;
+        return isPositive ? ['Subscription', 'Recurring', 'One-time', 'Income'] : ['Subscription', 'Recurring', 'One-time'];
+    }
+    
+    // Collect known categories from transactions
+    function refreshKnownCategories() {
+        allTransactions.forEach(t => {
+            if (t.category) knownCategories.add(t.category);
+        });
+        // Also add categories from existing rules
+        categoryRules.forEach(r => {
+            if (r.category) knownCategories.add(r.category);
+        });
+    }
+    
+    function openTagEdit(element, transaction, tagType, currentValue) {
+        // Close any open dropdown
+        closeCategoryDropdown();
+        refreshKnownCategories();
+        
+        activeDropdownData = transaction;
+        activeTagType = tagType;
+        inlineRuleKeywords = [];
+        
+        // Get position - place dropdown to the left of clicked element
+        const rect = element.getBoundingClientRect();
+        const dropdownWidth = 520; // Wide layout
+        let left = rect.left - dropdownWidth - 10;
+        let top = rect.top;
+        
+        // If would go off left side, position to right instead
+        if (left < 10) {
+            left = rect.right + 10;
+        }
+        
+        // If still goes off right side, center it
+        if (left + dropdownWidth > window.innerWidth - 10) {
+            left = Math.max(10, (window.innerWidth - dropdownWidth) / 2);
+        }
+        
+        // Ensure it doesn't go off bottom of screen
+        const maxHeight = 420;
+        if (top + maxHeight > window.innerHeight) {
+            top = window.innerHeight - maxHeight - 10;
+        }
+        if (top < 10) top = 10;
+        
+        // Create dropdown
+        const dropdown = document.createElement('div');
+        dropdown.className = 'category-dropdown show wide';
+        dropdown.style.left = left + 'px';
+        dropdown.style.top = top + 'px';
+        
+        // Different content based on tag type
+        if (tagType === 'category') {
+            dropdown.innerHTML = buildCategoryEditHTML(transaction, currentValue);
+        } else if (tagType === 'necessity') {
+            dropdown.innerHTML = buildNecessityEditHTML(transaction, currentValue);
+        } else if (tagType === 'recurrence') {
+            dropdown.innerHTML = buildRecurrenceEditHTML(transaction, currentValue);
+        }
+        
+        // Append to body (not to wrapper) so it's not clipped
+        document.body.appendChild(dropdown);
+        activeDropdown = dropdown;
+        
+        // Setup event handlers - all types now have rule creation
+        setupInlineDropdown(dropdown, transaction);
+        setupSimpleTagDropdown(dropdown, transaction, tagType);
+        
+        // Focus appropriate input
+        if (tagType === 'category') {
+            const input = dropdown.querySelector('#inlineCategoryInput');
+            if (input) { input.focus(); input.select(); }
+        }
+        
+        // Close when clicking outside
+        setTimeout(() => {
+            document.addEventListener('click', closeCategoryDropdownOutside);
+        }, 0);
+    }
+    
+    function buildCategoryEditHTML(transaction, currentValue) {
+        return `
+            <div class="dropdown-columns">
+                <!-- Left: Rule Creation -->
+                <div class="dropdown-column rule-column">
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">🏷️ Create Auto-Tag Rule</div>
+                        <div class="inline-rule-form">
+                            <div class="rule-form-group">
+                                <label>Category to assign</label>
+                                <div class="input-with-autocomplete">
+                                    <input type="text" id="inlineRuleCategory" placeholder="Category name..." autocomplete="off">
+                                    <div class="autocomplete-list" id="inlineRuleCategoryAutocomplete"></div>
+                                </div>
+                            </div>
+                            <div class="rule-form-group">
+                                <label>Keywords (all must match)</label>
+                                <div class="inline-keywords-wrapper" id="inlineKeywordsWrapper">
+                                    <input type="text" class="inline-keyword-input" id="inlineKeywordInput" placeholder="Type + Enter...">
+                                </div>
+                            </div>
+                            <div class="inline-preview" id="inlinePreview" style="display: none;">
+                                <strong id="inlinePreviewCount">0</strong> transactions match
+                            </div>
+                            <div class="inline-rule-actions">
+                                <button class="btn-save-inline-rule" onclick="saveInlineRule()">Save Rule</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right: Quick Category Change -->
+                <div class="dropdown-column options-column">
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">Change Category</div>
+                        <div class="input-with-autocomplete">
+                            <input type="text" placeholder="Type category..." id="inlineCategoryInput" value="${escapeHtml(currentValue || '')}" autocomplete="off">
+                            <div class="autocomplete-list" id="inlineCategoryAutocomplete"></div>
+                        </div>
+                        <div class="category-options" id="inlineCategoryOptions">
+                            ${Array.from(knownCategories).sort().slice(0, 10).map(cat => `
+                                <div class="category-option ${cat === currentValue ? 'selected' : ''}" 
+                                     data-category="${escapeHtml(cat)}">
+                        ${escapeHtml(cat)}
+                    </div>
+                `).join('')}
+            </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    function buildNecessityEditHTML(transaction, currentValue) {
+        const options = getNecessityOptions(transaction);
+        return `
+            <div class="dropdown-columns">
+                <!-- Left: Rule Creation -->
+                <div class="dropdown-column rule-column">
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">🏷️ Create Auto-Tag Rule</div>
+                        <div class="inline-rule-form">
+                            <div class="rule-form-group">
+                                <label>Necessity type to assign</label>
+                                <select id="inlineRuleNecessity" style="width: 100%; padding: 0.35rem; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.72rem;">
+                                    ${knownNecessities.map(val => `<option value="${val}">${val}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="rule-form-group">
+                                <label>Keywords (all must match)</label>
+                                <div class="inline-keywords-wrapper" id="inlineKeywordsWrapper">
+                                    <input type="text" class="inline-keyword-input" id="inlineKeywordInput" placeholder="Type + Enter...">
+                                </div>
+                            </div>
+                            <div class="inline-preview" id="inlinePreview" style="display: none;">
+                                <strong id="inlinePreviewCount">0</strong> transactions match
+                            </div>
+                            <div class="inline-rule-actions">
+                                <button class="btn-save-inline-rule" onclick="saveInlineFieldRule('necessity')">Save Rule</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right: Quick Change -->
+                <div class="dropdown-column options-column">
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">Change Necessity</div>
+                        <div class="category-options">
+                            ${options.map(val => `
+                                <div class="category-option ${val === currentValue ? 'selected' : ''}" 
+                                     data-value="${escapeHtml(val)}" data-field="necessity">
+                                    <span class="mini-badge ${val.toLowerCase()}" style="pointer-events: none;">${val}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    function buildRecurrenceEditHTML(transaction, currentValue) {
+        const options = getRecurrenceOptions(transaction);
+        return `
+            <div class="dropdown-columns">
+                <!-- Left: Rule Creation -->
+                <div class="dropdown-column rule-column">
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">🏷️ Create Auto-Tag Rule</div>
+                        <div class="inline-rule-form">
+                            <div class="rule-form-group">
+                                <label>Recurrence type to assign</label>
+                                <select id="inlineRuleRecurrence" style="width: 100%; padding: 0.35rem; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.72rem;">
+                                    ${knownRecurrences.map(val => `<option value="${val}">${val}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="rule-form-group">
+                                <label>Keywords (all must match)</label>
+                                <div class="inline-keywords-wrapper" id="inlineKeywordsWrapper">
+                                    <input type="text" class="inline-keyword-input" id="inlineKeywordInput" placeholder="Type + Enter...">
+                                </div>
+                            </div>
+                            <div class="inline-preview" id="inlinePreview" style="display: none;">
+                                <strong id="inlinePreviewCount">0</strong> transactions match
+                            </div>
+                            <div class="inline-rule-actions">
+                                <button class="btn-save-inline-rule" onclick="saveInlineFieldRule('recurrence')">Save Rule</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right: Quick Change -->
+                <div class="dropdown-column options-column">
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">Change Recurrence</div>
+                        <div class="category-options">
+                            ${options.map(val => `
+                                <div class="category-option ${val === currentValue ? 'selected' : ''}" 
+                                     data-value="${escapeHtml(val)}" data-field="recurrence">
+                                    <span class="mini-badge ${val.toLowerCase().replace('-', '')}" style="pointer-events: none;">${val}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    function setupSimpleTagDropdown(dropdown, transaction, tagType) {
+        // Handle clicks on options with data-value and data-field (for necessity/recurrence)
+        const options = dropdown.querySelectorAll('.category-option[data-value][data-field]');
+        options.forEach(opt => {
+            opt.addEventListener('click', async function(e) {
+                e.stopPropagation();
+                const value = this.dataset.value;
+                const field = this.dataset.field;
+                if (field && value) {
+                    await updateTransactionField(transaction.description, transaction.transaction_date, field, value);
+                }
+            });
+        });
+    }
+    
+    function openAddTagMenu(element, transaction) {
+        // Close any open dropdown
+        closeCategoryDropdown();
+        
+        activeDropdownData = transaction;
+        activeTagType = 'add';
+        inlineRuleKeywords = [];
+        
+        // Get position
+        const rect = element.getBoundingClientRect();
+        const dropdownWidth = 520;
+        let left = rect.left - dropdownWidth - 10;
+        let top = rect.top;
+        
+        if (left < 10) {
+            left = rect.right + 10;
+        }
+        if (left + dropdownWidth > window.innerWidth - 10) {
+            left = Math.max(10, (window.innerWidth - dropdownWidth) / 2);
+        }
+        
+        const maxHeight = 420;
+        if (top + maxHeight > window.innerHeight) {
+            top = window.innerHeight - maxHeight - 10;
+        }
+        if (top < 10) top = 10;
+        
+        // Create dropdown
+        const dropdown = document.createElement('div');
+        dropdown.className = 'category-dropdown show wide';
+        dropdown.style.left = left + 'px';
+        dropdown.style.top = top + 'px';
+        dropdown.innerHTML = buildAddTagHTML(transaction);
+        
+        document.body.appendChild(dropdown);
+        activeDropdown = dropdown;
+        
+        // Setup handlers
+        setupInlineDropdown(dropdown, transaction);
+        setupAddTagDropdown(dropdown, transaction);
+        setupAddTagFieldAutocomplete(dropdown);
+        
+        setTimeout(() => {
+            document.addEventListener('click', closeCategoryDropdownOutside);
+        }, 0);
+    }
+    
+    function setupAddTagFieldAutocomplete(dropdown) {
+        const fieldSelect = dropdown.querySelector('#inlineRuleField');
+        const valueInput = dropdown.querySelector('#inlineRuleCategory');
+        const valueAutocomplete = dropdown.querySelector('#inlineRuleCategoryAutocomplete');
+        
+        if (!fieldSelect || !valueInput || !valueAutocomplete) return;
+        
+        // Update autocomplete when field changes
+        fieldSelect.addEventListener('change', function() {
+            valueInput.value = '';
+            valueAutocomplete.classList.remove('show');
+        });
+        
+        // Show autocomplete based on selected field
+        valueInput.addEventListener('input', function() {
+            const fieldType = fieldSelect.value;
+            showCategoryAutocomplete(valueAutocomplete, this.value.toLowerCase(), (val) => {
+                valueInput.value = val;
+                valueAutocomplete.classList.remove('show');
+            }, fieldType);
+        });
+        
+        valueInput.addEventListener('blur', function() {
+            setTimeout(() => valueAutocomplete.classList.remove('show'), 200);
+        });
+    }
+    
+    function buildAddTagHTML(transaction) {
+        const necessityOpts = getNecessityOptions(transaction);
+        const recurrenceOpts = getRecurrenceOptions(transaction);
+        const isPositive = transaction && transaction.amount > 0;
+        
+        return `
+            <div class="dropdown-columns">
+                <!-- Left: Rule Creation -->
+                <div class="dropdown-column rule-column">
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">🏷️ Create Auto-Tag Rule</div>
+                        <div class="inline-rule-form">
+                            <div class="rule-form-group">
+                                <label>Field to update</label>
+                                <select id="inlineRuleField" style="width: 100%; padding: 0.35rem; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.72rem;">
+                                    <option value="category">Category</option>
+                                    <option value="necessity">Necessity (Needs/Wants)</option>
+                                    <option value="recurrence">Recurrence</option>
+                                </select>
+                            </div>
+                            <div class="rule-form-group">
+                                <label>Value to assign</label>
+                                <div class="input-with-autocomplete">
+                                    <input type="text" id="inlineRuleCategory" placeholder="Value..." autocomplete="off">
+                                    <div class="autocomplete-list" id="inlineRuleCategoryAutocomplete"></div>
+                                </div>
+                            </div>
+                            <div class="rule-form-group">
+                                <label>Keywords (all must match)</label>
+                                <div class="inline-keywords-wrapper" id="inlineKeywordsWrapper">
+                                    <input type="text" class="inline-keyword-input" id="inlineKeywordInput" placeholder="Type + Enter...">
+                                </div>
+                            </div>
+                            <div class="inline-preview" id="inlinePreview" style="display: none;">
+                                <strong id="inlinePreviewCount">0</strong> transactions match
+                            </div>
+                            <div class="inline-rule-actions">
+                                <button class="btn-save-inline-rule" onclick="saveAddTagRule()">Save Rule</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right: Quick Add Tags -->
+                <div class="dropdown-column options-column">
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">Quick Add Tag</div>
+                        ${isPositive ? `
+                            <div style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 0.3rem;">Mark as Income</div>
+                            <div class="category-options" style="margin-bottom: 0.5rem;">
+                                <div class="category-option" data-value="Income" data-field="necessity">
+                                    <span class="mini-badge income" style="pointer-events: none;">Income</span>
+                                </div>
+                            </div>
+                        ` : ''}
+                        <div style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 0.3rem;">Necessity</div>
+                        <div class="category-options" style="margin-bottom: 0.5rem;">
+                            ${knownNecessities.map(val => `
+                                <div class="category-option" data-value="${escapeHtml(val)}" data-field="necessity">
+                                    <span class="mini-badge ${val.toLowerCase()}" style="pointer-events: none;">${val}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 0.3rem;">Recurrence</div>
+                        <div class="category-options">
+                            ${knownRecurrences.map(val => `
+                                <div class="category-option" data-value="${escapeHtml(val)}" data-field="recurrence">
+                                    <span class="mini-badge ${val.toLowerCase().replace('-', '')}" style="pointer-events: none;">${val}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    function setupAddTagDropdown(dropdown, transaction) {
+        const options = dropdown.querySelectorAll('.category-option[data-value][data-field]');
+        options.forEach(opt => {
+            opt.addEventListener('click', async function(e) {
+                e.stopPropagation();
+                const value = this.dataset.value;
+                const field = this.dataset.field;
+                if (field && value) {
+                    await updateTransactionField(transaction.description, transaction.transaction_date, field, value);
+                }
+            });
+        });
+    }
+    
+    async function saveAddTagRule() {
+        const fieldSelect = document.getElementById('inlineRuleField');
+        const valueInput = document.getElementById('inlineRuleCategory');
+        
+        const field = fieldSelect ? fieldSelect.value : 'category';
+        const value = valueInput ? valueInput.value.trim() : '';
+        
+        if (!value) {
+            alert('Please enter a value for the rule');
+            return;
+        }
+        
+        if (inlineRuleKeywords.length === 0) {
+            alert('Please add at least one keyword');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/category-rules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    category: value, 
+                    keywords: inlineRuleKeywords, 
+                    field: field 
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                closeCategoryDropdown();
+                await loadCategoryRules();
+                await loadAllTransactions();
+                
+                if (data.transactions_updated > 0) {
+                    alert(`Rule created! ${data.transactions_updated} transaction(s) updated.`);
+                }
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Save error:', error);
+            alert('Error saving rule');
+        }
+    }
+    
+    function setupInlineDropdown(dropdown, transaction) {
+        const categoryInput = dropdown.querySelector('#inlineCategoryInput');
+        const categoryOptions = dropdown.querySelector('#inlineCategoryOptions');
+        const categoryAutocomplete = dropdown.querySelector('#inlineCategoryAutocomplete');
+        const ruleCategory = dropdown.querySelector('#inlineRuleCategory');
+        const ruleCategoryAutocomplete = dropdown.querySelector('#inlineRuleCategoryAutocomplete');
+        const keywordInput = dropdown.querySelector('#inlineKeywordInput');
+        const keywordsWrapper = dropdown.querySelector('#inlineKeywordsWrapper');
+        
+        // Category input - filter options and show autocomplete (only for category type)
+        if (categoryInput && categoryOptions && categoryAutocomplete) {
+            categoryInput.addEventListener('input', function() {
+                const search = this.value.toLowerCase();
+                showCategoryAutocomplete(categoryAutocomplete, search, (cat) => {
+                    categoryInput.value = cat;
+                    saveTransactionCategory(transaction.description, transaction.transaction_date, cat);
+                });
+                
+                // Also filter the options list
+                const options = categoryOptions.querySelectorAll('.category-option');
+                options.forEach(opt => {
+                    const matches = opt.textContent.toLowerCase().includes(search);
+                    opt.style.display = matches ? 'block' : 'none';
+                });
+            });
+            
+            categoryInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveTransactionCategory(transaction.description, transaction.transaction_date, this.value.trim());
+                } else if (e.key === 'Escape') {
+                    closeCategoryDropdown();
+                }
+            });
+            
+            // Category options click - only for category editing (uses data-category)
+            categoryOptions.addEventListener('click', function(e) {
+                const option = e.target.closest('.category-option');
+                if (option && option.dataset.category) {
+                    const cat = option.dataset.category;
+                    saveTransactionCategory(transaction.description, transaction.transaction_date, cat);
+                }
+            });
+        }
+        
+        // Rule category autocomplete
+        if (ruleCategory && ruleCategoryAutocomplete) {
+            ruleCategory.addEventListener('input', function() {
+                showCategoryAutocomplete(ruleCategoryAutocomplete, this.value.toLowerCase(), (cat) => {
+                    ruleCategory.value = cat;
+                    ruleCategoryAutocomplete.classList.remove('show');
+                });
+            });
+            
+            ruleCategory.addEventListener('blur', function() {
+                setTimeout(() => ruleCategoryAutocomplete.classList.remove('show'), 200);
+            });
+        }
+        
+        // Keywords input
+        if (keywordInput) {
+            keywordInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && this.value.trim()) {
+                    e.preventDefault();
+                    addInlineKeyword(this.value.trim());
+                    this.value = '';
+                } else if (e.key === 'Backspace' && !this.value && inlineRuleKeywords.length > 0) {
+                    removeInlineKeyword(inlineRuleKeywords.length - 1);
+                }
+            });
+            
+            keywordInput.addEventListener('input', debounce(previewInlineRule, 300));
+        }
+        
+        // Don't pre-fill keywords - let user choose
+        inlineRuleKeywords = [];
+        renderInlineKeywords();
+    }
+    
+    function showCategoryAutocomplete(container, search, onSelect, fieldType = 'category') {
+        if (!search) {
+            container.classList.remove('show');
+            return;
+        }
+        
+        // Get the right set of options based on field type
+        let allOptions;
+        if (fieldType === 'necessity') {
+            allOptions = [...knownNecessities, 'Income'];
+        } else if (fieldType === 'recurrence') {
+            allOptions = [...knownRecurrences, 'Income'];
+        } else {
+            allOptions = Array.from(knownCategories);
+        }
+        
+        const matches = allOptions
+            .filter(opt => opt.toLowerCase().includes(search))
+            .slice(0, 6);
+        
+        if (matches.length === 0) {
+            container.classList.remove('show');
+            return;
+        }
+        
+        container.innerHTML = matches.map(opt => {
+            const idx = opt.toLowerCase().indexOf(search);
+            const before = opt.substring(0, idx);
+            const match = opt.substring(idx, idx + search.length);
+            const after = opt.substring(idx + search.length);
+            return `<div class="autocomplete-item" data-value="${escapeHtml(opt)}">
+                ${escapeHtml(before)}<span class="match">${escapeHtml(match)}</span>${escapeHtml(after)}
+            </div>`;
+        }).join('');
+        
+        container.classList.add('show');
+        
+        // Click handler
+        container.querySelectorAll('.autocomplete-item').forEach(item => {
+            item.addEventListener('click', function() {
+                onSelect(this.dataset.value);
+            });
+        });
+    }
+    
+    function addInlineKeyword(keyword) {
+        if (!inlineRuleKeywords.map(k => k.toLowerCase()).includes(keyword.toLowerCase())) {
+            inlineRuleKeywords.push(keyword);
+            renderInlineKeywords();
+            previewInlineRule();
+        }
+    }
+    
+    function removeInlineKeyword(index) {
+        inlineRuleKeywords.splice(index, 1);
+        renderInlineKeywords();
+        previewInlineRule();
+    }
+    
+    function renderInlineKeywords() {
+        const wrapper = document.getElementById('inlineKeywordsWrapper');
+        if (!wrapper) return;
+        const input = document.getElementById('inlineKeywordInput');
+        
+        // Remove existing tags
+        wrapper.querySelectorAll('.inline-keyword-tag, .inline-and-connector').forEach(el => el.remove());
+        
+        // Add keyword tags before input
+        inlineRuleKeywords.forEach((kw, i) => {
+            if (i > 0) {
+                const connector = document.createElement('span');
+                connector.className = 'inline-and-connector';
+                connector.textContent = 'AND';
+                wrapper.insertBefore(connector, input);
+            }
+            
+            const tag = document.createElement('span');
+            tag.className = 'inline-keyword-tag';
+            tag.innerHTML = `${escapeHtml(kw)}<span class="remove" onclick="removeInlineKeyword(${i})">×</span>`;
+            wrapper.insertBefore(tag, input);
+        });
+    }
+    
+    async function previewInlineRule() {
+        const previewDiv = document.getElementById('inlinePreview');
+        if (!previewDiv) return;
+        
+        if (inlineRuleKeywords.length === 0) {
+            previewDiv.style.display = 'none';
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/category-rules/preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keywords: inlineRuleKeywords })
+            });
+            const data = await response.json();
+            
+            previewDiv.style.display = 'block';
+            document.getElementById('inlinePreviewCount').textContent = data.matching_count;
+        } catch (error) {
+            console.error('Preview error:', error);
+        }
+    }
+    
+    async function saveInlineRule() {
+        const categoryInput = document.getElementById('inlineRuleCategory');
+        const category = categoryInput ? categoryInput.value.trim() : '';
+        
+        if (!category) {
+            alert('Please enter a category name for the rule');
+            return;
+        }
+        
+        if (inlineRuleKeywords.length === 0) {
+            alert('Please add at least one keyword');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/category-rules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ category, keywords: inlineRuleKeywords, field: 'category' })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                closeCategoryDropdown();
+                await loadCategoryRules();
+                await loadAllTransactions();
+                
+                // Mark as unsynced since transactions were updated
+                if (data.transactions_updated > 0 && typeof markAsUnsynced === 'function') {
+                    markAsUnsynced();
+                }
+                
+                if (data.transactions_updated > 0) {
+                    alert(`Rule created! ${data.transactions_updated} transaction(s) updated.`);
+                }
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Save error:', error);
+            alert('Error saving rule');
+        }
+    }
+    
+    async function saveInlineFieldRule(fieldType) {
+        let value = '';
+        
+        if (fieldType === 'necessity') {
+            const select = document.getElementById('inlineRuleNecessity');
+            value = select ? select.value : '';
+        } else if (fieldType === 'recurrence') {
+            const select = document.getElementById('inlineRuleRecurrence');
+            value = select ? select.value : '';
+        }
+        
+        if (!value) {
+            alert('Please select a value for the rule');
+            return;
+        }
+        
+        if (inlineRuleKeywords.length === 0) {
+            alert('Please add at least one keyword');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/category-rules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    category: value, 
+                    keywords: inlineRuleKeywords, 
+                    field: fieldType 
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                closeCategoryDropdown();
+                await loadCategoryRules();
+                await loadAllTransactions();
+                
+                // Mark as unsynced since transactions were updated
+                if (data.transactions_updated > 0 && typeof markAsUnsynced === 'function') {
+                    markAsUnsynced();
+                }
+                
+                if (data.transactions_updated > 0) {
+                    alert(`Rule created! ${data.transactions_updated} transaction(s) updated with ${fieldType}="${value}".`);
+                }
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Save error:', error);
+            alert('Error saving rule');
+        }
+    }
+    
+    function closeCategoryDropdown() {
+        if (activeDropdown) {
+            activeDropdown.remove();
+            activeDropdown = null;
+            activeDropdownData = null;
+            activeTagType = null;
+            inlineRuleKeywords = [];
+        }
+        document.removeEventListener('click', closeCategoryDropdownOutside);
+    }
+    
+    function closeCategoryDropdownOutside(e) {
+        if (activeDropdown && !activeDropdown.contains(e.target) && 
+            !e.target.classList.contains('transaction-category') &&
+            !e.target.classList.contains('mini-badge')) {
+            closeCategoryDropdown();
+        }
+    }
+    
+    async function updateTransactionField(description, date, field, value) {
+        try {
+            const response = await fetch('/api/transactions/update-field', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ description, date, field, value })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Update local data
+                const tx = allTransactions.find(t => 
+                    t.description === description && t.transaction_date === date
+                );
+                if (tx) {
+                    // Update all fields that were changed (handles Income special case)
+                    if (data.updated_fields) {
+                        for (const [f, v] of Object.entries(data.updated_fields)) {
+                            tx[f] = v;
+                        }
+                    } else {
+                        tx[field] = value;
+                    }
+                }
+                
+                // Mark as unsynced
+                if (typeof markAsUnsynced === 'function') {
+                    markAsUnsynced();
+                }
+                
+                // Re-render
+                closeCategoryDropdown();
+                renderTransactions(displayedTransactions || allTransactions);
+            }
+        } catch (error) {
+            console.error('Error updating field:', error);
+        }
+    }
+    
+    async function saveTransactionCategory(description, date, newCategory) {
+        if (!newCategory) {
+            closeCategoryDropdown();
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/transactions/update-category', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ description, date, category: newCategory })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Update local data
+                const tx = allTransactions.find(t => 
+                    t.description === description && t.transaction_date === date
+                );
+                if (tx) {
+                    tx.category = newCategory;
+                }
+                
+                // Mark as unsynced
+                if (typeof markAsUnsynced === 'function') {
+                    markAsUnsynced();
+                }
+                
+                // Re-render
+                closeCategoryDropdown();
+                renderTransactions(allTransactions);
+                knownCategories.add(newCategory);
+            }
+        } catch (error) {
+            console.error('Error updating category:', error);
+        }
+    }
+    
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
     }
 </script>
 {% endblock %}
