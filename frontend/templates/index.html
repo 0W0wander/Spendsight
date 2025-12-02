@@ -103,6 +103,29 @@
         transform: scale(1.05);
     }
     
+    /* Timeframe Badge - Shows current visible date range */
+    .timeframe-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.25rem 0.6rem;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        border-radius: 6px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: white;
+        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+        letter-spacing: 0.02em;
+    }
+    
+    .timeframe-badge .tf-icon {
+        font-size: 0.75rem;
+    }
+    
+    .timeframe-badge .tf-range {
+        white-space: nowrap;
+    }
+    
     .filter-chip {
         display: inline-flex;
         align-items: center;
@@ -1767,8 +1790,12 @@
         
         <div class="divider"></div>
         
-        <!-- Multi-Filter System -->
+        <!-- Timeframe Badge & Filter System -->
         <div class="filters-container" id="filtersContainer">
+            <div class="timeframe-badge" id="timeframeBadge" title="Currently viewing this date range">
+                <span class="tf-icon">📅</span>
+                <span class="tf-range" id="timeframeRange">Loading...</span>
+            </div>
             <button class="add-filter-btn" onclick="openFilterPanel()" title="Add filters">+</button>
             <div id="filterChips"></div>
             <button class="clear-all-filters" id="clearAllBtn" onclick="clearAllFilters()" style="display: none;">Clear All</button>
@@ -2026,7 +2053,11 @@
     document.addEventListener('DOMContentLoaded', function() {
         initLineChart();
         initPieChart();
-        loadAllTransactions().then(() => initFilterPanel());
+        loadAllTransactions().then(() => {
+            initFilterPanel();
+            // Sync transactions to match the initial visible timeframe
+            syncTransactionsToTimeframe();
+        });
         
         document.querySelectorAll('.time-toggle button').forEach(btn => {
             btn.addEventListener('click', function() {
@@ -2039,7 +2070,8 @@
                 if (currentPieFilter === 'timeframe') {
                     updatePieChart();
                 }
-                clearAllFilters();
+                // Sync transactions to the new visible timeframe
+                syncTransactionsToTimeframe();
             });
         });
         
@@ -2069,7 +2101,8 @@
         if (currentPieFilter === 'timeframe') {
             updatePieChart();
         }
-        clearAllFilters();
+        // Sync transactions to the new visible timeframe
+        syncTransactionsToTimeframe();
     }
     
     function toggleBreakdownMenu(event) {
@@ -2464,6 +2497,8 @@
             activeFilters.periodType = periodInfo.type;
             activeFilters.periodValue = periodInfo.value;
             activeFilters.periodDisplay = periodInfo.display;
+            // Update the timeframe badge to show the clicked period
+            document.getElementById('timeframeRange').textContent = periodInfo.display;
             updateFilterChips();
             applyMultiFilters();
             updatePieChart();  // Update pie chart to show only this period's breakdown
@@ -2814,18 +2849,107 @@
         // Update UI
         updateFilterChips();
         document.getElementById('activeFilter').classList.remove('visible');
-        document.getElementById('transactionsTitle').textContent = 'All Transactions';
-        document.getElementById('summaryCount').textContent = '{{ statistics.count }}';
-        document.getElementById('summaryAvg').textContent = '${{ "%.2f"|format(statistics.mean if statistics.mean else 0) }}';
-        document.getElementById('summaryMedian').textContent = '${{ "%.2f"|format(statistics.median if statistics.median else 0) }}';
-        document.getElementById('summarySpent').textContent = '${{ "%.2f"|format(statistics.total) }}';
-        renderTransactions(allTransactions);
         
         // Reset selected period and update pie chart to show full visible range
         selectedPeriodIndex = null;
         if (pieChart) {
             updatePieChart();
         }
+        
+        // Sync transactions back to the visible timeframe
+        syncTransactionsToTimeframe();
+    }
+    
+    // =========================================================================
+    // TIMEFRAME SYNC - Filter transactions to match visible chart range
+    // =========================================================================
+    
+    function syncTransactionsToTimeframe() {
+        if (!lineChart || !lineChart.selectedKeys || lineChart.selectedKeys.length === 0) {
+            return;
+        }
+        
+        const keys = lineChart.selectedKeys;
+        let startDate, endDate, displayLabel;
+        
+        if (currentPeriod === 'days') {
+            // Keys are dates like '2024-01-15'
+            startDate = keys[0];
+            endDate = keys[keys.length - 1];
+            const sD = new Date(startDate + 'T12:00:00');
+            const eD = new Date(endDate + 'T12:00:00');
+            displayLabel = `${sD.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})} – ${eD.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}`;
+        } else if (currentPeriod === 'weeks') {
+            // Keys are week start dates like '2024-01-08'
+            startDate = keys[0];
+            const lastWeekStart = new Date(keys[keys.length - 1] + 'T12:00:00');
+            const lastWeekEnd = new Date(lastWeekStart);
+            lastWeekEnd.setDate(lastWeekEnd.getDate() + 6);
+            endDate = lastWeekEnd.toISOString().split('T')[0];
+            const sD = new Date(startDate + 'T12:00:00');
+            displayLabel = `${sD.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})} – ${lastWeekEnd.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}`;
+        } else if (currentPeriod === 'months') {
+            // Keys are months like '2024-01'
+            const firstMonth = keys[0];
+            const lastMonth = keys[keys.length - 1];
+            startDate = firstMonth + '-01';
+            // Calculate last day of the last month
+            const [year, month] = lastMonth.split('-');
+            const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+            endDate = `${lastMonth}-${lastDay}`;
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const startMonthName = monthNames[parseInt(firstMonth.split('-')[1]) - 1];
+            const endMonthName = monthNames[parseInt(lastMonth.split('-')[1]) - 1];
+            displayLabel = `${startMonthName} – ${endMonthName} ${year}`;
+        } else if (currentPeriod === 'years') {
+            // Keys are years like '2024'
+            const firstYear = keys[0];
+            const lastYear = keys[keys.length - 1];
+            startDate = `${firstYear}-01-01`;
+            endDate = `${lastYear}-12-31`;
+            displayLabel = firstYear === lastYear ? firstYear : `${firstYear} – ${lastYear}`;
+        }
+        
+        // Update the timeframe badge
+        document.getElementById('timeframeRange').textContent = displayLabel;
+        
+        // Filter transactions to match the visible timeframe
+        const filteredTransactions = allTransactions.filter(t => {
+            const txDate = t.transaction_date;
+            return txDate >= startDate && txDate <= endDate;
+        });
+        
+        // Update the transactions title and summary
+        document.getElementById('transactionsTitle').textContent = displayLabel;
+        
+        // Calculate stats for filtered transactions
+        const expenses = filteredTransactions.filter(t => t.amount < 0 || t.type === 'expense');
+        const amounts = expenses.map(t => Math.abs(t.amount));
+        const total = amounts.reduce((a, b) => a + b, 0);
+        const avg = amounts.length > 0 ? total / amounts.length : 0;
+        const sortedAmounts = [...amounts].sort((a, b) => a - b);
+        const median = sortedAmounts.length > 0 ? 
+            (sortedAmounts.length % 2 === 0 
+                ? (sortedAmounts[sortedAmounts.length/2 - 1] + sortedAmounts[sortedAmounts.length/2]) / 2 
+                : sortedAmounts[Math.floor(sortedAmounts.length/2)]) 
+            : 0;
+        
+        document.getElementById('summaryCount').textContent = filteredTransactions.length;
+        document.getElementById('summarySpent').textContent = `$${total.toFixed(2)}`;
+        document.getElementById('summaryAvg').textContent = `$${avg.toFixed(2)}`;
+        document.getElementById('summaryMedian').textContent = `$${median.toFixed(2)}`;
+        
+        // Clear the selected period index since we're syncing to full visible range
+        selectedPeriodIndex = null;
+        
+        // Clear any active period filters from chips
+        activeFilters.periodType = null;
+        activeFilters.periodValue = null;
+        activeFilters.periodDisplay = null;
+        updateFilterChips();
+        
+        // Render the filtered transactions
+        renderTransactions(filteredTransactions);
     }
     
     // =========================================================================
