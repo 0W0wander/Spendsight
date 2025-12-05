@@ -1,12 +1,221 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Spendsight{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <nav><a href="/">Spendsight</a></nav>
-    <main>{% block content %}{% endblock %}</main>
+    <nav class="navbar" id="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <img src="{{ url_for('static', filename='spendsighticon.png') }}" alt="Spendsight" class="brand-icon">
+                <h1>Spendsight</h1>
+            </div>
+            {% block navbar_controls %}{% endblock %}
+            <ul class="nav-menu">
+                <li><a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}" id="dashboardLink">Dashboard</a></li>
+                <li><a href="#" class="{% if request.endpoint == 'budget_page' %}active{% endif %}" id="budgetLink" onclick="toggleBudgetMode(event)">Budget</a></li>
+                <li><a href="{{ url_for('upload') }}" class="{% if request.endpoint == 'upload' %}active{% endif %}">Upload</a></li>
+                <li>
+                    <button class="sync-btn" id="syncBtn" onclick="syncToGoogleSheets()" title="Sync to Google Sheets">
+                        <svg class="sync-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 2v6h-6"></path>
+                            <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+                            <path d="M3 22v-6h6"></path>
+                            <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+                        </svg>
+                        <span class="sync-label" id="syncLabel">Sync</span>
+                        <span class="sync-progress" id="syncProgress" style="display: none;">0%</span>
+                    </button>
+                </li>
+                <li><a href="{{ url_for('settings_page') }}" class="{% if request.endpoint == 'settings_page' %}active{% endif %}">Settings</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            {{ message }}
+                            <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Spendsight - Personal Budget Tracking</p>
+        </div>
+    </footer>
+
+    <script>
+        // Track sync state
+        window.isSyncedToSheets = true; // Assume synced initially
+        window.hasUnsyncedData = false;
+        
+        // Auto-fade alerts after delay - most recent fades first, then 1 second apart
+        (function() {
+            const alerts = document.querySelectorAll('.alert');
+            const totalAlerts = alerts.length;
+            alerts.forEach((alert, index) => {
+                // Reverse order: most recent (last in DOM) fades first
+                // Each subsequent alert fades 1 second after the previous
+                const reverseIndex = totalAlerts - 1 - index;
+                const delay = 4000 + (reverseIndex * 1000); // 4 seconds + 1 second stagger
+                
+                setTimeout(() => {
+                    alert.classList.add('fade-out');
+                    // Remove from DOM after animation completes
+                    setTimeout(() => {
+                        if (alert.parentElement) {
+                            alert.remove();
+                        }
+                    }, 800);
+                }, delay);
+            });
+        })();
+        
+        // Sync to Google Sheets function
+        async function syncToGoogleSheets() {
+            const btn = document.getElementById('syncBtn');
+            const syncLabel = document.getElementById('syncLabel');
+            const syncProgress = document.getElementById('syncProgress');
+            
+            if (btn.classList.contains('syncing')) return;
+            
+            btn.classList.add('syncing');
+            btn.classList.remove('synced');
+            btn.title = 'Syncing...';
+            
+            // Show progress, hide label
+            syncLabel.style.display = 'none';
+            syncProgress.style.display = 'inline';
+            syncProgress.textContent = '0%';
+            
+            // Simulate progress while waiting
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                if (progress < 90) {
+                    progress += Math.random() * 20;
+                    progress = Math.min(progress, 90);
+                    syncProgress.textContent = Math.round(progress) + '%';
+                }
+            }, 150);
+            
+            try {
+                const response = await fetch('/api/sync-to-sheets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                clearInterval(progressInterval);
+                
+                if (data.success) {
+                    // Show 100%
+                    syncProgress.textContent = '100%';
+                    
+                    setTimeout(() => {
+                        btn.classList.remove('syncing');
+                        btn.classList.add('synced');
+                        btn.title = 'Synced to Google Sheets!';
+                        syncProgress.style.display = 'none';
+                        syncLabel.style.display = 'inline';
+                        syncLabel.textContent = 'Done!';
+                        window.isSyncedToSheets = true;
+                        window.hasUnsyncedData = false;
+                        
+                        // Reset button after 3 seconds
+                        setTimeout(() => {
+                            btn.classList.remove('synced');
+                            btn.title = 'Sync to Google Sheets';
+                            syncLabel.textContent = 'Sync';
+                        }, 3000);
+                    }, 300);
+                } else {
+                    throw new Error(data.error || 'Sync failed');
+                }
+            } catch (error) {
+                clearInterval(progressInterval);
+                btn.classList.remove('syncing');
+                btn.title = 'Sync failed - click to retry';
+                syncProgress.style.display = 'none';
+                syncLabel.style.display = 'inline';
+                syncLabel.textContent = 'Failed';
+                console.error('Sync error:', error);
+                
+                // Show error alert
+                const container = document.querySelector('.main-content .container');
+                if (container) {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-error';
+                    alertDiv.innerHTML = `
+                        Sync failed: ${error.message}
+                        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+                    `;
+                    container.insertBefore(alertDiv, container.firstChild);
+                    
+                    // Auto-fade the error alert
+                    setTimeout(() => {
+                        alertDiv.classList.add('fade-out');
+                        setTimeout(() => alertDiv.remove(), 800);
+                    }, 5000);
+                }
+                
+                // Reset button after 3 seconds
+                setTimeout(() => {
+                    btn.title = 'Sync to Google Sheets';
+                    syncLabel.textContent = 'Sync';
+                }, 3000);
+            }
+        }
+        
+        // Mark data as unsynced when changes occur (called from other scripts)
+        function markAsUnsynced() {
+            window.isSyncedToSheets = false;
+            window.hasUnsyncedData = true;
+            const btn = document.getElementById('syncBtn');
+            if (btn) {
+                btn.classList.remove('synced');
+            }
+        }
+        
+        // Warn before leaving if data hasn't been synced
+        window.addEventListener('beforeunload', function(e) {
+            if (window.hasUnsyncedData && !window.isSyncedToSheets) {
+                const message = 'You have unsynced data. Are you sure you want to leave?';
+                e.returnValue = message;
+                return message;
+            }
+        });
+        
+        // Budget mode toggle - defined here, implemented in index.html
+        window.budgetMode = false;
+        function toggleBudgetMode(event) {
+            if (event) event.preventDefault();
+            // Only works on dashboard page
+            if (window.location.pathname !== '/' && !window.location.pathname.endsWith('/index')) {
+                window.location.href = '/?budget=1';
+                return;
+            }
+            if (typeof window.handleBudgetModeToggle === 'function') {
+                window.handleBudgetModeToggle();
+            }
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
 </body>
 </html>
+
