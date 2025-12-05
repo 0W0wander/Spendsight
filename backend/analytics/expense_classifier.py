@@ -3,16 +3,13 @@ Expense Classifier - Multi-dimensional transaction categorization.
 
 This module provides comprehensive classification of transactions beyond basic categories,
 including:
-- Fixed vs Variable expenses
 - Needs vs Wants vs Savings (50/30/20 budgeting rule)
-- Subscription detection
-- Tax deductibility hints
-- Budget priority levels
+- Subscription and recurring expense detection
+- Budget health analysis
 """
 from typing import List, Dict, Set, Tuple
 from backend.models.transaction import (
-    Transaction, ExpenseType, NecessityLevel, 
-    RecurrenceType, SpendingCategory
+    Transaction, NecessityLevel, RecurrenceType
 )
 
 
@@ -40,8 +37,8 @@ class ExpenseClassifier:
         'surfshark', 'github', 'gitlab', 'jetbrains', 'figma', 'sketch',
         
         # Gaming
-        'xbox game pass', 'playstation plus', 'ps plus', 'nintendo online',
-        'ea play', 'ubisoft+', 'xbox live', 'steam',
+        'xbox game pass', 'playstation plus', 'ps plus', 'playstation network', 'psn',
+        'nintendo online', 'ea play', 'ubisoft+', 'xbox live', 'steam',
         
         # News & Education
         'new york times', 'washington post', 'wall street journal', 'wsj',
@@ -67,10 +64,10 @@ class ExpenseClassifier:
     }
     
     # =========================================================================
-    # FIXED EXPENSE PATTERNS
+    # RECURRING EXPENSE PATTERNS (for recurrence detection)
     # =========================================================================
     
-    FIXED_EXPENSE_KEYWORDS: Set[str] = {
+    RECURRING_EXPENSE_KEYWORDS: Set[str] = {
         # Housing
         'rent', 'mortgage', 'hoa', 'property tax', 'home insurance',
         'renters insurance', 'homeowners',
@@ -84,7 +81,7 @@ class ExpenseClassifier:
         'liberty mutual', 'usaa', 'nationwide', 'farmers',
         'health insurance', 'dental', 'vision',
         
-        # Utilities (often fixed or semi-fixed)
+        # Utilities
         'electric', 'gas bill', 'water bill', 'sewer', 'trash',
         'internet', 'comcast', 'xfinity', 'spectrum', 'att', 'verizon',
         't-mobile', 'sprint', 'cricket',
@@ -201,64 +198,6 @@ class ExpenseClassifier:
     }
     
     # =========================================================================
-    # BUDGET CATEGORY MAPPING
-    # =========================================================================
-    
-    CATEGORY_TO_BUDGET: Dict[str, str] = {
-        # Direct mappings from existing categories
-        'groceries': SpendingCategory.FOOD,
-        'supermarkets': SpendingCategory.FOOD,
-        'food & dining': SpendingCategory.FOOD,
-        'restaurants': SpendingCategory.FOOD,
-        
-        'transportation': SpendingCategory.TRANSPORTATION,
-        'gas & fuel': SpendingCategory.TRANSPORTATION,
-        'auto & transport': SpendingCategory.TRANSPORTATION,
-        'gas': SpendingCategory.TRANSPORTATION,
-        
-        'utilities': SpendingCategory.UTILITIES,
-        'bills & utilities': SpendingCategory.UTILITIES,
-        'internet': SpendingCategory.UTILITIES,
-        'cable/satellite': SpendingCategory.UTILITIES,
-        
-        'healthcare': SpendingCategory.HEALTHCARE,
-        'health': SpendingCategory.HEALTHCARE,
-        'medical services': SpendingCategory.HEALTHCARE,
-        'pharmacy': SpendingCategory.HEALTHCARE,
-        
-        'entertainment': SpendingCategory.ENTERTAINMENT,
-        'travel/ entertainment': SpendingCategory.ENTERTAINMENT,
-        'travel/entertainment': SpendingCategory.ENTERTAINMENT,
-        
-        'shopping': SpendingCategory.SHOPPING,
-        'merchandise': SpendingCategory.SHOPPING,
-        'department stores': SpendingCategory.SHOPPING,
-        'warehouse clubs': SpendingCategory.SHOPPING,
-        
-        'education': SpendingCategory.EDUCATION,
-        
-        'home improvement': SpendingCategory.HOUSING,
-        'home': SpendingCategory.HOUSING,
-        
-        'services': SpendingCategory.OTHER,
-        'government': SpendingCategory.OTHER,
-        'government services': SpendingCategory.OTHER,
-        
-        'income': SpendingCategory.INCOME,
-        'payment': SpendingCategory.DEBT,
-        'rewards': SpendingCategory.INCOME,
-        
-        'transfer': SpendingCategory.TRANSFER,
-        'fees': SpendingCategory.FEES,
-        'fees & charges': SpendingCategory.FEES,
-        
-        'travel': SpendingCategory.TRAVEL,
-        
-        'other': SpendingCategory.OTHER,
-        'uncategorized': SpendingCategory.OTHER,
-    }
-    
-    # =========================================================================
     # CLASSIFICATION METHODS
     # =========================================================================
     
@@ -267,6 +206,9 @@ class ExpenseClassifier:
         """
         Apply all classification dimensions to a transaction.
         
+        NOTE: Necessity (Needs/Wants/Savings) is intentionally NOT auto-classified
+        during upload. Users should tag these manually for accuracy.
+        
         Args:
             transaction: Transaction to classify
             
@@ -274,30 +216,19 @@ class ExpenseClassifier:
             Transaction with all classification fields populated
         """
         desc_lower = transaction.description.lower()
-        cat_lower = transaction.category.lower()
         
-        # Income detection
+        # Income detection - income is not a necessity level (needs/wants/savings)
+        # so we mark it as Unknown for necessity, but still classify recurrence
         if transaction.is_income:
-            transaction.expense_type = ExpenseType.INCOME
-            transaction.necessity = NecessityLevel.INCOME
-            transaction.recurrence = RecurrenceType.INCOME
-            transaction.budget_category = SpendingCategory.INCOME
-            transaction.is_discretionary = False
-            transaction.is_tax_deductible = False
-            transaction.priority = 1
+            transaction.necessity = NecessityLevel.UNKNOWN  # Income isn't needs/wants/savings
+            transaction.recurrence = cls._classify_recurrence(desc_lower, transaction.amount)
             return transaction
         
-        # Classify each dimension
+        # Classify recurrence
         transaction.recurrence = cls._classify_recurrence(desc_lower, transaction.amount)
-        transaction.necessity = cls._classify_necessity(desc_lower, cat_lower)
-        transaction.budget_category = cls._classify_budget_category(desc_lower, cat_lower)
-        transaction.is_discretionary = transaction.necessity == NecessityLevel.WANTS
         
-        # Only classify expense_type (Fixed/Variable) for recurring expenses
-        if transaction.recurrence in [RecurrenceType.SUBSCRIPTION, RecurrenceType.RECURRING]:
-            transaction.expense_type = cls._classify_expense_type(desc_lower, cat_lower, transaction.amount)
-        else:
-            transaction.expense_type = ExpenseType.UNKNOWN
+        # Necessity is NOT auto-classified - leave as Unknown for user to tag manually
+        transaction.necessity = NecessityLevel.UNKNOWN
         
         return transaction
     
@@ -313,27 +244,6 @@ class ExpenseClassifier:
             List of classified transactions
         """
         return [cls.classify(t) for t in transactions]
-    
-    @classmethod
-    def _classify_expense_type(cls, desc_lower: str, cat_lower: str, amount: float) -> str:
-        """Determine if expense is fixed or variable."""
-        # Check for fixed expense keywords
-        for keyword in cls.FIXED_EXPENSE_KEYWORDS:
-            if keyword in desc_lower:
-                return ExpenseType.FIXED
-        
-        # Subscriptions are fixed
-        for keyword in cls.SUBSCRIPTION_KEYWORDS:
-            if keyword in desc_lower:
-                return ExpenseType.FIXED
-        
-        # Insurance, utilities, rent categories
-        fixed_categories = {'insurance', 'utilities', 'bills & utilities', 'housing', 'rent'}
-        if cat_lower in fixed_categories:
-            return ExpenseType.FIXED
-        
-        # Default to variable
-        return ExpenseType.VARIABLE
     
     @classmethod
     def _classify_necessity(cls, desc_lower: str, cat_lower: str) -> str:
@@ -372,65 +282,13 @@ class ExpenseClassifier:
             if keyword in desc_lower:
                 return RecurrenceType.SUBSCRIPTION
         
-        # Check for fixed/recurring keywords
-        for keyword in cls.FIXED_EXPENSE_KEYWORDS:
+        # Check for recurring expense keywords
+        for keyword in cls.RECURRING_EXPENSE_KEYWORDS:
             if keyword in desc_lower:
                 return RecurrenceType.RECURRING
         
         # Default to one-time
         return RecurrenceType.ONE_TIME
-    
-    @classmethod
-    def _classify_budget_category(cls, desc_lower: str, cat_lower: str) -> str:
-        """Map to high-level budget category."""
-        # Try direct category mapping first
-        if cat_lower in cls.CATEGORY_TO_BUDGET:
-            return cls.CATEGORY_TO_BUDGET[cat_lower]
-        
-        # Keyword-based detection
-        if any(kw in desc_lower for kw in ['rent', 'mortgage', 'hoa', 'property']):
-            return SpendingCategory.HOUSING
-        
-        if any(kw in desc_lower for kw in ['uber', 'lyft', 'gas', 'shell', 'exxon', 'chevron', 'parking', 'metro', 'transit']):
-            return SpendingCategory.TRANSPORTATION
-        
-        if any(kw in desc_lower for kw in ['grocery', 'restaurant', 'cafe', 'coffee', 'food']):
-            return SpendingCategory.FOOD
-        
-        if any(kw in desc_lower for kw in ['electric', 'gas bill', 'water', 'internet', 'phone', 'verizon', 'att', 't-mobile']):
-            return SpendingCategory.UTILITIES
-        
-        if any(kw in desc_lower for kw in ['hospital', 'medical', 'doctor', 'pharmacy', 'cvs', 'walgreens']):
-            return SpendingCategory.HEALTHCARE
-        
-        if any(kw in desc_lower for kw in ['insurance', 'geico', 'progressive', 'state farm']):
-            return SpendingCategory.INSURANCE
-        
-        if any(kw in desc_lower for kw in ['netflix', 'hulu', 'spotify', 'movie', 'theater', 'concert']):
-            return SpendingCategory.ENTERTAINMENT
-        
-        if any(kw in desc_lower for kw in ['amazon', 'target', 'walmart', 'best buy']):
-            return SpendingCategory.SHOPPING
-        
-        if any(kw in desc_lower for kw in ['hotel', 'airbnb', 'airline', 'flight']):
-            return SpendingCategory.TRAVEL
-        
-        if any(kw in desc_lower for kw in ['donation', 'charity', 'gift']):
-            return SpendingCategory.GIFTS_DONATIONS
-        
-        if any(kw in desc_lower for kw in ['tuition', 'school', 'university', 'college']):
-            return SpendingCategory.EDUCATION
-        
-        if any(kw in desc_lower for kw in ['loan', 'payment', 'credit card']):
-            return SpendingCategory.DEBT
-        
-        if any(kw in desc_lower for kw in ['salon', 'spa', 'barber', 'gym', 'fitness']):
-            return SpendingCategory.PERSONAL
-        
-        if any(kw in desc_lower for kw in ['fee', 'charge', 'atm']):
-            return SpendingCategory.FEES
-        
-        return SpendingCategory.OTHER
     
     # =========================================================================
     # ANALYSIS METHODS
@@ -452,25 +310,9 @@ class ExpenseClassifier:
         
         total = sum(abs(t.amount) for t in expenses)
         
-        # Filter to recurring expenses for expense_type analysis
-        recurring_expenses = [t for t in expenses if t.recurrence in [RecurrenceType.SUBSCRIPTION, RecurrenceType.RECURRING]]
-        recurring_total = sum(abs(t.amount) for t in recurring_expenses) if recurring_expenses else 1
-        
         return {
-            'by_expense_type': cls._group_and_sum(recurring_expenses, 'expense_type', recurring_total) if recurring_expenses else {},
             'by_necessity': cls._group_and_sum(expenses, 'necessity', total),
             'by_recurrence': cls._group_and_sum(expenses, 'recurrence', total),
-            'by_budget_category': cls._group_and_sum(expenses, 'budget_category', total),
-            'discretionary_vs_essential': {
-                'discretionary': {
-                    'total': round(sum(abs(t.amount) for t in expenses if t.is_discretionary), 2),
-                    'count': len([t for t in expenses if t.is_discretionary]),
-                },
-                'essential': {
-                    'total': round(sum(abs(t.amount) for t in expenses if not t.is_discretionary), 2),
-                    'count': len([t for t in expenses if not t.is_discretionary]),
-                }
-            }
         }
     
     @classmethod
@@ -622,7 +464,7 @@ class ExpenseClassifier:
                     'total': 0,
                     'count': 0,
                     'amounts': [],
-                    'category': t.budget_category
+                    'category': t.category
                 }
             sub_groups[key]['total'] += abs(t.amount)
             sub_groups[key]['count'] += 1
@@ -665,20 +507,7 @@ class ExpenseClassifier:
         
         opportunities = []
         
-        # 1. High discretionary spending
-        discretionary = [t for t in expenses if t.is_discretionary]
-        if discretionary:
-            disc_total = sum(abs(t.amount) for t in discretionary)
-            if disc_total > 500:  # Only flag if significant
-                opportunities.append({
-                    'category': 'Discretionary Spending',
-                    'current': round(disc_total, 2),
-                    'potential_savings': round(disc_total * 0.2, 2),  # 20% reduction
-                    'suggestion': 'Reduce discretionary spending by 20%',
-                    'priority': 'Medium'
-                })
-        
-        # 2. Subscriptions
+        # 1. Subscriptions
         subscriptions = [t for t in expenses if t.recurrence == RecurrenceType.SUBSCRIPTION]
         if subscriptions:
             sub_total = sum(abs(t.amount) for t in subscriptions)
@@ -691,7 +520,7 @@ class ExpenseClassifier:
                     'priority': 'High'
                 })
         
-        # 3. Dining out
+        # 2. Dining out
         dining = [t for t in expenses if 'restaurant' in t.category.lower() or 'dining' in t.category.lower() 
                   or any(kw in t.description.lower() for kw in ['restaurant', 'cafe', 'doordash', 'uber eats', 'grubhub'])]
         if dining:
@@ -705,8 +534,8 @@ class ExpenseClassifier:
                     'priority': 'High'
                 })
         
-        # 4. Entertainment
-        entertainment = [t for t in expenses if t.budget_category == SpendingCategory.ENTERTAINMENT]
+        # 3. Entertainment
+        entertainment = [t for t in expenses if 'entertainment' in t.category.lower()]
         if entertainment:
             ent_total = sum(abs(t.amount) for t in entertainment)
             if ent_total > 100:

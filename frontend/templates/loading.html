@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block title %}Loading - Spendsight{% endblock %}
+
+{% block extra_css %}
+<style>
+.loading-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 70vh;
+    text-align: center;
+    padding: 2rem;
+}
+
+.loading-container {
+    max-width: 500px;
+    width: 100%;
+}
+
+.loading-icon {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 2rem;
+    position: relative;
+}
+
+.loading-spinner {
+    width: 100%;
+    height: 100%;
+    border: 4px solid rgba(74, 144, 217, 0.15);
+    border-top-color: var(--primary-color, #4a90d9);
+    border-radius: 50%;
+    animation: spin 1s ease-in-out infinite;
+}
+
+.loading-icon::after {
+    content: '📊';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2.5rem;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 0.7; transform: translate(-50%, -50%) scale(0.95); }
+}
+
+.loading-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary, #1a1a2e);
+}
+
+.loading-message {
+    font-size: 1.1rem;
+    color: var(--text-muted, #666);
+    margin-bottom: 2rem;
+    line-height: 1.6;
+}
+
+.loading-progress {
+    width: 100%;
+    height: 6px;
+    background: rgba(74, 144, 217, 0.15);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+.loading-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color, #4a90d9), #6cb3f5);
+    border-radius: 999px;
+    width: 0%;
+    animation: progress 3s ease-out forwards;
+}
+
+@keyframes progress {
+    0% { width: 0%; }
+    20% { width: 15%; }
+    40% { width: 35%; }
+    60% { width: 55%; }
+    80% { width: 75%; }
+    90% { width: 85%; }
+    100% { width: 95%; }
+}
+
+.loading-status {
+    font-size: 0.9rem;
+    color: var(--text-muted, #666);
+    min-height: 1.5em;
+}
+
+.loading-dots::after {
+    content: '';
+    animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+    0%, 20% { content: ''; }
+    40% { content: '.'; }
+    60% { content: '..'; }
+    80%, 100% { content: '...'; }
+}
+
+.error-container {
+    display: none;
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+    border-radius: 12px;
+}
+
+.error-container.show {
+    display: block;
+}
+
+.error-message {
+    color: var(--danger-color, #dc3545);
+    font-weight: 500;
+    margin-bottom: 1rem;
+}
+
+.error-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn-retry {
+    padding: 0.75rem 1.5rem;
+    background: var(--primary-color, #4a90d9);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-retry:hover {
+    background: #3a78b8;
+}
+
+.btn-upload {
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    color: var(--primary-color, #4a90d9);
+    border: 2px solid var(--primary-color, #4a90d9);
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.btn-upload:hover {
+    background: var(--primary-color, #4a90d9);
+    color: white;
+}
+
+/* Hide navbar sync button on loading page */
+.sync-btn {
+    display: none !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="loading-page">
+    <div class="loading-container">
+        <div class="loading-icon">
+            <div class="loading-spinner"></div>
+        </div>
+        
+        <h1 class="loading-title">Loading Your Data</h1>
+        <p class="loading-message">
+            Syncing transactions from Google Sheets<span class="loading-dots"></span>
+        </p>
+        
+        <div class="loading-progress">
+            <div class="loading-progress-bar" id="progressBar"></div>
+        </div>
+        
+        <p class="loading-status" id="loadingStatus">Connecting to Google Sheets...</p>
+        
+        <div class="error-container" id="errorContainer">
+            <p class="error-message" id="errorMessage"></p>
+            <div class="error-actions">
+                <button class="btn-retry" onclick="retryLoad()">Try Again</button>
+                <a href="{{ url_for('upload') }}" class="btn-upload">Upload CSVs Instead</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const statusEl = document.getElementById('loadingStatus');
+const progressBar = document.getElementById('progressBar');
+const errorContainer = document.getElementById('errorContainer');
+const errorMessage = document.getElementById('errorMessage');
+
+const statusMessages = [
+    'Connecting to Google Sheets...',
+    'Fetching transaction data...',
+    'Processing transactions...',
+    'Almost ready...'
+];
+
+let messageIndex = 0;
+let statusInterval;
+
+function updateStatus() {
+    if (messageIndex < statusMessages.length) {
+        statusEl.textContent = statusMessages[messageIndex];
+        messageIndex++;
+    }
+}
+
+function showError(message) {
+    clearInterval(statusInterval);
+    errorMessage.textContent = message;
+    errorContainer.classList.add('show');
+    progressBar.style.animation = 'none';
+    progressBar.style.background = 'var(--danger-color, #dc3545)';
+    statusEl.textContent = 'Failed to load data';
+}
+
+function retryLoad() {
+    errorContainer.classList.remove('show');
+    progressBar.style.animation = 'progress 3s ease-out forwards';
+    progressBar.style.background = 'linear-gradient(90deg, var(--primary-color, #4a90d9), #6cb3f5)';
+    progressBar.style.width = '0%';
+    messageIndex = 0;
+    loadFromSheets();
+}
+
+async function loadFromSheets() {
+    statusInterval = setInterval(updateStatus, 800);
+    updateStatus();
+    
+    try {
+        const response = await fetch('/api/load-from-sheets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const data = await response.json();
+        
+        clearInterval(statusInterval);
+        
+        if (data.success) {
+            progressBar.style.width = '100%';
+            statusEl.textContent = `Loaded ${data.loaded_count} transactions!`;
+            
+            // Redirect to dashboard after brief delay
+            setTimeout(() => {
+                window.location.href = '{{ url_for("index") }}?loaded=true';
+            }, 500);
+        } else if (data.no_data) {
+            // No data in sheets - redirect to upload page
+            statusEl.textContent = 'No transactions found in Google Sheets';
+            setTimeout(() => {
+                window.location.href = '{{ url_for("upload") }}';
+            }, 1000);
+        } else {
+            showError(data.error || 'Failed to load data from Google Sheets');
+        }
+    } catch (error) {
+        showError('Network error: ' + error.message);
+    }
+}
+
+// Start loading when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadFromSheets();
+});
+</script>
+{% endblock %}
+

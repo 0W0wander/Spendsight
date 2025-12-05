@@ -22,6 +22,14 @@ class SheetsClient:
     
     def _connect(self):
         """Connect to Google Sheets API."""
+        self.last_error = None
+        
+        # Check if credentials file exists
+        if not Config.GOOGLE_CREDENTIALS_PATH.exists():
+            self.last_error = f"Credentials file not found at: {Config.GOOGLE_CREDENTIALS_PATH}"
+            print(f"Error connecting to Google Sheets: {self.last_error}")
+            return
+        
         try:
             credentials = Credentials.from_service_account_file(
                 str(Config.GOOGLE_CREDENTIALS_PATH),
@@ -30,11 +38,28 @@ class SheetsClient:
             self.client = gspread.authorize(credentials)
             
             if Config.GOOGLE_SHEETS_ID:
-                self.spreadsheet = self.client.open_by_key(Config.GOOGLE_SHEETS_ID)
+                try:
+                    self.spreadsheet = self.client.open_by_key(Config.GOOGLE_SHEETS_ID)
+                except gspread.exceptions.APIError as api_error:
+                    error_details = str(api_error)
+                    if "404" in error_details:
+                        self.last_error = f"Sheet not found. Check if the Sheet ID is correct: {Config.GOOGLE_SHEETS_ID}"
+                    elif "403" in error_details or "permission" in error_details.lower():
+                        self.last_error = f"Permission denied. Share the sheet with: {credentials.service_account_email}"
+                    else:
+                        self.last_error = f"API Error: {error_details}"
+                    print(f"Error connecting to Google Sheets: {self.last_error}")
+                    self.client = None
             else:
-                print("Warning: No Google Sheets ID configured")
+                self.last_error = "No Google Sheets ID configured"
+                print(f"Warning: {self.last_error}")
+        except FileNotFoundError:
+            self.last_error = f"Credentials file not found at: {Config.GOOGLE_CREDENTIALS_PATH}"
+            print(f"Error connecting to Google Sheets: {self.last_error}")
+            self.client = None
         except Exception as e:
-            print(f"Error connecting to Google Sheets: {e}")
+            self.last_error = f"{type(e).__name__}: {str(e)}" if str(e) else f"{type(e).__name__} (no details)"
+            print(f"Error connecting to Google Sheets: {self.last_error}")
             self.client = None
     
     def is_connected(self) -> bool:
@@ -42,9 +67,15 @@ class SheetsClient:
         return self.client is not None and self.spreadsheet is not None
     
     def _get_or_create_worksheet(self, title: str, headers: List[str]):
-        """Get existing worksheet or create new one."""
+        """Get existing worksheet or create new one. Ensures headers are present."""
         try:
             worksheet = self.spreadsheet.worksheet(title)
+            # Check if headers exist, add them if sheet is empty
+            first_row = worksheet.row_values(1)
+            if not first_row or first_row[0] != headers[0]:
+                # Sheet exists but is empty or has wrong headers - clear and add headers
+                worksheet.clear()
+                worksheet.append_row(headers)
         except gspread.exceptions.WorksheetNotFound:
             worksheet = self.spreadsheet.add_worksheet(title=title, rows=1000, cols=len(headers))
             worksheet.append_row(headers)
@@ -73,14 +104,10 @@ class SheetsClient:
                 'Amount',
                 'Category',
                 'Bank',
-                'Type',
-                'Memo',
                 # Enhanced classification columns
-                'Expense Type',      # Fixed/Variable (recurring only)
                 'Necessity',         # Needs/Wants/Savings
                 'Recurrence',        # Subscription/Recurring/One-time
-                'Budget Category',   # High-level budget category
-                'Discretionary'      # Yes/No
+                'Note'               # User notes
             ]
             
             # Sync to "All Transactions" sheet
@@ -95,16 +122,35 @@ class SheetsClient:
                     all_transactions_sheet.append_rows(new_rows)
                 synced_count = len(new_rows)
             else:
-                # Incremental sync - avoid duplicates
+                # Incremental sync - avoid duplicates based on key fields only
+                # (date, description, amount, bank) - NOT category or other fields
                 existing_data = all_transactions_sheet.get_all_values()
-                existing_rows = set(tuple(row) for row in existing_data[1:])  # Skip header
                 
-                # Prepare new rows
+                # Create a set of existing transaction keys (date, description, amount, bank)
+                # Column indices: 0=Transaction Date, 2=Description, 3=Amount, 5=Bank
+                existing_keys = set()
+                for row in existing_data[1:]:  # Skip header
+                    if len(row) >= 6:
+                        # Normalize amount for comparison (remove formatting)
+                        try:
+                            amount = str(float(row[3]))
+                        except (ValueError, IndexError):
+                            amount = row[3] if len(row) > 3 else ''
+                        key = (row[0], row[2], amount, row[5])  # date, description, amount, bank
+                        existing_keys.add(key)
+                
+                # Prepare new rows, checking against key fields only
                 new_rows = []
+                duplicate_count = 0
                 for transaction in transactions:
                     row = [str(val) for val in transaction.to_sheet_row()]
-                    if tuple(row) not in existing_rows:
+                    # Create key from this transaction
+                    key = (row[0], row[2], str(float(row[3])), row[5])
+                    if key not in existing_keys:
                         new_rows.append(row)
+                        existing_keys.add(key)  # Prevent duplicates within the batch
+                    else:
+                        duplicate_count += 1
                 
                 # Append new rows
                 if new_rows:
@@ -142,6 +188,79 @@ class SheetsClient:
             
         except Exception as e:
             return {'error': f'Error syncing to Google Sheets: {str(e)}'}
+    
+    def load_transactions(self) -> dict:
+        """
+        Load transactions from Google Sheets.
+        
+        Returns:
+            Dictionary with loaded transactions or error
+        """
+        if not self.is_connected():
+            return {'error': 'Not connected to Google Sheets', 'transactions': []}
+        
+        try:
+            # Try to get the "All Transactions" worksheet
+            try:
+                worksheet = self.spreadsheet.worksheet('All Transactions')
+            except gspread.exceptions.WorksheetNotFound:
+                return {'transactions': [], 'message': 'No transactions found in Google Sheets'}
+            
+            # Get all data
+            all_data = worksheet.get_all_values()
+            
+            if len(all_data) <= 1:  # Only header or empty
+                return {'transactions': [], 'message': 'No transactions found in Google Sheets'}
+            
+            # Parse rows (skip header)
+            transactions = []
+            errors = []
+            
+            for row_num, row in enumerate(all_data[1:], start=2):
+                try:
+                    # Expected columns: Transaction Date, Post Date, Description, Amount, Category, 
+                    # Bank, Necessity, Recurrence, Note
+                    if len(row) < 6:  # Need at least the basic columns
+                        continue
+                    
+                    from datetime import datetime
+                    from backend.models.transaction import NecessityLevel, RecurrenceType
+                    
+                    # Parse dates
+                    transaction_date = datetime.strptime(row[0], '%Y-%m-%d')
+                    post_date = datetime.strptime(row[1], '%Y-%m-%d') if row[1] else transaction_date
+                    
+                    # Parse amount
+                    amount = float(row[3]) if row[3] else 0.0
+                    
+                    # Create transaction object
+                    transaction = Transaction(
+                        transaction_date=transaction_date,
+                        post_date=post_date,
+                        description=row[2],
+                        amount=amount,
+                        category=row[4] if len(row) > 4 and row[4] else 'Other',
+                        bank=row[5] if len(row) > 5 and row[5] else 'unknown',
+                        # Enhanced classification columns
+                        necessity=row[6] if len(row) > 6 and row[6] else NecessityLevel.UNKNOWN,
+                        recurrence=row[7] if len(row) > 7 and row[7] else RecurrenceType.UNKNOWN,
+                        note=row[8] if len(row) > 8 and row[8] else None
+                    )
+                    transactions.append(transaction)
+                    
+                except Exception as e:
+                    errors.append(f"Row {row_num}: {str(e)}")
+                    continue
+            
+            return {
+                'transactions': transactions,
+                'loaded_count': len(transactions),
+                'error_count': len(errors),
+                'errors': errors[:5] if errors else []  # Return first 5 errors for debugging
+            }
+            
+        except Exception as e:
+            return {'error': f'Error loading from Google Sheets: {str(e)}', 'transactions': []}
     
     def create_monthly_summary(self, transactions: List[Transaction]) -> dict:
         """

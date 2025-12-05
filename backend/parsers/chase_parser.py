@@ -40,7 +40,7 @@ class ChaseParser:
         Args:
             file_path: Path to the Chase CSV file
             use_csv_categories: If True, use categories from CSV and skip auto-classification.
-                               If False, apply auto-tagging rules.
+                               If False, all categories will be set to 'Other' for auto-tagging rules to apply.
             
         Returns:
             List of Transaction objects with full classification
@@ -53,12 +53,12 @@ class ChaseParser:
             df_columns = set(df.columns)
             
             if ChaseParser.CHECKING_COLUMNS.issubset(df_columns):
-                transactions = ChaseParser._parse_checking_format(df)
+                transactions = ChaseParser._parse_checking_format(df, use_csv_categories)
             elif ChaseParser.CREDIT_CARD_COLUMNS.issubset(df_columns):
-                transactions = ChaseParser._parse_credit_card_format(df)
+                transactions = ChaseParser._parse_credit_card_format(df, use_csv_categories)
             else:
                 # Try to be flexible - look for key columns
-                transactions = ChaseParser._parse_flexible(df)
+                transactions = ChaseParser._parse_flexible(df, use_csv_categories)
             
             # Set default recurrence to One-time for all transactions
             for t in transactions:
@@ -74,7 +74,7 @@ class ChaseParser:
             raise Exception(f"Error parsing Chase CSV: {str(e)}")
     
     @staticmethod
-    def _parse_checking_format(df: pd.DataFrame) -> List[Transaction]:
+    def _parse_checking_format(df: pd.DataFrame, use_csv_categories: bool = False) -> List[Transaction]:
         """Parse Chase checking/savings account CSV format."""
         transactions = []
         
@@ -90,14 +90,19 @@ class ChaseParser:
                 # Get description
                 description = str(row['Description']).strip().strip('"')
                 
-                # Determine category from Type
-                chase_type = str(row['Type']).strip() if pd.notna(row['Type']) else ''
-                category = ChaseParser.TYPE_CATEGORY_MAP.get(chase_type, 'Other')
-                
-                # Further categorize based on description keywords
-                category = ChaseParser._categorize_by_description(description, category)
+                # Only use CSV categories if explicitly requested
+                if use_csv_categories:
+                    # Determine category from Type
+                    chase_type = str(row['Type']).strip() if pd.notna(row['Type']) else ''
+                    category = ChaseParser.TYPE_CATEGORY_MAP.get(chase_type, 'Other')
+                    # Further categorize based on description keywords
+                    category = ChaseParser._categorize_by_description(description, category)
+                else:
+                    # Set to 'Other' so auto-tagging rules can apply
+                    category = 'Other'
                 
                 # Details indicates CREDIT/DEBIT
+                chase_type = str(row['Type']).strip() if pd.notna(row['Type']) else ''
                 details = str(row['Details']).strip() if pd.notna(row['Details']) else ''
                 
                 transaction = Transaction(
@@ -106,7 +111,7 @@ class ChaseParser:
                     description=description,
                     amount=amount,
                     category=category,
-                    bank='chase',
+                    bank='Chase',
                     type=chase_type if chase_type else details,
                     memo=None
                 )
@@ -118,19 +123,26 @@ class ChaseParser:
         return transactions
     
     @staticmethod
-    def _parse_credit_card_format(df: pd.DataFrame) -> List[Transaction]:
+    def _parse_credit_card_format(df: pd.DataFrame, use_csv_categories: bool = False) -> List[Transaction]:
         """Parse Chase credit card CSV format."""
         transactions = []
         
         for _, row in df.iterrows():
             try:
+                # Only use CSV categories if explicitly requested
+                if use_csv_categories:
+                    category = str(row['Category']).strip() if pd.notna(row['Category']) else 'Other'
+                else:
+                    # Set to 'Other' so auto-tagging rules can apply
+                    category = 'Other'
+                
                 transaction = Transaction(
                     transaction_date=datetime.strptime(row['Transaction Date'], '%m/%d/%Y'),
                     post_date=datetime.strptime(row['Post Date'], '%m/%d/%Y'),
                     description=str(row['Description']).strip(),
                     amount=float(row['Amount']),
-                    category=str(row['Category']).strip() if pd.notna(row['Category']) else 'Uncategorized',
-                    bank='chase',
+                    category=category,
+                    bank='Chase',
                     type=str(row['Type']).strip() if pd.notna(row['Type']) else None,
                     memo=str(row.get('Memo', '')).strip() if 'Memo' in row and pd.notna(row.get('Memo')) else None
                 )
@@ -142,7 +154,7 @@ class ChaseParser:
         return transactions
     
     @staticmethod
-    def _parse_flexible(df: pd.DataFrame) -> List[Transaction]:
+    def _parse_flexible(df: pd.DataFrame, use_csv_categories: bool = False) -> List[Transaction]:
         """Flexibly parse Chase CSV by finding common column names."""
         transactions = []
         columns = df.columns.tolist()
@@ -193,13 +205,17 @@ class ChaseParser:
                 # Get description
                 description = str(row[desc_col]).strip()
                 
-                # Try to get category
-                category = 'Uncategorized'
-                if 'Category' in columns and pd.notna(row['Category']):
-                    category = str(row['Category']).strip()
-                elif 'Type' in columns and pd.notna(row['Type']):
-                    chase_type = str(row['Type']).strip()
-                    category = ChaseParser.TYPE_CATEGORY_MAP.get(chase_type, 'Other')
+                # Only use CSV categories if explicitly requested
+                if use_csv_categories:
+                    category = 'Other'
+                    if 'Category' in columns and pd.notna(row['Category']):
+                        category = str(row['Category']).strip()
+                    elif 'Type' in columns and pd.notna(row['Type']):
+                        chase_type = str(row['Type']).strip()
+                        category = ChaseParser.TYPE_CATEGORY_MAP.get(chase_type, 'Other')
+                else:
+                    # Set to 'Other' so auto-tagging rules can apply
+                    category = 'Other'
                 
                 transaction = Transaction(
                     transaction_date=parsed_date,
@@ -207,7 +223,7 @@ class ChaseParser:
                     description=description,
                     amount=amount,
                     category=category,
-                    bank='chase',
+                    bank='Chase',
                     type=None,
                     memo=None
                 )

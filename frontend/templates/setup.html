@@ -494,6 +494,66 @@
             color: var(--accent-mint);
         }
 
+        /* Service account email box */
+        .service-account-box {
+            background: var(--bg-dark);
+            border: 2px solid var(--accent-mint);
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 28px;
+        }
+
+        .service-account-box .form-label {
+            margin-bottom: 12px;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .email-copy-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--bg-elevated);
+            border-radius: 10px;
+            padding: 14px 16px;
+        }
+
+        .service-email {
+            flex: 1;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            color: var(--accent-mint);
+            word-break: break-all;
+            background: none;
+        }
+
+        .copy-btn {
+            background: var(--accent-mint);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 14px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .copy-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+        }
+
+        .copy-btn.copied {
+            background: #34d399;
+        }
+
+        .copy-status {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: var(--accent-mint);
+            min-height: 22px;
+        }
+
         /* Responsive */
         @media (max-width: 600px) {
             .slide-card {
@@ -538,6 +598,8 @@
             <div class="progress-dot" data-step="2"></div>
             <div class="progress-line" data-line="2"></div>
             <div class="progress-dot" data-step="3"></div>
+            <div class="progress-line" data-line="3"></div>
+            <div class="progress-dot" data-step="4"></div>
         </div>
 
         <!-- Slides -->
@@ -652,7 +714,7 @@
                 </div>
             </div>
 
-            <!-- Slide 3: Create Sheet & Finish -->
+            <!-- Slide 3: Create/Connect Sheet -->
             <div class="slide" data-slide="3">
                 <div class="slide-card">
                     <div class="slide-icon">📊</div>
@@ -669,20 +731,71 @@
                         </a>
                     </div>
                     
-                    <form id="setup-form" method="POST" action="{{ url_for('setup_submit') }}">
-                        <div class="form-group">
-                            <label class="form-label" for="sheet_url">Paste your Google Sheet link</label>
-                            <input 
-                                type="text" 
-                                id="sheet_url" 
-                                class="form-input"
-                                placeholder="https://docs.google.com/spreadsheets/d/..."
-                                autocomplete="off"
-                            >
-                            <input type="hidden" id="sheet_id" name="sheet_id">
-                            <p class="form-hint" id="sheet-hint">Paste the full URL from your browser</p>
-                            <p class="form-hint extracted-id" id="extracted-id" style="display: none;"></p>
+                    <div class="form-group">
+                        <label class="form-label" for="sheet_url">Paste your Google Sheet link</label>
+                        <input 
+                            type="text" 
+                            id="sheet_url" 
+                            class="form-input"
+                            placeholder="https://docs.google.com/spreadsheets/d/..."
+                            autocomplete="off"
+                        >
+                        <p class="form-hint" id="sheet-hint">Paste the full URL from your browser</p>
+                        <p class="form-hint extracted-id" id="extracted-id" style="display: none;"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 4: Share Sheet with Service Account -->
+            <div class="slide" data-slide="4">
+                <div class="slide-card">
+                    <div class="slide-icon">🔗</div>
+                    <h2 class="slide-title">Share Your Sheet</h2>
+                    <p class="slide-desc">
+                        <strong>Important!</strong> Share your Google Sheet with the service account so Spendsight can access it.
+                    </p>
+                    
+                    <!-- Button to open the sheet -->
+                    <a href="#" id="open-sheet-btn" class="link-btn sheets" target="_blank" rel="noopener" style="margin-bottom: 24px;">
+                        📊 Open Your Google Sheet
+                    </a>
+                    
+                    <div class="service-account-box">
+                        <label class="form-label">Copy this email and add it as an Editor:</label>
+                        <div class="email-copy-container">
+                            <code class="service-email" id="service-account-email">Loading...</code>
+                            <button type="button" class="copy-btn" id="copy-email-btn" title="Copy to clipboard">
+                                📋
+                            </button>
                         </div>
+                        <p class="copy-status" id="copy-status"></p>
+                    </div>
+                    
+                    <div class="instruction-list">
+                        <div class="instruction-item">
+                            <span class="instruction-num">1</span>
+                            <span class="instruction-text">Click <strong>"Open Your Google Sheet"</strong> above</span>
+                        </div>
+                        <div class="instruction-item">
+                            <span class="instruction-num">2</span>
+                            <span class="instruction-text">Click <strong>Share</strong> (blue button, top right of the sheet)</span>
+                        </div>
+                        <div class="instruction-item">
+                            <span class="instruction-num">3</span>
+                            <span class="instruction-text">Paste the email above into "Add people" and set to <strong>Editor</strong></span>
+                        </div>
+                        <div class="instruction-item">
+                            <span class="instruction-num">4</span>
+                            <span class="instruction-text">Click <strong>Send</strong> (you can uncheck "Notify people")</span>
+                        </div>
+                    </div>
+                    
+                    <p class="slide-desc" style="margin-top: 20px; margin-bottom: 0; font-size: 0.95rem; color: var(--text-muted);">
+                        💡 The email looks like a robot address ending in .iam.gserviceaccount.com - that's correct!
+                    </p>
+                    
+                    <form id="setup-form" method="POST" action="{{ url_for('setup_submit') }}">
+                        <input type="hidden" id="sheet_id" name="sheet_id">
                     </form>
                 </div>
             </div>
@@ -702,8 +815,11 @@
     <script>
         // Wizard state
         let currentSlide = 0;
-        const totalSlides = 4;
+        const totalSlides = 5;
         let credentialsUploaded = {{ 'true' if credentials_exist else 'false' }};
+        let serviceAccountEmail = '';
+        let sheetUrl = '';
+        let sheetId = '';
 
         // Elements
         const slides = document.querySelectorAll('.slide');
@@ -715,6 +831,14 @@
         const credentialsInput = document.getElementById('credentials-input');
         const uploadStatus = document.getElementById('upload-status');
         const setupForm = document.getElementById('setup-form');
+        const serviceAccountEmailEl = document.getElementById('service-account-email');
+        const copyEmailBtn = document.getElementById('copy-email-btn');
+        const copyStatus = document.getElementById('copy-status');
+        const openSheetBtn = document.getElementById('open-sheet-btn');
+        const sheetUrlInput = document.getElementById('sheet_url');
+        const sheetIdInput = document.getElementById('sheet_id');
+        const sheetHint = document.getElementById('sheet-hint');
+        const extractedIdDisplay = document.getElementById('extracted-id');
 
         // Update progress indicator
         function updateProgress() {
@@ -753,6 +877,12 @@
                 btnNext.classList.remove('submit');
             }
 
+            // When entering step 4 (share step), fetch service account email and update sheet link
+            if (index === 4) {
+                fetchServiceAccountEmail();
+                updateOpenSheetButton();
+            }
+
             // Check if can proceed
             updateNextButton();
         }
@@ -760,14 +890,101 @@
         // Update next button state
         function updateNextButton() {
             if (currentSlide === 2 && !credentialsUploaded) {
+                // Step 2: Need credentials uploaded
                 btnNext.disabled = true;
             } else if (currentSlide === 3) {
-                const sheetId = document.getElementById('sheet_id').value.trim();
+                // Step 3: Need sheet URL entered
+                btnNext.disabled = !sheetId;
+            } else if (currentSlide === 4) {
+                // Step 4 (final): Need everything ready
                 btnNext.disabled = !sheetId || !credentialsUploaded;
             } else {
                 btnNext.disabled = false;
             }
         }
+
+        // Fetch service account email from server
+        async function fetchServiceAccountEmail() {
+            if (serviceAccountEmail) {
+                updateServiceAccountEmail();
+                return;
+            }
+            
+            try {
+                const response = await fetch('{{ url_for("check_credentials") }}');
+                const result = await response.json();
+                console.log('Check credentials response:', result);
+                
+                if (result.service_account_email) {
+                    serviceAccountEmail = result.service_account_email;
+                    updateServiceAccountEmail();
+                } else if (result.error) {
+                    serviceAccountEmailEl.textContent = `Error: ${result.error}`;
+                    console.error('Credentials error:', result.error, 'Path:', result.path);
+                } else {
+                    serviceAccountEmailEl.textContent = 'Could not load email. Please go back and re-upload credentials.';
+                }
+            } catch (err) {
+                console.error('Could not fetch service account email:', err);
+                serviceAccountEmailEl.textContent = 'Network error. Please refresh the page.';
+            }
+        }
+
+        // Update the "Open Your Google Sheet" button
+        function updateOpenSheetButton() {
+            if (sheetId) {
+                openSheetBtn.href = `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+                openSheetBtn.style.opacity = '1';
+                openSheetBtn.style.pointerEvents = 'auto';
+            } else {
+                openSheetBtn.href = '#';
+                openSheetBtn.style.opacity = '0.5';
+                openSheetBtn.style.pointerEvents = 'none';
+            }
+        }
+
+        // Update service account email display
+        function updateServiceAccountEmail() {
+            if (serviceAccountEmail) {
+                serviceAccountEmailEl.textContent = serviceAccountEmail;
+            } else {
+                serviceAccountEmailEl.textContent = 'Upload credentials first';
+            }
+        }
+
+        // Copy email to clipboard
+        copyEmailBtn.addEventListener('click', async () => {
+            if (!serviceAccountEmail) return;
+            
+            try {
+                await navigator.clipboard.writeText(serviceAccountEmail);
+                copyEmailBtn.textContent = '✅';
+                copyEmailBtn.classList.add('copied');
+                copyStatus.textContent = 'Copied to clipboard!';
+                
+                setTimeout(() => {
+                    copyEmailBtn.textContent = '📋';
+                    copyEmailBtn.classList.remove('copied');
+                    copyStatus.textContent = '';
+                }, 2000);
+            } catch (err) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = serviceAccountEmail;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                copyEmailBtn.textContent = '✅';
+                copyStatus.textContent = 'Copied to clipboard!';
+                
+                setTimeout(() => {
+                    copyEmailBtn.textContent = '📋';
+                    copyStatus.textContent = '';
+                }, 2000);
+            }
+        });
 
         // Form submission - prevent if no valid sheet ID
         setupForm.addEventListener('submit', (e) => {
@@ -844,6 +1061,13 @@
                     credentialsUploaded = true;
                     uploadZone.classList.add('uploaded');
                     showUploadStatus('', '');
+                    
+                    // Store the service account email
+                    if (result.service_account_email) {
+                        serviceAccountEmail = result.service_account_email;
+                        updateServiceAccountEmail();
+                    }
+                    
                     updateNextButton();
                 } else {
                     showUploadStatus(result.error || 'Upload failed', 'error');
@@ -862,12 +1086,7 @@
         }
 
         // Sheet URL parsing
-        const sheetUrlInput = document.getElementById('sheet_url');
-        const sheetIdInput = document.getElementById('sheet_id');
-        const sheetHint = document.getElementById('sheet-hint');
-        const extractedIdDisplay = document.getElementById('extracted-id');
-
-        function extractSheetId(input) {
+        function extractSheetIdFromUrl(input) {
             // Try to extract ID from full URL
             // Format: https://docs.google.com/spreadsheets/d/SHEET_ID/edit...
             const urlMatch = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
@@ -885,24 +1104,34 @@
 
         sheetUrlInput.addEventListener('input', (e) => {
             const value = e.target.value.trim();
-            const extractedId = extractSheetId(value);
+            const extractedId = extractSheetIdFromUrl(value);
             
             if (extractedId) {
+                // Store in global variables
+                sheetId = extractedId;
+                sheetUrl = value;
                 sheetIdInput.value = extractedId;
+                
                 sheetUrlInput.classList.remove('invalid');
                 sheetUrlInput.classList.add('valid');
                 sheetHint.style.display = 'none';
                 extractedIdDisplay.style.display = 'block';
                 extractedIdDisplay.textContent = '✓ Sheet ID: ' + extractedId;
             } else if (value) {
+                sheetId = '';
+                sheetUrl = '';
                 sheetIdInput.value = '';
+                
                 sheetUrlInput.classList.remove('valid');
                 sheetUrlInput.classList.add('invalid');
                 sheetHint.style.display = 'block';
                 sheetHint.textContent = 'Please paste a valid Google Sheets URL';
                 extractedIdDisplay.style.display = 'none';
             } else {
+                sheetId = '';
+                sheetUrl = '';
                 sheetIdInput.value = '';
+                
                 sheetUrlInput.classList.remove('valid', 'invalid');
                 sheetHint.style.display = 'block';
                 sheetHint.textContent = 'Paste the full URL from your browser';
@@ -913,10 +1142,14 @@
         });
 
         // Initialize
-        if (credentialsUploaded) {
-            uploadZone.classList.add('uploaded');
+        function initWizard() {
+            if (credentialsUploaded) {
+                uploadZone.classList.add('uploaded');
+            }
+            updateNextButton();
         }
-        updateNextButton();
+        
+        initWizard();
     </script>
 </body>
 </html>

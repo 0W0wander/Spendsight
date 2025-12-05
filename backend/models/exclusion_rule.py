@@ -17,6 +17,7 @@ class ExclusionRule:
     """
     id: str
     keywords: List[str]  # ALL keywords must be present (AND logic)
+    title: str = ""  # Optional title/name for the rule
     enabled: bool = True
     swept_count: int = 0  # Track how many transactions this rule has swept
     
@@ -44,6 +45,7 @@ class ExclusionRule:
         return {
             'id': self.id,
             'keywords': self.keywords,
+            'title': self.title,
             'enabled': self.enabled,
             'swept_count': self.swept_count
         }
@@ -54,6 +56,7 @@ class ExclusionRule:
         return cls(
             id=data.get('id', str(uuid.uuid4())),
             keywords=data['keywords'],
+            title=data.get('title', ''),
             enabled=data.get('enabled', True),
             swept_count=data.get('swept_count', 0)
         )
@@ -101,12 +104,13 @@ class ExclusionRuleEngine:
         except Exception as e:
             print(f"Error saving exclusion rules: {e}")
     
-    def add_rule(self, keywords: List[str]) -> ExclusionRule:
+    def add_rule(self, keywords: List[str], title: str = "") -> ExclusionRule:
         """
         Add a new exclusion rule.
         
         Args:
             keywords: List of keywords that must ALL be present to match
+            title: Optional title/name for the rule
             
         Returns:
             The created ExclusionRule
@@ -114,6 +118,7 @@ class ExclusionRuleEngine:
         rule = ExclusionRule(
             id=str(uuid.uuid4()),
             keywords=keywords,
+            title=title,
             enabled=True,
             swept_count=0
         )
@@ -122,13 +127,14 @@ class ExclusionRuleEngine:
         return rule
     
     def update_rule(self, rule_id: str, keywords: List[str] = None, 
-                   enabled: bool = None) -> ExclusionRule:
+                   title: str = None, enabled: bool = None) -> ExclusionRule:
         """
         Update an existing rule.
         
         Args:
             rule_id: ID of the rule to update
             keywords: New keywords list (optional)
+            title: New title (optional)
             enabled: Enable/disable rule (optional)
             
         Returns:
@@ -138,6 +144,8 @@ class ExclusionRuleEngine:
             if rule.id == rule_id:
                 if keywords is not None:
                     rule.keywords = keywords
+                if title is not None:
+                    rule.title = title
                 if enabled is not None:
                     rule.enabled = enabled
                 
@@ -248,19 +256,19 @@ class ExclusionRuleEngine:
             transactions: List of Transaction objects
             
         Returns:
-            Tuple of (count, sample_descriptions)
+            Tuple of (count, all_matching_descriptions)
         """
         count = 0
-        samples = []
+        matches = []
         
         for transaction in transactions:
             desc_lower = transaction.description.lower()
             if all(kw.lower() in desc_lower for kw in keywords):
                 count += 1
-                if len(samples) < 5:
-                    samples.append(transaction.description[:60] + ('...' if len(transaction.description) > 60 else ''))
+                # Include all matching transaction descriptions (truncated for display)
+                matches.append(transaction.description[:80] + ('...' if len(transaction.description) > 80 else ''))
         
-        return count, samples
+        return count, matches
 
 
 # Global instance for the application

@@ -4,6 +4,7 @@ Spendsight - Personal Budget Tracking
 Quick start script to run the application.
 """
 import sys
+import platform
 from pathlib import Path
 
 # Add the project root to Python path
@@ -16,25 +17,29 @@ from backend.config import Config
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("🚀 Starting Spendsight...")
+    print("[*] Starting Spendsight...")
     print("=" * 60)
     
     # Check if setup is needed
     if needs_setup():
-        print("\n⚙️  First time setup detected!")
-        print(f"📱 Please open: http://localhost:{Config.PORT}/setup")
-        print("   Follow the setup wizard to configure Spendsight\n")
+        print("\n[!] First time setup detected!")
+        print(f"[>] Please open: http://localhost:{Config.PORT}/setup")
+        print("    Follow the setup wizard to configure Spendsight\n")
     else:
-        print("\n✅ Configuration loaded successfully!")
-        print(f"📱 Open: http://localhost:{Config.PORT}")
+        print("\n[+] Configuration loaded successfully!")
+        print(f"[>] Open: http://localhost:{Config.PORT}")
     
     print(f"\n[OK] Server running at: http://localhost:{Config.PORT}")
     print("[OK] Press CTRL+C to stop the server\n")
     print("=" * 60)
     
+    # Disable reloader on Windows to avoid socket issues
+    use_reloader = Config.DEBUG and platform.system() != 'Windows'
+    
     app.run(
         host='0.0.0.0',
         port=Config.PORT,
-        debug=Config.DEBUG
+        debug=Config.DEBUG,
+        use_reloader=use_reloader
     )
 

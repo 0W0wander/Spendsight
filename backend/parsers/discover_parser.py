@@ -76,9 +76,13 @@ class DiscoverParser:
                     amount_str = str(row['Amount']).replace(',', '').replace('$', '').strip()
                     amount = -float(amount_str)  # Flip sign for credit cards
                     
-                    # Get and normalize category
-                    raw_category = str(row['Category']).strip() if pd.notna(row['Category']) else 'Uncategorized'
-                    category = DiscoverParser._normalize_category(raw_category)
+                    # Get and normalize category - only if using CSV categories
+                    raw_category = str(row['Category']).strip() if pd.notna(row['Category']) else 'Other'
+                    if use_csv_categories:
+                        category = DiscoverParser._normalize_category(raw_category)
+                    else:
+                        # Set to 'Other' so auto-tagging rules can apply
+                        category = 'Other'
                     
                     # Get description
                     description = str(row['Description']).strip().strip('"')
@@ -92,7 +96,7 @@ class DiscoverParser:
                         description=description,
                         amount=amount,
                         category=category,
-                        bank='discover',
+                        bank='Discover',
                         type=trans_type,
                         memo=None,
                         recurrence=RecurrenceType.ONE_TIME  # Default to one-time
@@ -172,11 +176,15 @@ class DiscoverParser:
                 # Get description
                 description = str(row[desc_col]).strip()
                 
-                # Get category
-                raw_category = 'Uncategorized'
-                if category_col and pd.notna(row[category_col]):
-                    raw_category = str(row[category_col]).strip()
-                category = DiscoverParser._normalize_category(raw_category)
+                # Get category - only if using CSV categories
+                if use_csv_categories:
+                    raw_category = 'Other'
+                    if category_col and pd.notna(row[category_col]):
+                        raw_category = str(row[category_col]).strip()
+                    category = DiscoverParser._normalize_category(raw_category)
+                else:
+                    # Set to 'Other' so auto-tagging rules can apply
+                    category = 'Other'
                 
                 transaction = Transaction(
                     transaction_date=trans_date,
@@ -184,7 +192,7 @@ class DiscoverParser:
                     description=description,
                     amount=amount,
                     category=category,
-                    bank='discover',
+                    bank='Discover',
                     type=None,
                     memo=None,
                     recurrence=RecurrenceType.ONE_TIME  # Default to one-time

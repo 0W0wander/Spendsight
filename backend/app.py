@@ -2,11 +2,13 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 import os
+import json
 import secrets
 from pathlib import Path
 from backend.config import Config
 from backend.parsers.chase_parser import ChaseParser
 from backend.parsers.discover_parser import DiscoverParser
+from backend.parsers.csv_detector import CSVDetector, CSVType
 from backend.sheets.sheets_client import SheetsClient
 from backend.analytics.categorizer import TransactionCategorizer
 from backend.analytics.insights import InsightsGenerator
@@ -145,15 +147,51 @@ def upload_credentials():
         credentials_path = project_root / 'credentials.json'
         file.save(str(credentials_path))
         
-        return jsonify({'success': True, 'message': 'Credentials uploaded successfully'})
+        # Extract the service account email from the credentials file
+        service_account_email = None
+        try:
+            with open(credentials_path, 'r', encoding='utf-8') as f:
+                creds_data = json.load(f)
+                service_account_email = creds_data.get('client_email', '')
+        except:
+            pass
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Credentials uploaded successfully',
+            'service_account_email': service_account_email
+        })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/setup/check-credentials')
 def check_credentials():
-    """Check if credentials file exists."""
-    exists = Config.GOOGLE_CREDENTIALS_PATH.exists()
-    return jsonify({'exists': exists})
+    """Check if credentials file exists and return service account email."""
+    creds_path = Config.GOOGLE_CREDENTIALS_PATH
+    exists = creds_path.exists()
+    service_account_email = None
+    error_msg = None
+    
+    if exists:
+        try:
+            with open(creds_path, 'r', encoding='utf-8') as f:
+                creds_data = json.load(f)
+                service_account_email = creds_data.get('client_email')
+                if not service_account_email:
+                    error_msg = 'client_email not found in credentials file'
+        except json.JSONDecodeError as e:
+            error_msg = f'Invalid JSON in credentials file: {e}'
+        except Exception as e:
+            error_msg = f'Error reading credentials: {e}'
+    else:
+        error_msg = f'Credentials file not found at {creds_path}'
+    
+    return jsonify({
+        'exists': exists,
+        'service_account_email': service_account_email,
+        'error': error_msg,
+        'path': str(creds_path)
+    })
 
 @app.route('/setup/submit', methods=['POST'])
 def setup_submit():
@@ -198,11 +236,111 @@ def restart_server():
     
     return jsonify({'status': 'restarting'})
 
+@app.route('/loading')
+def loading():
+    """Loading page while fetching data from Google Sheets."""
+    return render_template('loading.html')
+
+
+@app.route('/api/load-from-sheets', methods=['POST'])
+def api_load_from_sheets():
+    """Load transactions from Google Sheets into memory."""
+    global all_transactions
+    
+    try:
+        sheets_client = SheetsClient()
+        
+        if not sheets_client.is_connected():
+            return jsonify({
+                'success': False,
+                'error': sheets_client.last_error or 'Could not connect to Google Sheets'
+            })
+        
+        result = sheets_client.load_transactions()
+        
+        if 'error' in result and result['error']:
+            return jsonify({
+                'success': False,
+                'error': result['error']
+            })
+        
+        loaded_transactions = result.get('transactions', [])
+        
+        if len(loaded_transactions) == 0:
+            return jsonify({
+                'success': False,
+                'no_data': True,
+                'message': 'No transactions found in Google Sheets'
+            })
+        
+        # Replace in-memory transactions with loaded data
+        all_transactions = loaded_transactions
+        
+        return jsonify({
+            'success': True,
+            'loaded_count': len(loaded_transactions),
+            'error_count': result.get('error_count', 0)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@app.route('/api/sheets-status')
+def api_sheets_status():
+    """Check if Google Sheets is configured and has data."""
+    try:
+        sheets_client = SheetsClient()
+        
+        if not sheets_client.is_connected():
+            return jsonify({
+                'connected': False,
+                'error': sheets_client.last_error
+            })
+        
+        # Try to check if there's data
+        try:
+            worksheet = sheets_client.spreadsheet.worksheet('All Transactions')
+            row_count = worksheet.row_count
+            # Get actual data count (subtract header)
+            all_values = worksheet.get_all_values()
+            data_count = len(all_values) - 1 if len(all_values) > 0 else 0
+            
+            return jsonify({
+                'connected': True,
+                'has_data': data_count > 0,
+                'data_count': data_count
+            })
+        except:
+            return jsonify({
+                'connected': True,
+                'has_data': False,
+                'data_count': 0
+            })
+            
+    except Exception as e:
+        return jsonify({
+            'connected': False,
+            'error': str(e)
+        })
+
+
 @app.route('/')
 def index():
     """Home page with interactive dashboard."""
-    # If no transactions exist, redirect to upload page
+    # If no transactions in memory, check if we should load from Google Sheets
     if len(all_transactions) == 0:
+        # Check if Google Sheets is configured
+        if not needs_setup():
+            # Setup is complete, check if we should redirect to loading page
+            # Only redirect to loading if not coming from there (prevent loop)
+            if request.args.get('loaded') != 'true':
+                return redirect(url_for('loading'))
+        
+        # No setup or explicitly came from loading with no data - show upload page
         return redirect(url_for('upload'))
     
     expense_transactions = [t for t in all_transactions if t.is_expense]
@@ -240,96 +378,136 @@ def index():
 
 @app.route('/upload', methods=['GET', 'POST'])
 def upload():
-    """Upload CSV file page."""
+    """Upload CSV file page. Supports multiple file uploads."""
     if request.method == 'POST':
-        # Check if file was uploaded
-        if 'file' not in request.files:
+        # Check if files were uploaded
+        if 'files' not in request.files:
             flash('No file selected', 'error')
             return redirect(request.url)
         
-        file = request.files['file']
-        bank = request.form.get('bank')
+        files = request.files.getlist('files')
         category_source = request.form.get('category_source', 'csv')  # 'csv' or 'rules'
         
-        if file.filename == '':
+        # Filter out empty file inputs
+        files = [f for f in files if f.filename != '']
+        
+        if len(files) == 0:
             flash('No file selected', 'error')
             return redirect(request.url)
         
-        if not bank or bank not in ['chase', 'discover']:
-            flash('Please select a bank', 'error')
-            return redirect(request.url)
+        # Aggregated stats across all files
+        total_new_transactions = 0
+        total_duplicates = 0
+        total_swept = 0
+        total_rules_updated = 0
+        all_new_transactions = []  # Collect all new transactions for batch sync
+        files_processed = []
         
-        # Determine whether to use CSV categories or apply auto-tagging
-        use_csv_categories = (category_source == 'csv')
-        
-        if file and allowed_file(file.filename):
+        for file in files:
+            if not allowed_file(file.filename):
+                flash(f'Skipped {file.filename}: Invalid file type. Only CSV files are allowed.', 'warning')
+                continue
+            
             # Save file
             filename = secure_filename(file.filename)
             filepath = Config.UPLOAD_FOLDER / filename
             file.save(str(filepath))
             
             try:
-                # Parse based on bank, passing the category source preference
-                if bank == 'chase':
+                # Auto-detect CSV type from columns
+                csv_type, confidence, has_categories = CSVDetector.detect(str(filepath))
+                format_info = CSVDetector.get_format_info(csv_type)
+                
+                if csv_type == CSVType.UNKNOWN:
+                    flash(f'Skipped {file.filename}: Could not detect CSV format.', 'warning')
+                    continue
+                
+                # Determine whether to use CSV categories or apply auto-tagging
+                use_csv_categories = (category_source == 'csv')
+                
+                # If CSV doesn't have categories but user chose CSV categories, use rules instead
+                if use_csv_categories and not has_categories:
+                    use_csv_categories = False
+                
+                # Parse based on detected type
+                if csv_type == CSVType.CHASE_CREDIT or csv_type == CSVType.CHASE_DEBIT:
                     transactions = ChaseParser.parse(str(filepath), use_csv_categories=use_csv_categories)
-                    summary = ChaseParser.get_summary(transactions)
-                else:  # discover
+                else:  # DISCOVER
                     transactions = DiscoverParser.parse(str(filepath), use_csv_categories=use_csv_categories)
-                    summary = DiscoverParser.get_summary(transactions)
                 
-                # Filter out duplicate transactions
-                unique_transactions, duplicate_count = filter_duplicates(transactions, all_transactions)
-                
-                if duplicate_count > 0:
-                    flash(f'Skipped {duplicate_count} duplicate transaction(s).', 'info')
+                # Filter out duplicate transactions (check against existing + already added in this batch)
+                unique_transactions, duplicate_count = filter_duplicates(
+                    transactions, 
+                    all_transactions + all_new_transactions
+                )
+                total_duplicates += duplicate_count
                 
                 # Apply sweep/exclusion rules to filter out unwanted transactions
                 unique_transactions, swept_count = exclusion_engine.filter_new_transactions(unique_transactions)
-                
-                if swept_count > 0:
-                    flash(f'Swept {swept_count} transaction(s) based on your sweep rules.', 'info')
+                total_swept += swept_count
                 
                 # Apply category rules to new transactions
-                # Rules can update any field including recurrence, even when using CSV categories
                 rules_updated = rule_engine.apply_to_all(unique_transactions)
+                total_rules_updated += rules_updated
                 
-                # Add to global storage
-                all_transactions.extend(unique_transactions)
+                # Collect for batch processing
+                all_new_transactions.extend(unique_transactions)
+                total_new_transactions += len(unique_transactions)
                 
-                # Inform user about the category source used
-                if use_csv_categories:
-                    flash(f'Using categories from CSV file. {rules_updated} transaction(s) updated by your custom rules.', 'info')
-                else:
-                    flash(f'Applied auto-tagging rules. {rules_updated} transaction(s) matched custom rules.', 'info')
-                
-                # Sync to Google Sheets (only sync unique/new transactions)
-                try:
-                    sheets_client = SheetsClient()
-                    if sheets_client.is_connected():
-                        if len(unique_transactions) > 0:
-                            sync_result = sheets_client.sync_transactions(unique_transactions)
-                        sheets_client.create_monthly_summary(all_transactions)
-                        
-                        if 'error' in sync_result:
-                            flash(f'Warning: {sync_result["error"]}', 'warning')
-                        else:
-                            flash(f'Synced {sync_result["synced_count"]} transactions to Google Sheets!', 'success')
-                    else:
-                        flash('Warning: Google Sheets not configured. Transactions saved locally only.', 'warning')
-                except Exception as e:
-                    flash(f'Warning: Could not sync to Google Sheets: {str(e)}', 'warning')
-                
-                if len(unique_transactions) > 0:
-                    flash(f'Successfully uploaded {len(unique_transactions)} new transaction(s) from {bank.title()}!', 'success')
-                elif duplicate_count > 0:
-                    flash(f'All {duplicate_count} transaction(s) from {bank.title()} were already in the system.', 'info')
-                return redirect(url_for('index'))
+                files_processed.append({
+                    'filename': file.filename,
+                    'format': format_info['name'],
+                    'count': len(unique_transactions)
+                })
                 
             except Exception as e:
-                flash(f'Error parsing CSV: {str(e)}', 'error')
-                return redirect(request.url)
+                flash(f'Error parsing {file.filename}: {str(e)}', 'error')
+                continue
+        
+        # Add all new transactions to global storage
+        all_transactions.extend(all_new_transactions)
+        
+        # Show summary of processed files
+        if len(files_processed) > 0:
+            file_summary = ', '.join([f"{f['format']}" for f in files_processed])
+            flash(f'Processed {len(files_processed)} file(s): {file_summary}', 'info')
+        
+        if total_duplicates > 0:
+            flash(f'Skipped {total_duplicates} duplicate transaction(s) across all files.', 'info')
+        
+        if total_swept > 0:
+            flash(f'Swept {total_swept} transaction(s) based on your sweep rules.', 'info')
+        
+        if category_source == 'csv':
+            flash(f'Using categories from CSV files. {total_rules_updated} transaction(s) updated by custom rules.', 'info')
         else:
-            flash('Invalid file type. Please upload a CSV file.', 'error')
+            flash(f'Applied auto-tagging rules. {total_rules_updated} transaction(s) matched custom rules.', 'info')
+        
+        # Sync to Google Sheets (batch sync all new transactions at once)
+        if len(all_new_transactions) > 0:
+            try:
+                sheets_client = SheetsClient()
+                if sheets_client.is_connected():
+                    sync_result = sheets_client.sync_transactions(all_new_transactions)
+                    sheets_client.create_monthly_summary(all_transactions)
+                    
+                    if 'error' in sync_result:
+                        flash(f'Warning: {sync_result["error"]}', 'warning')
+                    else:
+                        flash(f'Synced {sync_result["synced_count"]} transactions to Google Sheets!', 'success')
+                else:
+                    flash('Warning: Google Sheets not configured. Transactions saved locally only.', 'warning')
+            except Exception as e:
+                flash(f'Warning: Could not sync to Google Sheets: {str(e)}', 'warning')
+        
+        if total_new_transactions > 0:
+            flash(f'Successfully uploaded {total_new_transactions} new transaction(s)!', 'success')
+            return redirect(url_for('index'))
+        elif total_duplicates > 0:
+            flash(f'All transactions were already in the system.', 'info')
+            return redirect(url_for('index'))
+        else:
+            flash('No valid CSV files were processed.', 'warning')
             return redirect(request.url)
     
     return render_template('upload.html')
@@ -448,23 +626,11 @@ def api_reduction_opportunities():
     opportunities = ExpenseClassifier.get_reduction_opportunities(all_transactions)
     return jsonify(opportunities)
 
-@app.route('/api/expense-types')
-def api_expense_types():
-    """API endpoint for fixed vs variable expense breakdown."""
-    analysis = ExpenseClassifier.analyze_by_dimension(all_transactions)
-    return jsonify(analysis.get('by_expense_type', {}))
-
 @app.route('/api/necessity')
 def api_necessity():
     """API endpoint for needs vs wants vs savings breakdown."""
     analysis = ExpenseClassifier.analyze_by_dimension(all_transactions)
     return jsonify(analysis.get('by_necessity', {}))
-
-@app.route('/api/budget-categories')
-def api_budget_categories():
-    """API endpoint for high-level budget category breakdown."""
-    analysis = ExpenseClassifier.analyze_by_dimension(all_transactions)
-    return jsonify(analysis.get('by_budget_category', {}))
 
 @app.route('/api/transactions/filter')
 def api_transactions_filter():
@@ -691,7 +857,7 @@ def api_create_category_rule():
         return jsonify({'error': 'At least one non-empty keyword is required'}), 400
     
     # Validate field
-    allowed_fields = ['category', 'necessity', 'recurrence', 'expense_type', 'budget_category']
+    allowed_fields = ['category', 'necessity', 'recurrence']
     if field not in allowed_fields:
         field = 'category'
     
@@ -791,7 +957,7 @@ def api_preview_rule():
     
     return jsonify({
         'matching_count': len(matches),
-        'matches': matches[:20]  # Limit to first 20 for preview
+        'matches': matches  # Return all matches for preview
     })
 
 
@@ -818,6 +984,7 @@ def api_create_sweep_rule():
         return jsonify({'error': 'No data provided'}), 400
     
     keywords = data.get('keywords', [])
+    title = data.get('title', '').strip()
     
     if not keywords or not isinstance(keywords, list) or len(keywords) == 0:
         return jsonify({'error': 'At least one keyword is required'}), 400
@@ -828,8 +995,8 @@ def api_create_sweep_rule():
     if len(keywords) == 0:
         return jsonify({'error': 'At least one valid keyword is required'}), 400
     
-    # Create the rule
-    rule = exclusion_engine.add_rule(keywords)
+    # Create the rule with title
+    rule = exclusion_engine.add_rule(keywords, title=title)
     
     # Apply to existing transactions (sweep them away)
     all_transactions, swept_count = exclusion_engine.sweep_transactions(all_transactions)
@@ -971,7 +1138,7 @@ def api_update_transaction_field():
         return jsonify({'error': 'Field name is required'}), 400
     
     # Allowed fields to update
-    allowed_fields = ['category', 'necessity', 'recurrence', 'expense_type', 'budget_category']
+    allowed_fields = ['category', 'necessity', 'recurrence', 'note']
     
     if field not in allowed_fields:
         return jsonify({'error': f'Field "{field}" is not editable'}), 400
@@ -1034,6 +1201,304 @@ def api_sync_to_sheets():
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/settings')
+def settings_page():
+    """Settings page with diagnostics, rules management, and category management."""
+    return render_template('settings.html')
+
+
+@app.route('/api/reset-sheets-config', methods=['POST'])
+def api_reset_sheets_config():
+    """Delete credentials.json and reset Google Sheets configuration."""
+    try:
+        # Delete credentials.json if it exists
+        if Config.GOOGLE_CREDENTIALS_PATH.exists():
+            Config.GOOGLE_CREDENTIALS_PATH.unlink()
+        
+        # Delete .env file to force setup wizard
+        env_file = Path(__file__).resolve().parent.parent / '.env'
+        if env_file.exists():
+            env_file.unlink()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Configuration reset. Redirecting to setup wizard...'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@app.route('/api/clear-transactions', methods=['POST'])
+def api_clear_transactions():
+    """Clear all transactions from memory."""
+    global all_transactions
+    count = len(all_transactions)
+    all_transactions = []
+    return jsonify({
+        'success': True,
+        'cleared_count': count,
+        'message': f'Cleared {count} transactions from memory'
+    })
+
+
+@app.route('/api/deduplicate', methods=['POST'])
+def api_deduplicate_transactions():
+    """Remove duplicate transactions from memory and optionally from Google Sheets."""
+    global all_transactions
+    
+    if len(all_transactions) == 0:
+        return jsonify({
+            'success': True,
+            'duplicates_removed': 0,
+            'message': 'No transactions to deduplicate'
+        })
+    
+    # Track seen transactions using key fields (date, description, amount, bank)
+    seen_keys = set()
+    unique_transactions = []
+    duplicates_removed = 0
+    
+    for t in all_transactions:
+        # Create a key based on unique identifying fields
+        key = (
+            t.transaction_date.strftime('%Y-%m-%d'),
+            t.description,
+            round(t.amount, 2),  # Round to avoid float precision issues
+            t.bank
+        )
+        
+        if key not in seen_keys:
+            seen_keys.add(key)
+            unique_transactions.append(t)
+        else:
+            duplicates_removed += 1
+    
+    # Update the global transactions list
+    all_transactions = unique_transactions
+    
+    # Also re-sync to Google Sheets if connected (clear and re-upload deduplicated data)
+    sheets_synced = False
+    if duplicates_removed > 0:
+        try:
+            sheets_client = SheetsClient()
+            if sheets_client.is_connected():
+                sync_result = sheets_client.sync_transactions(all_transactions, clear_first=True)
+                sheets_client.create_monthly_summary(all_transactions)
+                sheets_synced = 'error' not in sync_result
+        except Exception as e:
+            print(f"Warning: Could not sync deduplicated data to Sheets: {e}")
+    
+    return jsonify({
+        'success': True,
+        'duplicates_removed': duplicates_removed,
+        'remaining_transactions': len(all_transactions),
+        'sheets_synced': sheets_synced,
+        'message': f'Removed {duplicates_removed} duplicate(s). {len(all_transactions)} unique transactions remain.'
+    })
+
+
+@app.route('/api/tag-values')
+def api_get_all_tag_values():
+    """Get all unique categories, necessities, recurrences used in transactions with counts."""
+    from collections import Counter
+    
+    categories = Counter()
+    necessities = Counter()
+    recurrences = Counter()
+    
+    for t in all_transactions:
+        if t.category:
+            categories[t.category] += 1
+        if hasattr(t, 'necessity') and t.necessity:
+            necessities[t.necessity] += 1
+        if hasattr(t, 'recurrence') and t.recurrence:
+            recurrences[t.recurrence] += 1
+    
+    return jsonify({
+        'categories': [{'name': k, 'count': v} for k, v in sorted(categories.items())],
+        'necessities': [{'name': k, 'count': v} for k, v in sorted(necessities.items())],
+        'recurrences': [{'name': k, 'count': v} for k, v in sorted(recurrences.items())],
+        'transaction_count': len(all_transactions)
+    })
+
+
+@app.route('/api/rename-tag', methods=['POST'])
+def api_rename_tag():
+    """Rename a tag/category across all transactions and rules."""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    field = data.get('field', 'category').strip()
+    old_value = data.get('old_value', '').strip()
+    new_value = data.get('new_value', '').strip()
+    
+    if not old_value or not new_value:
+        return jsonify({'error': 'Both old and new values are required'}), 400
+    
+    if old_value == new_value:
+        return jsonify({'error': 'Old and new values are the same'}), 400
+    
+    # Allowed fields to rename
+    allowed_fields = ['category', 'necessity', 'recurrence']
+    if field not in allowed_fields:
+        return jsonify({'error': f'Invalid field: {field}'}), 400
+    
+    # Count updates
+    transactions_updated = 0
+    rules_updated = 0
+    
+    # Update all transactions
+    for t in all_transactions:
+        if hasattr(t, field) and getattr(t, field) == old_value:
+            setattr(t, field, new_value)
+            transactions_updated += 1
+    
+    # Update category rules if the field matches
+    for rule in rule_engine.get_all_rules():
+        if rule.field == field and rule.category == old_value:
+            rule_engine.update_rule(rule.id, category=new_value)
+            rules_updated += 1
+    
+    return jsonify({
+        'success': True,
+        'field': field,
+        'old_value': old_value,
+        'new_value': new_value,
+        'transactions_updated': transactions_updated,
+        'rules_updated': rules_updated
+    })
+
+
+@app.route('/api/add-tag', methods=['POST'])
+def api_add_tag():
+    """Add a new tag value to specific transactions (or just register it for future use)."""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    field = data.get('field', 'category').strip()
+    value = data.get('value', '').strip()
+    
+    if not value:
+        return jsonify({'error': 'Tag value is required'}), 400
+    
+    allowed_fields = ['category', 'necessity', 'recurrence']
+    if field not in allowed_fields:
+        return jsonify({'error': f'Invalid field: {field}'}), 400
+    
+    # The tag is now "registered" - it will appear when used
+    # For now, we just return success. The tag will be visible once applied to transactions.
+    return jsonify({
+        'success': True,
+        'field': field,
+        'value': value,
+        'message': f'Tag "{value}" is ready to use. Apply it to transactions via auto-tag rules or manual editing.'
+    })
+
+
+@app.route('/api/delete-tag', methods=['POST'])
+def api_delete_tag():
+    """Reset a tag value to 'Unknown' or 'Other' across all transactions."""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    field = data.get('field', 'category').strip()
+    value = data.get('value', '').strip()
+    
+    if not value:
+        return jsonify({'error': 'Value is required'}), 400
+    
+    # Determine the default value for each field
+    default_values = {
+        'category': 'Other',
+        'necessity': 'Unknown',
+        'recurrence': 'Unknown'
+    }
+    
+    if field not in default_values:
+        return jsonify({'error': f'Invalid field: {field}'}), 400
+    
+    default = default_values[field]
+    transactions_updated = 0
+    
+    # Update all transactions with this value
+    for t in all_transactions:
+        if hasattr(t, field) and getattr(t, field) == value:
+            setattr(t, field, default)
+            transactions_updated += 1
+    
+    return jsonify({
+        'success': True,
+        'field': field,
+        'value': value,
+        'reset_to': default,
+        'transactions_updated': transactions_updated
+    })
+
+
+@app.route('/api/sync-diagnostics')
+def api_sync_diagnostics():
+    """Get diagnostic information for Google Sheets sync."""
+    diagnostics = {
+        'transactions_in_memory': len(all_transactions),
+        'expense_count': len([t for t in all_transactions if t.is_expense]),
+        'income_count': len([t for t in all_transactions if t.is_income]),
+        'sheets_configured': False,
+        'credentials_exist': False,
+        'sheet_id': None,
+        'connection_status': 'unknown',
+        'connection_error': None,
+        'last_test': None
+    }
+    
+    # Check credentials file
+    diagnostics['credentials_exist'] = Config.GOOGLE_CREDENTIALS_PATH.exists()
+    diagnostics['credentials_path'] = str(Config.GOOGLE_CREDENTIALS_PATH)
+    
+    # Check sheet ID
+    if Config.GOOGLE_SHEETS_ID and Config.GOOGLE_SHEETS_ID.strip():
+        diagnostics['sheet_id'] = Config.GOOGLE_SHEETS_ID
+        diagnostics['sheet_id_preview'] = Config.GOOGLE_SHEETS_ID[:10] + '...' if len(Config.GOOGLE_SHEETS_ID) > 10 else Config.GOOGLE_SHEETS_ID
+    
+    # Test connection
+    if diagnostics['credentials_exist'] and diagnostics['sheet_id']:
+        diagnostics['sheets_configured'] = True
+        try:
+            sheets_client = SheetsClient()
+            if sheets_client.is_connected():
+                diagnostics['connection_status'] = 'connected'
+                # Try to get sheet title
+                try:
+                    diagnostics['sheet_title'] = sheets_client.spreadsheet.title
+                except:
+                    pass
+            else:
+                diagnostics['connection_status'] = 'failed'
+                # Use the detailed error from SheetsClient if available
+                diagnostics['connection_error'] = getattr(sheets_client, 'last_error', None) or 'Could not connect to spreadsheet'
+        except Exception as e:
+            diagnostics['connection_status'] = 'error'
+            diagnostics['connection_error'] = str(e) if str(e) else f'{type(e).__name__}'
+    else:
+        if not diagnostics['credentials_exist']:
+            diagnostics['connection_error'] = 'credentials.json file not found'
+        elif not diagnostics['sheet_id']:
+            diagnostics['connection_error'] = 'Google Sheet ID not configured'
+    
+    from datetime import datetime
+    diagnostics['last_test'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    return jsonify(diagnostics)
 
 
 if __name__ == '__main__':

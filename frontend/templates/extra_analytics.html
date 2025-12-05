@@ -666,27 +666,6 @@
             </div>
         </div>
         {% endif %}
-        
-        <!-- Budget Categories -->
-        {% if classification_analysis.by_budget_category %}
-        <div class="chart-card">
-            <h3 class="chart-title">📁 Budget Categories</h3>
-            <div class="chart-container" style="height: 150px;">
-                <canvas id="budgetCategoryChart"></canvas>
-            </div>
-            <div style="margin-top: 0.5rem; max-height: 120px; overflow-y: auto;">
-                {% for type_name, data in classification_analysis.by_budget_category.items() %}
-                <div class="classification-item">
-                    <span class="class-label">{{ type_name }}</span>
-                    <span>
-                        <span class="class-value">${{ "%.2f"|format(data.total) }}</span>
-                        <span class="class-percent">({{ data.percentage }}%)</span>
-                    </span>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
     </div>
     {% endif %}
     
@@ -924,31 +903,6 @@
             plugins: {
                 legend: { position: 'bottom', labels: { padding: 6, usePointStyle: true, font: { size: 9 } } },
                 tooltip: { callbacks: { label: ctx => `$${ctx.raw.toFixed(2)}` } }
-            }
-        }
-    });
-    {% endif %}
-    
-    {% if classification_analysis and classification_analysis.by_budget_category %}
-    const budgetCatData = {{ classification_analysis.by_budget_category|tojson|safe }};
-    const budgetCatLabels = Object.keys(budgetCatData).slice(0, 8);  // Top 8
-    
-    new Chart(document.getElementById('budgetCategoryChart'), {
-        type: 'bar',
-        data: {
-            labels: budgetCatLabels.map(l => l.length > 12 ? l.slice(0, 12) + '..' : l),
-            datasets: [{
-                data: budgetCatLabels.map(k => budgetCatData[k].total),
-                backgroundColor: colors.slice(0, 8),
-                borderRadius: 4
-            }]
-        },
-        options: {
-            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { beginAtZero: true, ticks: { callback: v => '$' + v, font: { size: 8 } } },
-                y: { ticks: { font: { size: 8 } } }
             }
         }
     });
