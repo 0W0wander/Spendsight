@@ -230,6 +230,17 @@
         box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
     }
     
+    .btn-warning {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: white;
+    }
+    
+    .btn-warning:hover {
+        background: linear-gradient(135deg, #d97706, #b45309);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    }
+    
     .btn-success {
         background: var(--success-color);
         color: white;
@@ -299,6 +310,26 @@
         .form-row {
             grid-template-columns: 1fr;
         }
+    }
+    
+    /* Multi-Tag Grid */
+    .multi-tag-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    @media (max-width: 700px) {
+        .multi-tag-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .rule-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
     }
     
     /* Keywords Input */
@@ -452,6 +483,81 @@
     
     .rule-actions .btn-delete:hover {
         background: rgba(239, 68, 68, 0.1);
+    }
+    
+    /* Join Rules UI */
+    .join-rules-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        background: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        border-radius: var(--border-radius);
+        margin-bottom: 0.75rem;
+        font-size: 0.8rem;
+        color: var(--text-primary);
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem !important;
+        font-size: 0.7rem !important;
+    }
+    
+    .rule-select {
+        display: flex;
+        align-items: center;
+        margin-right: 0.35rem;
+    }
+    
+    .rule-select input[type="checkbox"] {
+        width: 14px;
+        height: 14px;
+        cursor: pointer;
+    }
+    
+    .rule-item.selected {
+        border-color: var(--primary-color);
+        background: rgba(99, 102, 241, 0.05);
+    }
+    
+    .joined-badge {
+        font-size: 0.55rem;
+        padding: 0.1rem 0.3rem;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 3px;
+        margin-left: 0.25rem;
+        font-weight: 600;
+    }
+    
+    .joined-keywords {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .keyword-set {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+    
+    .keyword-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .or-connector {
+        font-size: 0.6rem;
+        font-weight: 600;
+        color: var(--warning-color);
+        background: rgba(245, 158, 11, 0.15);
+        padding: 0.1rem 0.3rem;
+        border-radius: 3px;
+        margin-right: 0.25rem;
         color: var(--danger-color);
     }
     
@@ -849,6 +955,70 @@
     <!-- Sync & Data Panel -->
     <div class="settings-panel active" id="panel-sync">
         <div class="settings-section">
+            <h3>📦 Rules Export/Import</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Export or import your auto-tag and sweep rules to backup or transfer them.
+            </p>
+            
+            <div class="data-mgmt-grid">
+                <div class="data-mgmt-card">
+                    <div class="data-mgmt-header">
+                        <span class="data-mgmt-icon">📤</span>
+                        <h4>Export Rules</h4>
+                    </div>
+                    <p class="data-mgmt-desc">
+                        Download all your auto-tag and sweep rules as a JSON file for backup or transfer to another device.
+                    </p>
+                    <button class="btn btn-primary" onclick="exportRules()">📤 Export Rules</button>
+                </div>
+                
+                <div class="data-mgmt-card">
+                    <div class="data-mgmt-header">
+                        <span class="data-mgmt-icon">📥</span>
+                        <h4>Import Rules</h4>
+                    </div>
+                    <p class="data-mgmt-desc">
+                        Import rules from a previously exported JSON file. Duplicate rules will be skipped.
+                    </p>
+                    <input type="file" id="importRulesFile" accept=".json" style="display: none;" onchange="handleImportFile(event)">
+                    <button class="btn btn-secondary" onclick="document.getElementById('importRulesFile').click()">📥 Import Rules</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="settings-section">
+            <h3>📝 Personal Analysis Export/Import</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Export or import your personal analysis notes (weekly/monthly budget reflections).
+            </p>
+            
+            <div class="data-mgmt-grid">
+                <div class="data-mgmt-card">
+                    <div class="data-mgmt-header">
+                        <span class="data-mgmt-icon">📤</span>
+                        <h4>Export Personal Analysis</h4>
+                    </div>
+                    <p class="data-mgmt-desc">
+                        Download all your weekly and monthly personal analysis notes as a JSON file.
+                    </p>
+                    <button class="btn btn-primary" onclick="exportPersonalAnalysis()">📤 Export Notes</button>
+                </div>
+                
+                <div class="data-mgmt-card">
+                    <div class="data-mgmt-header">
+                        <span class="data-mgmt-icon">📥</span>
+                        <h4>Import Personal Analysis</h4>
+                    </div>
+                    <p class="data-mgmt-desc">
+                        Import notes from a previously exported JSON file. Existing notes won't be overwritten.
+                    </p>
+                    <input type="file" id="importNotesFile" accept=".json" style="display: none;" onchange="handleImportNotesFile(event)">
+                    <button class="btn btn-secondary" onclick="document.getElementById('importNotesFile').click()">📥 Import Notes</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="settings-section">
             <h3>📊 Sync Diagnostics</h3>
             <div id="diagnosticsContainer">
                 <div class="loading-state">
@@ -902,6 +1072,52 @@
                     <button class="btn btn-danger" onclick="clearAllTransactions()">🗑️ Clear All</button>
                 </div>
             </div>
+            
+            <h3 style="margin-top: 1.5rem;">📊 Apply Rules to Google Sheets</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                These operations fetch ALL transactions from your Google Sheet, apply rules, and update the sheet directly.
+            </p>
+            
+            <div class="data-mgmt-grid">
+                <div class="data-mgmt-card">
+                    <div class="data-mgmt-header">
+                        <span class="data-mgmt-icon">🏷️</span>
+                        <h4>Apply Auto-Tag Rules to Sheet</h4>
+                    </div>
+                    <p class="data-mgmt-desc">
+                        Load ALL transactions from Google Sheets, apply all auto-tag rules (categories, necessity, recurrence), 
+                        and update the sheet with the tagged data.
+                    </p>
+                    <div class="progress-container" id="sheetRulesProgress" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="sheetRulesProgressFill"></div>
+                        </div>
+                        <span class="progress-text" id="sheetRulesProgressText">0%</span>
+                    </div>
+                    <button class="btn btn-primary" id="applyRulesToSheetBtn" onclick="applyRulesToSheet()">🏷️ Apply Rules to Sheet</button>
+                </div>
+                
+                <div class="data-mgmt-card">
+                    <div class="data-mgmt-header">
+                        <span class="data-mgmt-icon">🧹</span>
+                        <h4>Apply Sweep Rules to Sheet</h4>
+                    </div>
+                    <p class="data-mgmt-desc">
+                        Load ALL transactions from Google Sheets, remove transactions matching sweep rules, 
+                        and update the sheet with the filtered data.
+                    </p>
+                    <div class="alert-box warning compact">
+                        ⚠️ This permanently removes transactions from your Google Sheet!
+                    </div>
+                    <div class="progress-container" id="sheetSweepProgress" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="sheetSweepProgressFill"></div>
+                        </div>
+                        <span class="progress-text" id="sheetSweepProgressText">0%</span>
+                    </div>
+                    <button class="btn btn-warning" id="applySweepToSheetBtn" onclick="applySweepToSheet()">🧹 Apply Sweep to Sheet</button>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -937,7 +1153,33 @@
                 </div>
             </div>
             
+            <!-- Apply All Sweep Rules -->
+            <div class="data-mgmt-card" style="margin-bottom: 1rem;">
+                <div class="data-mgmt-header">
+                    <span class="data-mgmt-icon">🧹</span>
+                    <h4>Apply All Sweep Rules</h4>
+                </div>
+                <p class="data-mgmt-desc">
+                    Re-apply all sweep rules to remove matching transactions. Useful after syncing from Google Sheets.
+                </p>
+                <div class="progress-container" id="sweepApplyProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="sweepApplyProgressFill"></div>
+                    </div>
+                    <span class="progress-text" id="sweepApplyProgressText">0%</span>
+                </div>
+                <button class="btn btn-primary" id="applyAllSweepBtn" onclick="applyAllSweepRulesWithProgress()">🧹 Apply All Sweep Rules</button>
+            </div>
+            
             <h4>Active Sweep Rules</h4>
+            <p style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                Select 2+ rules and click "Join Rules" to combine them with OR logic.
+            </p>
+            <div class="join-rules-bar" id="joinRulesBar" style="display: none;">
+                <span id="selectedRulesCount">0</span> rules selected
+                <button class="btn btn-secondary btn-sm" onclick="clearSweepSelection()">Clear</button>
+                <button class="btn btn-primary btn-sm" onclick="joinSelectedSweepRules()">🔗 Join Rules</button>
+            </div>
             <div class="rules-list" id="sweepRulesList">
                 <div class="loading-state">
                     <div class="spinner"></div>
@@ -958,18 +1200,31 @@
             
             <div class="rule-form">
                 <h4 style="margin-top: 0; border-top: none; padding-top: 0;">➕ Create New Auto-Tag Rule</h4>
-                <div class="form-row">
+                <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                    Set multiple tags at once! Leave fields empty to skip them.
+                </p>
+                <div class="multi-tag-grid">
                     <div class="form-group">
-                        <label>Field to Tag</label>
-                        <select id="tagField">
-                            <option value="category">Category</option>
-                            <option value="necessity">Necessity (Needs/Wants/Savings)</option>
-                            <option value="recurrence">Recurrence (Subscription/Recurring/One-time)</option>
+                        <label>📁 Category</label>
+                        <input type="text" id="tagCategory" placeholder="e.g., Hobby, Groceries...">
+                    </div>
+                    <div class="form-group">
+                        <label>⚖️ Necessity</label>
+                        <select id="tagNecessity">
+                            <option value="">— Not set —</option>
+                            <option value="Needs">Needs</option>
+                            <option value="Wants">Wants</option>
+                            <option value="Savings">Savings</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Value to Assign</label>
-                        <input type="text" id="tagValue" placeholder="e.g., Groceries, Needs, Subscription...">
+                        <label>🔄 Recurrence</label>
+                        <select id="tagRecurrence">
+                            <option value="">— Not set —</option>
+                            <option value="Subscription">Subscription</option>
+                            <option value="Recurring">Recurring</option>
+                            <option value="One-time">One-time</option>
+                        </select>
                     </div>
                 </div>
                 <div class="form-group">
@@ -987,6 +1242,24 @@
                     <button class="btn btn-secondary" onclick="resetTagForm()">Clear</button>
                     <button class="btn btn-primary" onclick="saveTagRule()">🏷️ Save Rule</button>
                 </div>
+            </div>
+            
+            <!-- Apply All Auto-Tag Rules -->
+            <div class="data-mgmt-card" style="margin-bottom: 1rem;">
+                <div class="data-mgmt-header">
+                    <span class="data-mgmt-icon">🏷️</span>
+                    <h4>Apply All Auto-Tag Rules</h4>
+                </div>
+                <p class="data-mgmt-desc">
+                    Re-apply all auto-tag rules to categorize transactions. Useful after syncing from Google Sheets.
+                </p>
+                <div class="progress-container" id="tagApplyProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="tagApplyProgressFill"></div>
+                    </div>
+                    <span class="progress-text" id="tagApplyProgressText">0%</span>
+                </div>
+                <button class="btn btn-primary" id="applyAllTagBtn" onclick="applyAllTagRulesWithProgress()">🏷️ Apply All Auto-Tag Rules</button>
             </div>
             
             <h4>Active Auto-Tag Rules</h4>
@@ -1074,6 +1347,7 @@
     let newSweepKeywords = [];
     let newTagKeywords = [];
     let categoriesData = {};
+    let selectedSweepRules = new Set();
     
     // Tab Switching
     document.querySelectorAll('.settings-tab').forEach(tab => {
@@ -1303,6 +1577,274 @@
         }
     }
     
+    async function applyAllSweepRulesWithProgress() {
+        if (sweepRules.length === 0) {
+            alert('No sweep rules to apply.');
+            return;
+        }
+        
+        const btn = document.getElementById('applyAllSweepBtn');
+        const progressContainer = document.getElementById('sweepApplyProgress');
+        const progressFill = document.getElementById('sweepApplyProgressFill');
+        const progressText = document.getElementById('sweepApplyProgressText');
+        
+        btn.disabled = true;
+        btn.textContent = 'Processing...';
+        progressContainer.style.display = 'flex';
+        progressContainer.classList.remove('complete');
+        
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            if (progress < 90) {
+                progress += Math.random() * 20;
+                progress = Math.min(progress, 90);
+                progressFill.style.width = progress + '%';
+                progressText.textContent = Math.round(progress) + '%';
+            }
+        }, 150);
+        
+        try {
+            const response = await fetch('/api/sweep-rules/apply-all', { method: 'POST' });
+            const data = await response.json();
+            
+            clearInterval(progressInterval);
+            
+            if (data.success) {
+                progressFill.style.width = '100%';
+                progressText.textContent = '100%';
+                progressContainer.classList.add('complete');
+                
+                setTimeout(() => {
+                    alert(`Sweep complete! ${data.swept_count || 0} transaction(s) removed.`);
+                    btn.disabled = false;
+                    btn.textContent = '🧹 Apply All Sweep Rules';
+                    progressContainer.style.display = 'none';
+                    progressFill.style.width = '0%';
+                    refreshDiagnostics();
+                }, 500);
+            } else {
+                btn.disabled = false;
+                btn.textContent = '🧹 Apply All Sweep Rules';
+                progressContainer.style.display = 'none';
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            clearInterval(progressInterval);
+            btn.disabled = false;
+            btn.textContent = '🧹 Apply All Sweep Rules';
+            progressContainer.style.display = 'none';
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    async function applyRulesToSheet() {
+        if (!confirm('This will load ALL transactions from your Google Sheet, apply all auto-tag rules, and update the sheet.\n\nThis may take a while for large datasets.\n\nContinue?')) {
+            return;
+        }
+        
+        const btn = document.getElementById('applyRulesToSheetBtn');
+        const progressContainer = document.getElementById('sheetRulesProgress');
+        const progressFill = document.getElementById('sheetRulesProgressFill');
+        const progressText = document.getElementById('sheetRulesProgressText');
+        
+        btn.disabled = true;
+        btn.textContent = 'Loading from Sheet...';
+        progressContainer.style.display = 'flex';
+        progressContainer.classList.remove('complete');
+        
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            if (progress < 85) {
+                progress += Math.random() * 8;
+                progress = Math.min(progress, 85);
+                progressFill.style.width = progress + '%';
+                progressText.textContent = Math.round(progress) + '%';
+                
+                // Update button text based on progress
+                if (progress > 30 && progress < 60) {
+                    btn.textContent = 'Applying rules...';
+                } else if (progress >= 60) {
+                    btn.textContent = 'Updating sheet...';
+                }
+            }
+        }, 300);
+        
+        try {
+            const response = await fetch('/api/apply-rules-to-sheets', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            clearInterval(progressInterval);
+            
+            if (data.success) {
+                progressFill.style.width = '100%';
+                progressText.textContent = '100%';
+                progressContainer.classList.add('complete');
+                
+                setTimeout(() => {
+                    alert(`✅ Success!\n\nProcessed ${data.total_transactions} transactions.\n${data.transactions_updated} were updated with tags.`);
+                    btn.disabled = false;
+                    btn.textContent = '🏷️ Apply Rules to Sheet';
+                    progressContainer.style.display = 'none';
+                    progressFill.style.width = '0%';
+                    refreshDiagnostics();
+                }, 500);
+            } else {
+                btn.disabled = false;
+                btn.textContent = '🏷️ Apply Rules to Sheet';
+                progressContainer.style.display = 'none';
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            clearInterval(progressInterval);
+            btn.disabled = false;
+            btn.textContent = '🏷️ Apply Rules to Sheet';
+            progressContainer.style.display = 'none';
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    async function applySweepToSheet() {
+        if (!confirm('⚠️ WARNING: This will PERMANENTLY REMOVE transactions from your Google Sheet!\n\nThis will:\n1. Load ALL transactions from your Google Sheet\n2. Remove transactions matching your sweep rules\n3. Update the sheet with remaining transactions\n\nThis cannot be undone!\n\nAre you sure?')) {
+            return;
+        }
+        
+        const btn = document.getElementById('applySweepToSheetBtn');
+        const progressContainer = document.getElementById('sheetSweepProgress');
+        const progressFill = document.getElementById('sheetSweepProgressFill');
+        const progressText = document.getElementById('sheetSweepProgressText');
+        
+        btn.disabled = true;
+        btn.textContent = 'Loading from Sheet...';
+        progressContainer.style.display = 'flex';
+        progressContainer.classList.remove('complete');
+        
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            if (progress < 85) {
+                progress += Math.random() * 8;
+                progress = Math.min(progress, 85);
+                progressFill.style.width = progress + '%';
+                progressText.textContent = Math.round(progress) + '%';
+                
+                if (progress > 30 && progress < 60) {
+                    btn.textContent = 'Applying sweep...';
+                } else if (progress >= 60) {
+                    btn.textContent = 'Updating sheet...';
+                }
+            }
+        }, 300);
+        
+        try {
+            const response = await fetch('/api/apply-sweep-to-sheets', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            clearInterval(progressInterval);
+            
+            if (data.success) {
+                progressFill.style.width = '100%';
+                progressText.textContent = '100%';
+                progressContainer.classList.add('complete');
+                
+                setTimeout(() => {
+                    alert(`🧹 Sweep Complete!\n\nOriginal: ${data.original_count} transactions\nSwept: ${data.swept_count} transactions\nRemaining: ${data.remaining_count} transactions`);
+                    btn.disabled = false;
+                    btn.textContent = '🧹 Apply Sweep to Sheet';
+                    progressContainer.style.display = 'none';
+                    progressFill.style.width = '0%';
+                    refreshDiagnostics();
+                }, 500);
+            } else {
+                btn.disabled = false;
+                btn.textContent = '🧹 Apply Sweep to Sheet';
+                progressContainer.style.display = 'none';
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            clearInterval(progressInterval);
+            btn.disabled = false;
+            btn.textContent = '🧹 Apply Sweep to Sheet';
+            progressContainer.style.display = 'none';
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    async function applyAllTagRulesWithProgress() {
+        if (tagRules.length === 0) {
+            alert('No auto-tag rules to apply.');
+            return;
+        }
+        
+        const btn = document.getElementById('applyAllTagBtn');
+        const progressContainer = document.getElementById('tagApplyProgress');
+        const progressFill = document.getElementById('tagApplyProgressFill');
+        const progressText = document.getElementById('tagApplyProgressText');
+        
+        btn.disabled = true;
+        btn.textContent = 'Processing...';
+        progressContainer.style.display = 'flex';
+        progressContainer.classList.remove('complete');
+        
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            if (progress < 90) {
+                progress += Math.random() * 20;
+                progress = Math.min(progress, 90);
+                progressFill.style.width = progress + '%';
+                progressText.textContent = Math.round(progress) + '%';
+            }
+        }, 150);
+        
+        try {
+            const response = await fetch('/api/category-rules/apply-all', { method: 'POST' });
+            const data = await response.json();
+            
+            clearInterval(progressInterval);
+            
+            if (data.success) {
+                progressFill.style.width = '100%';
+                progressText.textContent = '100%';
+                progressContainer.classList.add('complete');
+                
+                setTimeout(() => {
+                    alert(`Auto-tagging complete! ${data.transactions_updated || 0} transaction(s) updated.`);
+                    btn.disabled = false;
+                    btn.textContent = '🏷️ Apply All Auto-Tag Rules';
+                    progressContainer.style.display = 'none';
+                    progressFill.style.width = '0%';
+                    refreshDiagnostics();
+                    loadCategories();
+                }, 500);
+            } else {
+                btn.disabled = false;
+                btn.textContent = '🏷️ Apply All Auto-Tag Rules';
+                progressContainer.style.display = 'none';
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            clearInterval(progressInterval);
+            btn.disabled = false;
+            btn.textContent = '🏷️ Apply All Auto-Tag Rules';
+            progressContainer.style.display = 'none';
+            alert('Error: ' + error.message);
+        }
+    }
+    
     // =================== SWEEP RULES ===================
     function setupKeywordInputs() {
         // Sweep keywords
@@ -1426,27 +1968,112 @@
         
         if (sweepRules.length === 0) {
             container.innerHTML = `<div class="empty-state"><div class="icon">🧹</div><p>No sweep rules yet</p></div>`;
+            updateJoinBar();
             return;
         }
         
-        container.innerHTML = sweepRules.map(rule => `
-            <div class="rule-item ${rule.enabled ? '' : 'disabled'}">
-                <div class="rule-header">
-                    <span class="rule-title">🧹 ${escapeHtml(rule.title || 'Sweep Rule')}</span>
-                    <div class="rule-actions">
-                        <button onclick="toggleSweepRule('${rule.id}')" title="${rule.enabled ? 'Disable' : 'Enable'}">${rule.enabled ? '✓' : '○'}</button>
-                        <button class="btn-delete" onclick="deleteSweepRule('${rule.id}')" title="Delete">✕</button>
-                    </div>
-                </div>
-                <div class="rule-keywords">
-                    ${rule.keywords.map((kw, i) => `
+        container.innerHTML = sweepRules.map(rule => {
+            // Check if this is a joined rule (contains OR marker)
+            const isJoined = rule.keywords.length === 1 && rule.keywords[0].includes('|OR|');
+            let keywordsHtml;
+            
+            if (isJoined) {
+                // Display joined rule with OR logic
+                const keywordSets = rule.keywords[0].split('|OR|');
+                keywordsHtml = keywordSets.map((set, setIndex) => {
+                    const keywords = set.split(',').map(k => k.trim()).filter(k => k);
+                    const kwHtml = keywords.map((kw, i) => `
                         ${i > 0 ? '<span class="and-connector">AND</span>' : ''}
                         <span class="rule-keyword">${escapeHtml(kw)}</span>
-                    `).join('')}
+                    `).join('');
+                    return `
+                        <div class="keyword-set">
+                            ${setIndex > 0 ? '<span class="or-connector">OR</span>' : ''}
+                            <div class="keyword-group">(${kwHtml})</div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                keywordsHtml = rule.keywords.map((kw, i) => `
+                    ${i > 0 ? '<span class="and-connector">AND</span>' : ''}
+                    <span class="rule-keyword">${escapeHtml(kw)}</span>
+                `).join('');
+            }
+            
+            return `
+                <div class="rule-item ${rule.enabled ? '' : 'disabled'} ${selectedSweepRules.has(rule.id) ? 'selected' : ''}" data-rule-id="${rule.id}">
+                    <div class="rule-header">
+                        <label class="rule-select">
+                            <input type="checkbox" ${selectedSweepRules.has(rule.id) ? 'checked' : ''} onchange="toggleSweepRuleSelection('${rule.id}')">
+                        </label>
+                        <span class="rule-title">🧹 ${escapeHtml(rule.title || 'Sweep Rule')}${isJoined ? ' <span class="joined-badge">JOINED</span>' : ''}</span>
+                        <div class="rule-actions">
+                            <button onclick="toggleSweepRule('${rule.id}')" title="${rule.enabled ? 'Disable' : 'Enable'}">${rule.enabled ? '✓' : '○'}</button>
+                            <button class="btn-delete" onclick="deleteSweepRule('${rule.id}')" title="Delete">✕</button>
+                        </div>
+                    </div>
+                    <div class="rule-keywords ${isJoined ? 'joined-keywords' : ''}">
+                        ${keywordsHtml}
+                    </div>
+                    ${rule.swept_count ? `<div class="rule-stats">Swept ${rule.swept_count} transaction(s)</div>` : ''}
                 </div>
-                ${rule.swept_count ? `<div class="rule-stats">Swept ${rule.swept_count} transaction(s)</div>` : ''}
-            </div>
-        `).join('');
+            `;
+        }).join('');
+        
+        updateJoinBar();
+    }
+    
+    function toggleSweepRuleSelection(ruleId) {
+        if (selectedSweepRules.has(ruleId)) {
+            selectedSweepRules.delete(ruleId);
+        } else {
+            selectedSweepRules.add(ruleId);
+        }
+        renderSweepRules();
+    }
+    
+    function clearSweepSelection() {
+        selectedSweepRules.clear();
+        renderSweepRules();
+    }
+    
+    function updateJoinBar() {
+        const bar = document.getElementById('joinRulesBar');
+        const count = selectedSweepRules.size;
+        bar.style.display = count > 0 ? 'flex' : 'none';
+        document.getElementById('selectedRulesCount').textContent = count;
+    }
+    
+    async function joinSelectedSweepRules() {
+        if (selectedSweepRules.size < 2) {
+            alert('Please select at least 2 rules to join.');
+            return;
+        }
+        
+        const title = prompt('Enter a title for the joined rule (optional):');
+        
+        try {
+            const response = await fetch('/api/sweep-rules/join', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    rule_ids: Array.from(selectedSweepRules),
+                    title: title || ''
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                selectedSweepRules.clear();
+                await loadSweepRules();
+                alert(`Successfully joined ${data.joined_count} rules!`);
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
     }
     
     function resetSweepForm() {
@@ -1542,36 +2169,43 @@
         }
         
         const fieldLabels = {
-            'category': '📁 Category',
-            'necessity': '⚖️ Necessity',
-            'recurrence': '🔄 Recurrence'
+            'category': '📁',
+            'necessity': '⚖️',
+            'recurrence': '🔄'
         };
         
-        container.innerHTML = tagRules.map(rule => `
-            <div class="rule-item ${rule.enabled ? '' : 'disabled'}">
-                <div class="rule-header">
-                    <span class="rule-title">
-                        ${escapeHtml(rule.category)}
-                        <span class="rule-field-badge">${fieldLabels[rule.field] || rule.field}</span>
-                    </span>
-                    <div class="rule-actions">
-                        <button onclick="toggleTagRule('${rule.id}')" title="${rule.enabled ? 'Disable' : 'Enable'}">${rule.enabled ? '✓' : '○'}</button>
-                        <button class="btn-delete" onclick="deleteTagRule('${rule.id}')" title="Delete">✕</button>
+        container.innerHTML = tagRules.map(rule => {
+            // Get tags - support both new multi-tag format and legacy format
+            const tags = rule.tags || {[rule.field]: rule.category};
+            const tagBadges = Object.entries(tags)
+                .filter(([k, v]) => v)
+                .map(([field, value]) => `<span class="rule-field-badge">${fieldLabels[field] || ''} ${escapeHtml(value)}</span>`)
+                .join(' ');
+            
+            return `
+                <div class="rule-item ${rule.enabled ? '' : 'disabled'}">
+                    <div class="rule-header">
+                        <div class="rule-tags">${tagBadges}</div>
+                        <div class="rule-actions">
+                            <button onclick="toggleTagRule('${rule.id}')" title="${rule.enabled ? 'Disable' : 'Enable'}">${rule.enabled ? '✓' : '○'}</button>
+                            <button class="btn-delete" onclick="deleteTagRule('${rule.id}')" title="Delete">✕</button>
+                        </div>
+                    </div>
+                    <div class="rule-keywords">
+                        ${rule.keywords.map((kw, i) => `
+                            ${i > 0 ? '<span class="and-connector">AND</span>' : ''}
+                            <span class="rule-keyword">${escapeHtml(kw)}</span>
+                        `).join('')}
                     </div>
                 </div>
-                <div class="rule-keywords">
-                    ${rule.keywords.map((kw, i) => `
-                        ${i > 0 ? '<span class="and-connector">AND</span>' : ''}
-                        <span class="rule-keyword">${escapeHtml(kw)}</span>
-                    `).join('')}
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
     
     function resetTagForm() {
-        document.getElementById('tagField').value = 'category';
-        document.getElementById('tagValue').value = '';
+        document.getElementById('tagCategory').value = '';
+        document.getElementById('tagNecessity').value = '';
+        document.getElementById('tagRecurrence').value = '';
         document.getElementById('tagKeywordInput').value = '';
         newTagKeywords = [];
         renderKeywords('tag');
@@ -1579,11 +2213,18 @@
     }
     
     async function saveTagRule() {
-        const field = document.getElementById('tagField').value;
-        const value = document.getElementById('tagValue').value.trim();
+        const category = document.getElementById('tagCategory').value.trim();
+        const necessity = document.getElementById('tagNecessity').value;
+        const recurrence = document.getElementById('tagRecurrence').value;
         
-        if (!value) {
-            alert('Please enter a value to assign.');
+        // Build tags object with only non-empty values
+        const tags = {};
+        if (category) tags.category = category;
+        if (necessity) tags.necessity = necessity;
+        if (recurrence) tags.recurrence = recurrence;
+        
+        if (Object.keys(tags).length === 0) {
+            alert('Please set at least one tag (Category, Necessity, or Recurrence).');
             return;
         }
         
@@ -1597,8 +2238,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    field,
-                    category: value,
+                    tags,
                     keywords: newTagKeywords,
                     priority: 0
                 })
@@ -1918,6 +2558,174 @@
             closeAddTagModal();
         }
     });
+    
+    // =================== EXPORT/IMPORT RULES ===================
+    async function exportRules() {
+        try {
+            const response = await fetch('/api/rules/export');
+            const data = await response.json();
+            
+            if (data.error) {
+                alert('Error: ' + data.error);
+                return;
+            }
+            
+            // Create downloadable file
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Generate filename with date
+            const date = new Date().toISOString().split('T')[0];
+            a.download = `spendsight-rules-${date}.json`;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            const tagCount = data.auto_tag_rules ? data.auto_tag_rules.length : 0;
+            const sweepCount = data.sweep_rules ? data.sweep_rules.length : 0;
+            alert(`Exported ${tagCount} auto-tag rule(s) and ${sweepCount} sweep rule(s).`);
+        } catch (error) {
+            alert('Error exporting rules: ' + error.message);
+        }
+    }
+    
+    function handleImportFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                // Validate the file structure
+                if (!data.auto_tag_rules && !data.sweep_rules) {
+                    alert('Invalid rules file. Please select a valid Spendsight rules export file.');
+                    return;
+                }
+                
+                const tagCount = data.auto_tag_rules ? data.auto_tag_rules.length : 0;
+                const sweepCount = data.sweep_rules ? data.sweep_rules.length : 0;
+                
+                if (!confirm(`Import ${tagCount} auto-tag rule(s) and ${sweepCount} sweep rule(s)?\n\nDuplicate rules will be skipped.`)) {
+                    return;
+                }
+                
+                const response = await fetch('/api/rules/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`Import complete!\n\n• ${result.imported_auto_tag_rules} auto-tag rule(s) imported\n• ${result.imported_sweep_rules} sweep rule(s) imported\n• ${result.skipped_duplicates} duplicate(s) skipped`);
+                    
+                    // Reload rules lists
+                    await loadSweepRules();
+                    await loadTagRules();
+                } else {
+                    alert('Error importing rules: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error reading file: ' + error.message);
+            }
+        };
+        
+        reader.readAsText(file);
+        
+        // Reset the input so the same file can be selected again
+        event.target.value = '';
+    }
+    
+    // =================== EXPORT/IMPORT PERSONAL ANALYSIS ===================
+    async function exportPersonalAnalysis() {
+        try {
+            const response = await fetch('/api/period-notes/export');
+            const data = await response.json();
+            
+            if (data.error) {
+                alert('Error: ' + data.error);
+                return;
+            }
+            
+            const notesCount = data.personal_analysis_notes ? data.personal_analysis_notes.length : 0;
+            
+            if (notesCount === 0) {
+                alert('No personal analysis notes to export.');
+                return;
+            }
+            
+            // Create downloadable file
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Generate filename with date
+            const date = new Date().toISOString().split('T')[0];
+            a.download = `spendsight-personal-analysis-${date}.json`;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert(`Exported ${notesCount} personal analysis note(s).`);
+        } catch (error) {
+            alert('Error exporting notes: ' + error.message);
+        }
+    }
+    
+    function handleImportNotesFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                // Validate the file structure
+                if (!data.personal_analysis_notes) {
+                    alert('Invalid file. Please select a valid Spendsight personal analysis export file.');
+                    return;
+                }
+                
+                const notesCount = data.personal_analysis_notes.length;
+                
+                if (!confirm(`Import ${notesCount} personal analysis note(s)?\n\nExisting notes won't be overwritten.`)) {
+                    return;
+                }
+                
+                const response = await fetch('/api/period-notes/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`Import complete!\n\n• ${result.imported} note(s) imported\n• ${result.skipped} skipped (already exist or empty)`);
+                } else {
+                    alert('Error importing notes: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error reading file: ' + error.message);
+            }
+        };
+        
+        reader.readAsText(file);
+        
+        // Reset the input so the same file can be selected again
+        event.target.value = '';
+    }
 </script>
 {% endblock %}
 

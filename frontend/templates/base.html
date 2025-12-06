@@ -16,7 +16,8 @@
             </div>
             {% block navbar_controls %}{% endblock %}
             <ul class="nav-menu">
-                <li><a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">Dashboard</a></li>
+                <li><a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}" id="dashboardLink">Dashboard</a></li>
+                <li><a href="#" class="{% if request.endpoint == 'budget_page' %}active{% endif %}" id="budgetLink" onclick="toggleBudgetMode(event)">Budget</a></li>
                 <li><a href="{{ url_for('upload') }}" class="{% if request.endpoint == 'upload' %}active{% endif %}">Upload</a></li>
                 <li>
                     <button class="sync-btn" id="syncBtn" onclick="syncToGoogleSheets()" title="Sync to Google Sheets">
@@ -199,6 +200,20 @@
                 return message;
             }
         });
+        
+        // Budget mode toggle - defined here, implemented in index.html
+        window.budgetMode = false;
+        function toggleBudgetMode(event) {
+            if (event) event.preventDefault();
+            // Only works on dashboard page
+            if (window.location.pathname !== '/' && !window.location.pathname.endsWith('/index')) {
+                window.location.href = '/?budget=1';
+                return;
+            }
+            if (typeof window.handleBudgetModeToggle === 'function') {
+                window.handleBudgetModeToggle();
+            }
+        }
     </script>
     {% block extra_js %}{% endblock %}
 </body>

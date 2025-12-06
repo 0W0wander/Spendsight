@@ -15,6 +15,8 @@ from backend.analytics.insights import InsightsGenerator
 from backend.analytics.expense_classifier import ExpenseClassifier
 from backend.models.category_rule import rule_engine, CategoryRule
 from backend.models.exclusion_rule import exclusion_engine, ExclusionRule
+from backend.models.recurring_expense import recurring_expense_engine, RecurringExpense
+from backend.models.period_notes import period_notes_engine
 
 # Initialize Flask app
 app = Flask(__name__, 
@@ -244,10 +246,32 @@ def loading():
 
 @app.route('/api/load-from-sheets', methods=['POST'])
 def api_load_from_sheets():
-    """Load transactions from Google Sheets into memory."""
+    """Load transactions from Google Sheets into memory with optional date filtering."""
     global all_transactions
+    from datetime import datetime, timedelta
+    from dateutil.relativedelta import relativedelta
     
     try:
+        # Get date range from request
+        data = request.get_json() or {}
+        date_range = data.get('date_range', 'all_time')
+        
+        # Calculate start date based on date_range
+        start_date = None
+        today = datetime.now().date()
+        
+        if date_range == 'last_month':
+            # Start from beginning of last month
+            first_of_this_month = today.replace(day=1)
+            start_date = (first_of_this_month - relativedelta(months=1))
+        elif date_range == 'last_year':
+            # Start from 1 year ago
+            start_date = today - relativedelta(years=1)
+        elif date_range == 'last_3_years':
+            # Start from 3 years ago
+            start_date = today - relativedelta(years=3)
+        # 'all_time' leaves start_date as None
+        
         sheets_client = SheetsClient()
         
         if not sheets_client.is_connected():
@@ -256,7 +280,7 @@ def api_load_from_sheets():
                 'error': sheets_client.last_error or 'Could not connect to Google Sheets'
             })
         
-        result = sheets_client.load_transactions()
+        result = sheets_client.load_transactions(start_date=start_date)
         
         if 'error' in result and result['error']:
             return jsonify({
@@ -279,7 +303,9 @@ def api_load_from_sheets():
         return jsonify({
             'success': True,
             'loaded_count': len(loaded_transactions),
-            'error_count': result.get('error_count', 0)
+            'error_count': result.get('error_count', 0),
+            'date_range': date_range,
+            'start_date': start_date.isoformat() if start_date else None
         })
         
     except Exception as e:
@@ -287,6 +313,127 @@ def api_load_from_sheets():
             'success': False,
             'error': str(e)
         })
+
+
+@app.route('/api/upload-csv', methods=['POST'])
+def api_upload_csv():
+    """API endpoint to upload and process CSV files (same as upload page but returns JSON)."""
+    global all_transactions
+    
+    # Check if files were uploaded
+    if 'files' not in request.files:
+        return jsonify({'success': False, 'error': 'No files uploaded'})
+    
+    files = request.files.getlist('files')
+    category_source = request.form.get('category_source', 'csv')
+    
+    # Filter out empty file inputs
+    files = [f for f in files if f.filename != '']
+    
+    if len(files) == 0:
+        return jsonify({'success': False, 'error': 'No files selected'})
+    
+    # Aggregated stats across all files
+    total_new_transactions = 0
+    total_duplicates = 0
+    total_swept = 0
+    total_rules_updated = 0
+    all_new_transactions = []
+    files_processed = []
+    errors = []
+    
+    for file in files:
+        if not allowed_file(file.filename):
+            errors.append(f'{file.filename}: Invalid file type')
+            continue
+        
+        # Save file
+        filename = secure_filename(file.filename)
+        filepath = Config.UPLOAD_FOLDER / filename
+        file.save(str(filepath))
+        
+        try:
+            # Auto-detect CSV type from columns
+            csv_type, confidence, has_categories = CSVDetector.detect(str(filepath))
+            format_info = CSVDetector.get_format_info(csv_type)
+            
+            if csv_type == CSVType.UNKNOWN:
+                errors.append(f'{file.filename}: Could not detect CSV format')
+                continue
+            
+            # Determine whether to use CSV categories or apply auto-tagging
+            use_csv_categories = (category_source == 'csv')
+            
+            # If CSV doesn't have categories but user chose CSV categories, use rules instead
+            if use_csv_categories and not has_categories:
+                use_csv_categories = False
+            
+            # Parse based on detected type
+            if csv_type == CSVType.CHASE_CREDIT or csv_type == CSVType.CHASE_DEBIT:
+                transactions = ChaseParser.parse(str(filepath), use_csv_categories=use_csv_categories)
+            else:  # DISCOVER
+                transactions = DiscoverParser.parse(str(filepath), use_csv_categories=use_csv_categories)
+            
+            # Filter out duplicate transactions
+            unique_transactions, duplicate_count = filter_duplicates(
+                transactions, 
+                all_transactions + all_new_transactions
+            )
+            total_duplicates += duplicate_count
+            
+            # Apply sweep/exclusion rules
+            unique_transactions, swept_count = exclusion_engine.filter_new_transactions(unique_transactions)
+            total_swept += swept_count
+            
+            # Apply category rules
+            rules_updated = rule_engine.apply_to_all(unique_transactions)
+            total_rules_updated += rules_updated
+            
+            # Collect for batch processing
+            all_new_transactions.extend(unique_transactions)
+            total_new_transactions += len(unique_transactions)
+            
+            files_processed.append({
+                'filename': file.filename,
+                'format': format_info['name'],
+                'count': len(unique_transactions)
+            })
+            
+        except Exception as e:
+            errors.append(f'{file.filename}: {str(e)}')
+            continue
+    
+    # Add all new transactions to global storage
+    all_transactions.extend(all_new_transactions)
+    
+    # Sync to Google Sheets
+    sheets_synced = False
+    sheets_error = None
+    if len(all_new_transactions) > 0:
+        try:
+            sheets_client = SheetsClient()
+            if sheets_client.is_connected():
+                sync_result = sheets_client.sync_transactions(all_new_transactions)
+                sheets_client.create_monthly_summary(all_transactions)
+                
+                if 'error' in sync_result:
+                    sheets_error = sync_result['error']
+                else:
+                    sheets_synced = True
+        except Exception as e:
+            sheets_error = str(e)
+    
+    return jsonify({
+        'success': total_new_transactions > 0 or total_duplicates > 0,
+        'new_count': total_new_transactions,
+        'duplicate_count': total_duplicates,
+        'swept_count': total_swept,
+        'rules_applied': total_rules_updated,
+        'files_processed': files_processed,
+        'errors': errors,
+        'sheets_synced': sheets_synced,
+        'sheets_error': sheets_error
+    })
 
 
 @app.route('/api/sheets-status')
@@ -833,19 +980,39 @@ def api_get_category_rules():
 
 @app.route('/api/category-rules', methods=['POST'])
 def api_create_category_rule():
-    """Create a new category rule."""
+    """Create a new category rule with support for multiple tags."""
     data = request.get_json()
     
     if not data:
         return jsonify({'error': 'No data provided'}), 400
     
-    category = data.get('category', '').strip()
     keywords = data.get('keywords', [])
     priority = data.get('priority', 0)
-    field = data.get('field', 'category').strip()
     
-    if not category:
-        return jsonify({'error': 'Category/value is required'}), 400
+    # Support new multi-tag format
+    tags = data.get('tags', {})
+    
+    # For backward compatibility, also accept legacy format
+    category = data.get('category', '').strip() if isinstance(data.get('category'), str) else ''
+    field = data.get('field', 'category').strip() if isinstance(data.get('field'), str) else 'category'
+    
+    # Validate tags
+    allowed_fields = ['category', 'necessity', 'recurrence']
+    
+    # Build tags dict from input
+    if isinstance(tags, dict) and tags:
+        # Filter to only allowed fields with non-empty values
+        tags = {k.strip(): v.strip() for k, v in tags.items() if k.strip() in allowed_fields and v and v.strip()}
+    elif category:
+        # Legacy format: single field/category
+        if field not in allowed_fields:
+            field = 'category'
+        tags = {field: category}
+    else:
+        return jsonify({'error': 'At least one tag (category, necessity, or recurrence) is required'}), 400
+    
+    if not tags:
+        return jsonify({'error': 'At least one tag with a non-empty value is required'}), 400
     
     if not keywords or not isinstance(keywords, list) or len(keywords) == 0:
         return jsonify({'error': 'At least one keyword is required'}), 400
@@ -856,13 +1023,12 @@ def api_create_category_rule():
     if len(keywords) == 0:
         return jsonify({'error': 'At least one non-empty keyword is required'}), 400
     
-    # Validate field
-    allowed_fields = ['category', 'necessity', 'recurrence']
-    if field not in allowed_fields:
-        field = 'category'
+    # For backward compatibility, set category to first tag value
+    first_field = list(tags.keys())[0]
+    first_value = tags[first_field]
     
-    # Create the rule
-    rule = rule_engine.add_rule(category, keywords, priority, field)
+    # Create the rule with tags
+    rule = rule_engine.add_rule(first_value, keywords, priority, first_field, tags)
     
     # Apply rule to all existing transactions
     updated_count = rule_engine.apply_single_rule(rule, all_transactions)
@@ -1007,6 +1173,78 @@ def api_create_sweep_rule():
         'swept_count': swept_count
     })
 
+# IMPORTANT: Static path routes must come BEFORE dynamic <rule_id> routes
+# Otherwise Flask will match "join", "preview", "apply-all" as rule_id values
+
+@app.route('/api/sweep-rules/join', methods=['POST'])
+def api_join_sweep_rules():
+    """
+    Join multiple sweep rules into a single rule using OR logic.
+    
+    Each original rule uses AND logic for its keywords.
+    The joined rule matches if ANY of the original rules would match.
+    """
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    rule_ids = data.get('rule_ids', [])
+    title = data.get('title', '').strip()
+    
+    if not rule_ids or len(rule_ids) < 2:
+        return jsonify({'error': 'At least 2 rules are required to join'}), 400
+    
+    joined_rule = exclusion_engine.join_rules(rule_ids, title)
+    
+    if not joined_rule:
+        return jsonify({'error': 'Could not join rules. Make sure the rules exist and are enabled.'}), 400
+    
+    return jsonify({
+        'success': True,
+        'rule': joined_rule.to_dict(),
+        'joined_count': len(rule_ids)
+    })
+
+@app.route('/api/sweep-rules/preview', methods=['POST'])
+def api_preview_sweep_rule():
+    """Preview how many transactions a sweep rule would match."""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    keywords = data.get('keywords', [])
+    
+    if not keywords or not isinstance(keywords, list):
+        return jsonify({'match_count': 0, 'sample_matches': []})
+    
+    # Clean up keywords
+    keywords = [k.strip().lower() for k in keywords if k.strip()]
+    
+    if len(keywords) == 0:
+        return jsonify({'match_count': 0, 'sample_matches': []})
+    
+    count, matches = exclusion_engine.count_matches(keywords, all_transactions)
+    
+    return jsonify({
+        'match_count': count,
+        'sample_matches': matches[:20]
+    })
+
+@app.route('/api/sweep-rules/apply-all', methods=['POST'])
+def api_apply_all_sweep_rules():
+    """Re-apply all sweep rules to all transactions."""
+    global all_transactions
+    
+    all_transactions, swept_count = exclusion_engine.sweep_transactions(all_transactions)
+    
+    return jsonify({
+        'success': True,
+        'swept_count': swept_count
+    })
+
+# Dynamic <rule_id> routes must come AFTER static path routes
 @app.route('/api/sweep-rules/<rule_id>', methods=['PUT'])
 def api_update_sweep_rule(rule_id):
     """Update an existing sweep rule."""
@@ -1042,44 +1280,99 @@ def api_delete_sweep_rule(rule_id):
     
     return jsonify({'success': True})
 
-@app.route('/api/sweep-rules/preview', methods=['POST'])
-def api_preview_sweep_rule():
-    """Preview how many transactions a sweep rule would match."""
-    data = request.get_json()
-    
-    if not data:
-        return jsonify({'error': 'No data provided'}), 400
-    
-    keywords = data.get('keywords', [])
-    
-    if not keywords or not isinstance(keywords, list):
-        return jsonify({'match_count': 0, 'sample_matches': []})
-    
-    # Clean up keywords
-    keywords = [k.strip() for k in keywords if k.strip()]
-    
-    if len(keywords) == 0:
-        return jsonify({'match_count': 0, 'sample_matches': []})
-    
-    # Count matching transactions
-    count, samples = exclusion_engine.count_matches(keywords, all_transactions)
-    
-    return jsonify({
-        'match_count': count,
-        'sample_matches': samples
-    })
 
-@app.route('/api/sweep-rules/apply-all', methods=['POST'])
-def api_apply_all_sweep_rules():
-    """Re-apply all sweep rules to all transactions."""
-    global all_transactions
-    
-    all_transactions, swept_count = exclusion_engine.sweep_transactions(all_transactions)
-    
-    return jsonify({
-        'success': True,
-        'swept_count': swept_count
-    })
+# =========================================================================
+# RULES EXPORT/IMPORT API ENDPOINTS
+# =========================================================================
+
+@app.route('/api/rules/export', methods=['GET'])
+def api_export_rules():
+    """Export all auto-tag rules and sweep rules as JSON."""
+    try:
+        category_rules = rule_engine.get_all_rules()
+        sweep_rules = exclusion_engine.get_all_rules()
+        
+        export_data = {
+            'version': '1.0',
+            'exported_at': __import__('datetime').datetime.now().isoformat(),
+            'auto_tag_rules': [r.to_dict() for r in category_rules],
+            'sweep_rules': [r.to_dict() for r in sweep_rules]
+        }
+        
+        return jsonify(export_data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/rules/import', methods=['POST'])
+def api_import_rules():
+    """Import auto-tag rules and sweep rules from JSON."""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        imported_tag_rules = 0
+        imported_sweep_rules = 0
+        skipped_duplicates = 0
+        
+        # Import auto-tag rules
+        auto_tag_rules = data.get('auto_tag_rules', [])
+        existing_tag_keywords = {tuple(sorted(r.keywords)) for r in rule_engine.get_all_rules()}
+        
+        for rule_data in auto_tag_rules:
+            # Check for duplicate by keywords
+            rule_keywords = tuple(sorted(rule_data.get('keywords', [])))
+            if rule_keywords in existing_tag_keywords:
+                skipped_duplicates += 1
+                continue
+            
+            # Create new rule without ID (will be auto-generated)
+            tags = rule_data.get('tags', {})
+            if not tags and 'category' in rule_data:
+                tags = {rule_data.get('field', 'category'): rule_data.get('category', '')}
+            
+            if tags and rule_data.get('keywords'):
+                first_field = list(tags.keys())[0]
+                first_value = tags[first_field]
+                rule_engine.add_rule(
+                    category=first_value,
+                    keywords=rule_data.get('keywords', []),
+                    priority=rule_data.get('priority', 0),
+                    field=first_field,
+                    tags=tags
+                )
+                existing_tag_keywords.add(rule_keywords)
+                imported_tag_rules += 1
+        
+        # Import sweep rules
+        sweep_rules = data.get('sweep_rules', [])
+        existing_sweep_keywords = {tuple(sorted(r.keywords)) for r in exclusion_engine.get_all_rules()}
+        
+        for rule_data in sweep_rules:
+            # Check for duplicate by keywords
+            rule_keywords = tuple(sorted(rule_data.get('keywords', [])))
+            if rule_keywords in existing_sweep_keywords:
+                skipped_duplicates += 1
+                continue
+            
+            if rule_data.get('keywords'):
+                exclusion_engine.add_rule(
+                    keywords=rule_data.get('keywords', []),
+                    title=rule_data.get('title', '')
+                )
+                existing_sweep_keywords.add(rule_keywords)
+                imported_sweep_rules += 1
+        
+        return jsonify({
+            'success': True,
+            'imported_auto_tag_rules': imported_tag_rules,
+            'imported_sweep_rules': imported_sweep_rules,
+            'skipped_duplicates': skipped_duplicates
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 # =========================================================================
@@ -1201,6 +1494,356 @@ def api_sync_to_sheets():
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/apply-rules-to-sheets', methods=['POST'])
+def api_apply_rules_to_sheets():
+    """
+    Load ALL transactions from Google Sheets, apply all auto-tag rules,
+    and sync the updated transactions back to Google Sheets.
+    """
+    try:
+        from backend.sheets.sheets_client import SheetsClient as LocalSheetsClient
+        sheets_client = LocalSheetsClient()
+        
+        if not sheets_client.is_connected():
+            return jsonify({
+                'success': False,
+                'error': sheets_client.last_error or 'Google Sheets not configured. Please complete setup first.'
+            })
+        
+        # Load ALL transactions from Google Sheets (no date filter)
+        result = sheets_client.load_transactions(start_date=None)
+        
+        if 'error' in result and result['error']:
+            return jsonify({'success': False, 'error': result['error']})
+        
+        sheet_transactions = result.get('transactions', [])
+        
+        if len(sheet_transactions) == 0:
+            return jsonify({
+                'success': False,
+                'error': 'No transactions found in Google Sheets'
+            })
+        
+        # Apply all category rules to the loaded transactions
+        updated_count = rule_engine.apply_to_all(sheet_transactions)
+        
+        # Sync the updated transactions back to Google Sheets
+        sync_result = sheets_client.sync_transactions(sheet_transactions, clear_first=True)
+        
+        # Also update the monthly summary
+        sheets_client.create_monthly_summary(sheet_transactions)
+        
+        if 'error' in sync_result:
+            return jsonify({'success': False, 'error': sync_result['error']})
+        
+        return jsonify({
+            'success': True,
+            'total_transactions': len(sheet_transactions),
+            'transactions_updated': updated_count,
+            'message': f'Applied rules to {len(sheet_transactions)} transactions. {updated_count} were updated.'
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/apply-sweep-to-sheets', methods=['POST'])
+def api_apply_sweep_to_sheets():
+    """
+    Load ALL transactions from Google Sheets, apply all sweep rules to remove matching transactions,
+    and sync the filtered transactions back to Google Sheets.
+    """
+    try:
+        from backend.sheets.sheets_client import SheetsClient as LocalSheetsClient
+        sheets_client = LocalSheetsClient()
+        
+        if not sheets_client.is_connected():
+            return jsonify({
+                'success': False,
+                'error': sheets_client.last_error or 'Google Sheets not configured. Please complete setup first.'
+            })
+        
+        # Load ALL transactions from Google Sheets (no date filter)
+        result = sheets_client.load_transactions(start_date=None)
+        
+        if 'error' in result and result['error']:
+            return jsonify({'success': False, 'error': result['error']})
+        
+        sheet_transactions = result.get('transactions', [])
+        
+        if len(sheet_transactions) == 0:
+            return jsonify({
+                'success': False,
+                'error': 'No transactions found in Google Sheets'
+            })
+        
+        original_count = len(sheet_transactions)
+        
+        # Apply all sweep rules to remove matching transactions
+        remaining_transactions, swept_count = exclusion_engine.sweep_transactions(sheet_transactions)
+        
+        # Sync the filtered transactions back to Google Sheets
+        sync_result = sheets_client.sync_transactions(remaining_transactions, clear_first=True)
+        
+        # Also update the monthly summary with remaining transactions
+        sheets_client.create_monthly_summary(remaining_transactions)
+        
+        if 'error' in sync_result:
+            return jsonify({'success': False, 'error': sync_result['error']})
+        
+        return jsonify({
+            'success': True,
+            'original_count': original_count,
+            'swept_count': swept_count,
+            'remaining_count': len(remaining_transactions),
+            'message': f'Swept {swept_count} transactions from Google Sheets. {len(remaining_transactions)} remaining.'
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/budget')
+def budget_page():
+    """Budget tracking page."""
+    return render_template('budget.html')
+
+
+@app.route('/api/budget-data')
+def api_budget_data():
+    """API endpoint for budget page data.
+    
+    Returns income, spending, recurring expenses, needs expenses, and expense list
+    for the specified date range.
+    """
+    from datetime import datetime
+    
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    if not start_date or not end_date:
+        return jsonify({'error': 'start_date and end_date are required'}), 400
+    
+    try:
+        start = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+    
+    # Filter transactions by date range
+    filtered = [t for t in all_transactions if start <= t.transaction_date.date() <= end]
+    
+    # Calculate totals
+    expenses = [t for t in filtered if t.is_expense]
+    income_transactions = [t for t in filtered if t.is_income]
+    
+    total_income = sum(t.amount for t in income_transactions)
+    total_spent = sum(abs(t.amount) for t in expenses)
+    
+    # Calculate recurring expenses (Subscription + Recurring)
+    recurring_expenses = [t for t in expenses if getattr(t, 'recurrence', 'One-time') in ['Subscription', 'Recurring']]
+    recurring_total = sum(abs(t.amount) for t in recurring_expenses)
+    
+    # Calculate needs expenses
+    needs_expenses = [t for t in expenses if getattr(t, 'necessity', 'Unknown') == 'Needs']
+    needs_total = sum(abs(t.amount) for t in needs_expenses)
+    
+    # Build expense list with all needed info
+    expense_list = []
+    for t in sorted(expenses, key=lambda x: x.transaction_date, reverse=True):
+        expense_list.append({
+            'description': t.description,
+            'amount': t.amount,
+            'date': t.transaction_date.strftime('%b %d'),
+            'fullDate': t.transaction_date.strftime('%Y-%m-%d'),
+            'category': t.category,
+            'bank': getattr(t, 'bank', ''),
+            'necessity': getattr(t, 'necessity', 'Unknown'),
+            'recurrence': getattr(t, 'recurrence', 'One-time'),
+            'note': getattr(t, 'note', '')
+        })
+    
+    return jsonify({
+        'total_income': round(total_income, 2),
+        'total_spent': round(total_spent, 2),
+        'recurring_total': round(recurring_total, 2),
+        'needs_total': round(needs_total, 2),
+        'expense_count': len(expenses),
+        'income_count': len(income_transactions),
+        'expenses': expense_list
+    })
+
+
+# =========================================================================
+# RECURRING EXPENSES API ENDPOINTS
+# =========================================================================
+
+@app.route('/api/recurring-expenses', methods=['GET'])
+def api_get_recurring_expenses():
+    """Get all recurring expenses."""
+    expenses = recurring_expense_engine.get_all_expenses()
+    totals = recurring_expense_engine.get_totals_by_frequency()
+    
+    return jsonify({
+        'expenses': [e.to_dict() for e in expenses],
+        'totals': totals
+    })
+
+
+@app.route('/api/recurring-expenses', methods=['POST'])
+def api_create_recurring_expense():
+    """Create a new recurring expense."""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    name = data.get('name', '').strip()
+    amount = data.get('amount', 0)
+    frequency = data.get('frequency', 'monthly')
+    keywords = data.get('keywords', [])
+    category = data.get('category', 'Other')
+    
+    if not name:
+        return jsonify({'error': 'Name is required'}), 400
+    
+    try:
+        amount = float(amount)
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid amount'}), 400
+    
+    if amount <= 0:
+        return jsonify({'error': 'Amount must be greater than 0'}), 400
+    
+    if frequency not in ['weekly', 'monthly']:
+        frequency = 'monthly'
+    
+    # Clean up keywords
+    if keywords:
+        keywords = [k.strip() for k in keywords if k.strip()]
+    
+    # Create the expense
+    expense = recurring_expense_engine.add_expense(
+        name=name,
+        amount=amount,
+        frequency=frequency,
+        keywords=keywords,
+        category=category
+    )
+    
+    # If keywords provided, link to existing transactions
+    linked_count = 0
+    if keywords:
+        linked_count = recurring_expense_engine.link_to_transactions(expense, all_transactions)
+    
+    return jsonify({
+        'success': True,
+        'expense': expense.to_dict(),
+        'linked_count': linked_count
+    })
+
+
+@app.route('/api/recurring-expenses/<expense_id>', methods=['PUT'])
+def api_update_recurring_expense(expense_id):
+    """Update an existing recurring expense."""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    name = data.get('name')
+    amount = data.get('amount')
+    frequency = data.get('frequency')
+    keywords = data.get('keywords')
+    enabled = data.get('enabled')
+    category = data.get('category')
+    
+    # Validate amount if provided
+    if amount is not None:
+        try:
+            amount = float(amount)
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid amount'}), 400
+    
+    # Clean up keywords if provided
+    if keywords is not None:
+        keywords = [k.strip() for k in keywords if k.strip()]
+    
+    expense = recurring_expense_engine.update_expense(
+        expense_id,
+        name=name,
+        amount=amount,
+        frequency=frequency,
+        keywords=keywords,
+        enabled=enabled,
+        category=category
+    )
+    
+    if not expense:
+        return jsonify({'error': 'Expense not found'}), 404
+    
+    # Re-link to transactions if keywords changed
+    linked_count = 0
+    if keywords is not None and expense.keywords:
+        linked_count = recurring_expense_engine.link_to_transactions(expense, all_transactions)
+    
+    return jsonify({
+        'success': True,
+        'expense': expense.to_dict(),
+        'linked_count': linked_count
+    })
+
+
+@app.route('/api/recurring-expenses/<expense_id>', methods=['DELETE'])
+def api_delete_recurring_expense(expense_id):
+    """Delete a recurring expense."""
+    success = recurring_expense_engine.delete_expense(expense_id)
+    
+    if not success:
+        return jsonify({'error': 'Expense not found'}), 404
+    
+    return jsonify({'success': True})
+
+
+@app.route('/api/recurring-expenses/preview', methods=['POST'])
+def api_preview_recurring_expense():
+    """Preview which transactions would match given keywords."""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    keywords = data.get('keywords', [])
+    
+    if not keywords or not isinstance(keywords, list):
+        return jsonify({'count': 0, 'samples': []})
+    
+    # Clean up keywords
+    keywords = [k.strip() for k in keywords if k.strip()]
+    
+    if not keywords:
+        return jsonify({'count': 0, 'samples': []})
+    
+    result = recurring_expense_engine.preview_matches(keywords, all_transactions)
+    
+    return jsonify(result)
+
+
+@app.route('/api/recurring-expenses/link-all', methods=['POST'])
+def api_link_all_recurring_expenses():
+    """Link all recurring expenses to matching transactions."""
+    linked_count = recurring_expense_engine.link_all_expenses(all_transactions)
+    
+    return jsonify({
+        'success': True,
+        'linked_count': linked_count
+    })
 
 
 @app.route('/settings')
@@ -1499,6 +2142,126 @@ def api_sync_diagnostics():
     diagnostics['last_test'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
     return jsonify(diagnostics)
+
+
+# =================== PERIOD NOTES API ===================
+
+@app.route('/api/period-notes/<period_key>', methods=['GET'])
+def api_get_period_note(period_key):
+    """Get the personal analysis note for a specific period."""
+    content = period_notes_engine.get_note(period_key)
+    return jsonify({
+        'period_key': period_key,
+        'content': content
+    })
+
+
+@app.route('/api/period-notes/<period_key>', methods=['POST', 'PUT'])
+def api_save_period_note(period_key):
+    """Save or update the personal analysis note for a specific period."""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    content = data.get('content', '')
+    
+    # Save the note
+    note = period_notes_engine.save_note(period_key, content)
+    
+    return jsonify({
+        'success': True,
+        'period_key': note.period_key,
+        'content': note.content
+    })
+
+
+@app.route('/api/period-notes/<period_key>', methods=['DELETE'])
+def api_delete_period_note(period_key):
+    """Delete the personal analysis note for a specific period."""
+    success = period_notes_engine.delete_note(period_key)
+    
+    return jsonify({
+        'success': success,
+        'period_key': period_key
+    })
+
+
+@app.route('/api/period-notes', methods=['GET'])
+def api_get_all_period_notes():
+    """Get all personal analysis notes."""
+    notes = period_notes_engine.get_all_notes()
+    return jsonify({
+        'notes': notes
+    })
+
+
+@app.route('/api/period-notes/export', methods=['GET'])
+def api_export_period_notes():
+    """Export all personal analysis notes as JSON."""
+    try:
+        notes = period_notes_engine.get_all_notes()
+        
+        # Convert to list format for export
+        notes_list = [
+            {'period_key': key, 'content': content}
+            for key, content in notes.items()
+            if content.strip()  # Only export non-empty notes
+        ]
+        
+        export_data = {
+            'version': '1.0',
+            'exported_at': __import__('datetime').datetime.now().isoformat(),
+            'personal_analysis_notes': notes_list
+        }
+        
+        return jsonify(export_data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/period-notes/import', methods=['POST'])
+def api_import_period_notes():
+    """Import personal analysis notes from JSON."""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        notes_list = data.get('personal_analysis_notes', [])
+        
+        if not notes_list:
+            return jsonify({'error': 'No notes found in import data'}), 400
+        
+        imported_count = 0
+        skipped_count = 0
+        
+        for note in notes_list:
+            period_key = note.get('period_key', '')
+            content = note.get('content', '')
+            
+            if not period_key or not content.strip():
+                skipped_count += 1
+                continue
+            
+            # Check if note already exists
+            existing = period_notes_engine.get_note(period_key)
+            if existing and existing.strip():
+                # Don't overwrite existing notes
+                skipped_count += 1
+                continue
+            
+            period_notes_engine.save_note(period_key, content)
+            imported_count += 1
+        
+        return jsonify({
+            'success': True,
+            'imported': imported_count,
+            'skipped': skipped_count
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':

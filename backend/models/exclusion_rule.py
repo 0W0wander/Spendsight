@@ -269,6 +269,99 @@ class ExclusionRuleEngine:
                 matches.append(transaction.description[:80] + ('...' if len(transaction.description) > 80 else ''))
         
         return count, matches
+    
+    def join_rules(self, rule_ids: List[str], new_title: str = "") -> ExclusionRule:
+        """
+        Join multiple rules into a single rule using OR logic.
+        
+        Each original rule uses AND logic for its keywords. Joining rules
+        creates a new rule that matches if ANY of the original rules would match.
+        
+        The new rule stores all keyword sets and uses OR logic between them.
+        
+        Args:
+            rule_ids: List of rule IDs to join
+            new_title: Title for the new joined rule
+            
+        Returns:
+            The new joined ExclusionRule, or None if no valid rules to join
+        """
+        rules_to_join = [r for r in self.rules if r.id in rule_ids and r.enabled]
+        
+        if len(rules_to_join) < 2:
+            return None
+        
+        # Collect all keyword sets - we'll store them as a list in the keywords field
+        # Format: each original rule's keywords separated by "|OR|" marker
+        all_keyword_sets = []
+        combined_swept_count = 0
+        
+        for rule in rules_to_join:
+            all_keyword_sets.append(",".join(rule.keywords))
+            combined_swept_count += rule.swept_count
+        
+        # Use "|OR|" as separator to denote OR logic between keyword sets
+        combined_keywords = ["|OR|".join(all_keyword_sets)]
+        
+        # Create title from original rules if not provided
+        if not new_title:
+            titles = [r.title for r in rules_to_join if r.title]
+            if titles:
+                new_title = " + ".join(titles)
+            else:
+                new_title = f"Joined Rule ({len(rules_to_join)} rules)"
+        
+        # Create new joined rule
+        joined_rule = ExclusionRule(
+            id=str(uuid.uuid4()),
+            keywords=combined_keywords,
+            title=new_title,
+            enabled=True,
+            swept_count=combined_swept_count
+        )
+        
+        # Delete original rules
+        for rule_id in rule_ids:
+            self.delete_rule(rule_id)
+        
+        # Add joined rule
+        self.rules.append(joined_rule)
+        self._save_rules()
+        
+        return joined_rule
+
+
+# Override the matches method to support OR logic for joined rules
+_original_matches = ExclusionRule.matches
+
+def _enhanced_matches(self, description: str) -> bool:
+    """
+    Enhanced matching that supports OR logic for joined rules.
+    
+    For regular rules: all keywords must match (AND logic).
+    For joined rules (keywords contain "|OR|"): any keyword set must match (OR logic).
+    """
+    if not self.enabled:
+        return False
+    
+    desc_lower = description.lower()
+    
+    # Check if this is a joined rule (contains OR marker)
+    if len(self.keywords) == 1 and "|OR|" in self.keywords[0]:
+        # Split into individual keyword sets
+        keyword_sets = self.keywords[0].split("|OR|")
+        # Match if ANY set matches (OR logic between sets)
+        for kw_set in keyword_sets:
+            # Each set is comma-separated keywords (AND logic within set)
+            keywords = [kw.strip() for kw in kw_set.split(",") if kw.strip()]
+            if keywords and all(kw.lower() in desc_lower for kw in keywords):
+                return True
+        return False
+    else:
+        # Regular rule: all keywords must match (AND logic)
+        return all(keyword.lower() in desc_lower for keyword in self.keywords)
+
+ExclusionRule.matches = _enhanced_matches
 
 
 # Global instance for the application

@@ -189,9 +189,13 @@ class SheetsClient:
         except Exception as e:
             return {'error': f'Error syncing to Google Sheets: {str(e)}'}
     
-    def load_transactions(self) -> dict:
+    def load_transactions(self, start_date=None) -> dict:
         """
-        Load transactions from Google Sheets.
+        Load transactions from Google Sheets with optional date filtering.
+        
+        Args:
+            start_date: Optional date object. If provided, only load transactions 
+                       on or after this date.
         
         Returns:
             Dictionary with loaded transactions or error
@@ -215,6 +219,7 @@ class SheetsClient:
             # Parse rows (skip header)
             transactions = []
             errors = []
+            skipped_by_date = 0
             
             for row_num, row in enumerate(all_data[1:], start=2):
                 try:
@@ -228,6 +233,13 @@ class SheetsClient:
                     
                     # Parse dates
                     transaction_date = datetime.strptime(row[0], '%Y-%m-%d')
+                    
+                    # Filter by start_date if provided
+                    if start_date is not None:
+                        if transaction_date.date() < start_date:
+                            skipped_by_date += 1
+                            continue
+                    
                     post_date = datetime.strptime(row[1], '%Y-%m-%d') if row[1] else transaction_date
                     
                     # Parse amount
@@ -256,6 +268,7 @@ class SheetsClient:
                 'transactions': transactions,
                 'loaded_count': len(transactions),
                 'error_count': len(errors),
+                'skipped_by_date': skipped_by_date,
                 'errors': errors[:5] if errors else []  # Return first 5 errors for debugging
             }
             

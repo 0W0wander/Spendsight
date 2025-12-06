@@ -1,6 +1,6 @@
 """Category rule model for keyword-based auto-tagging."""
-from dataclasses import dataclass, field
-from typing import List
+from dataclasses import dataclass, field as dataclass_field
+from typing import List, Dict, Optional
 import json
 from pathlib import Path
 import uuid
@@ -13,13 +13,16 @@ class CategoryRule:
     
     A rule matches when ALL keywords are present in the transaction description.
     Matching is case-insensitive.
+    
+    Supports multiple tags: e.g., set category, necessity, and recurrence at once.
     """
     id: str
-    category: str  # The value to assign (category name, necessity type, etc.)
+    category: str  # The value to assign (legacy field, used for backward compatibility)
     keywords: List[str]  # ALL keywords must be present (AND logic)
     priority: int = 0  # Higher priority rules are checked first
     enabled: bool = True
-    field: str = 'category'  # Which field to update: 'category', 'necessity', 'recurrence', etc.
+    field: str = 'category'  # Which field to update (legacy, used for backward compatibility)
+    tags: Dict[str, str] = dataclass_field(default_factory=dict)  # Multiple field:value pairs, e.g., {'category': 'Hobby', 'necessity': 'Wants', 'recurrence': 'Subscription'}
     
     def matches(self, description: str) -> bool:
         """
@@ -42,25 +45,33 @@ class CategoryRule:
     
     def to_dict(self) -> dict:
         """Convert rule to dictionary."""
+        # Build tags from legacy fields if tags is empty
+        tags = self.tags if self.tags else {self.field: self.category}
         return {
             'id': self.id,
             'category': self.category,
             'keywords': self.keywords,
             'priority': self.priority,
             'enabled': self.enabled,
-            'field': self.field
+            'field': self.field,
+            'tags': tags
         }
     
     @classmethod
     def from_dict(cls, data: dict) -> 'CategoryRule':
         """Create rule from dictionary."""
+        tags = data.get('tags', {})
+        # For backward compatibility: if no tags, create from legacy fields
+        if not tags and 'category' in data and 'field' in data:
+            tags = {data.get('field', 'category'): data['category']}
         return cls(
             id=data.get('id', str(uuid.uuid4())),
-            category=data['category'],
-            keywords=data['keywords'],
+            category=data.get('category', ''),
+            keywords=data.get('keywords', []),
             priority=data.get('priority', 0),
             enabled=data.get('enabled', True),
-            field=data.get('field', 'category')
+            field=data.get('field', 'category'),
+            tags=tags
         )
 
 
@@ -106,26 +117,32 @@ class CategoryRuleEngine:
         except Exception as e:
             print(f"Error saving category rules: {e}")
     
-    def add_rule(self, category: str, keywords: List[str], priority: int = 0, field: str = 'category') -> CategoryRule:
+    def add_rule(self, category: str, keywords: List[str], priority: int = 0, field: str = 'category', tags: Dict[str, str] = None) -> CategoryRule:
         """
         Add a new category rule.
         
         Args:
-            category: The value to assign when rule matches
+            category: The value to assign when rule matches (legacy, for backward compatibility)
             keywords: List of keywords that must ALL be present
             priority: Higher priority rules are checked first
-            field: Which field to update ('category', 'necessity', 'recurrence', etc.)
+            field: Which field to update (legacy, for backward compatibility)
+            tags: Dict of field:value pairs (e.g., {'category': 'Hobby', 'necessity': 'Wants'})
             
         Returns:
             The created CategoryRule
         """
+        # Build tags dict - use provided tags or create from legacy fields
+        if tags is None:
+            tags = {field: category} if category else {}
+        
         rule = CategoryRule(
             id=str(uuid.uuid4()),
             category=category,
             keywords=keywords,
             priority=priority,
             enabled=True,
-            field=field
+            field=field,
+            tags=tags
         )
         self.rules.append(rule)
         # Sort by priority (descending)
@@ -215,6 +232,7 @@ class CategoryRuleEngine:
         Apply rules to a single transaction.
         
         If matching rules are found, updates the appropriate transaction fields.
+        Supports multiple tags per rule (e.g., category + necessity + recurrence).
         
         Args:
             transaction: Transaction object with description and various attributes
@@ -225,11 +243,12 @@ class CategoryRuleEngine:
         updated = False
         for rule in self.rules:
             if rule.matches(transaction.description):
-                # Update the appropriate field based on rule type
-                field = rule.field or 'category'
-                if hasattr(transaction, field):
-                    setattr(transaction, field, rule.category)
-                    updated = True
+                # Apply all tags from the rule
+                tags = rule.tags if rule.tags else {rule.field or 'category': rule.category}
+                for field, value in tags.items():
+                    if hasattr(transaction, field) and value:
+                        setattr(transaction, field, value)
+                        updated = True
         return updated
     
     def apply_to_all(self, transactions: list) -> int:
@@ -252,6 +271,8 @@ class CategoryRuleEngine:
         """
         Apply a single rule to all transactions.
         
+        Supports multiple tags per rule (e.g., category + necessity + recurrence).
+        
         Args:
             rule: The rule to apply
             transactions: List of Transaction objects
@@ -260,11 +281,18 @@ class CategoryRuleEngine:
             Number of transactions that were updated
         """
         updated_count = 0
-        field = rule.field or 'category'
+        # Use tags if available, otherwise fall back to legacy field/category
+        tags = rule.tags if rule.tags else {rule.field or 'category': rule.category}
+        
         for transaction in transactions:
-            if rule.matches(transaction.description) and hasattr(transaction, field):
-                setattr(transaction, field, rule.category)
-                updated_count += 1
+            if rule.matches(transaction.description):
+                transaction_updated = False
+                for field, value in tags.items():
+                    if hasattr(transaction, field) and value:
+                        setattr(transaction, field, value)
+                        transaction_updated = True
+                if transaction_updated:
+                    updated_count += 1
         return updated_count
 
 

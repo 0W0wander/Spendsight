@@ -5,6 +5,15 @@
 {% block navbar_controls %}
 {% if statistics and statistics.count > 0 %}
 <div class="navbar-controls">
+    <div class="budget-input-inline" id="budgetInputSection" style="display: none;">
+        <span class="budget-currency">$</span>
+        <input type="text" class="budget-input-nav" id="budgetInput" placeholder="0" inputmode="decimal">
+        <div class="budget-timeframe-toggle">
+            <button data-budget-tf="monthly" class="active">M</button>
+            <button data-budget-tf="weekly">W</button>
+        </div>
+        <button class="budget-set-btn" onclick="saveBudget()" title="Set Budget">✓</button>
+    </div>
     <div class="time-toggle">
         <button data-period="days" class="active">Days</button>
         <button data-period="weeks">Weeks</button>
@@ -36,6 +45,101 @@
 
 {% block extra_css %}
 <style>
+    /* Budget Input in Navbar */
+    .budget-input-inline {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.2rem 0.5rem;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 6px;
+    }
+    
+    .budget-currency {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: white;
+    }
+    
+    .budget-input-nav {
+        width: 70px;
+        padding: 0.2rem 0.3rem;
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        font-family: 'JetBrains Mono', monospace;
+        color: white;
+        text-align: right;
+        -moz-appearance: textfield;
+    }
+    
+    .budget-input-nav::-webkit-outer-spin-button,
+    .budget-input-nav::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    
+    .budget-input-nav::placeholder {
+        color: rgba(255, 255, 255, 0.5);
+    }
+    
+    .budget-input-nav:focus {
+        outline: none;
+        border-color: rgba(255, 255, 255, 0.6);
+        background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .budget-timeframe-toggle {
+        display: flex;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        padding: 2px;
+        gap: 1px;
+    }
+    
+    .budget-timeframe-toggle button {
+        padding: 0.15rem 0.35rem;
+        border: none;
+        background: transparent;
+        border-radius: 3px;
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.6);
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .budget-timeframe-toggle button:hover {
+        color: white;
+    }
+    
+    .budget-timeframe-toggle button.active {
+        background: rgba(16, 185, 129, 0.8);
+        color: white;
+    }
+    
+    .budget-set-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        background: rgba(16, 185, 129, 0.8);
+        border: none;
+        border-radius: 4px;
+        color: white;
+        font-size: 0.75rem;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .budget-set-btn:hover {
+        background: rgba(16, 185, 129, 1);
+        transform: scale(1.05);
+    }
+    
     /* Control Bar - Unified Filters */
     .control-bar {
         display: flex;
@@ -819,6 +923,768 @@
         cursor: not-allowed;
     }
     
+    /* ============ BUDGET MODE STYLES ============ */
+    
+    /* Budget Mode Layout - replaces line chart area */
+    .budget-mode-row {
+        display: none;
+        gap: 0.5rem;
+        flex: 1;
+    }
+    
+    .budget-mode-row.active {
+        display: flex;
+    }
+    
+    /* Hide line chart when budget mode is active */
+    .line-chart-card.budget-hidden {
+        display: none !important;
+    }
+    
+    /* Budget Stats Panel (left side) */
+    .budget-stats-panel {
+        flex: 0 0 140px;
+        background: var(--bg-primary);
+        border-radius: var(--border-radius-lg);
+        padding: 0.5rem;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+    
+    /* Budget Status Column */
+    .budget-status-column {
+        flex: 0 0 180px;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .budget-stats-title {
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .budget-stat {
+        display: flex;
+        flex-direction: column;
+        padding: 0.35rem 0.5rem;
+        background: var(--bg-secondary);
+        border-radius: 6px;
+        border-left: 3px solid var(--primary-color);
+    }
+    
+    .budget-stat.income-stat {
+        border-left-color: var(--success-color);
+    }
+    
+    .budget-stat.spending-power-stat {
+        border-left-color: #8b5cf6;
+    }
+    
+    .budget-stat.discretionary-stat {
+        border-left-color: #f59e0b;
+    }
+    
+    .budget-stat-label {
+        font-size: 0.55rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        font-weight: 500;
+        letter-spacing: 0.2px;
+        margin-bottom: 0.15rem;
+    }
+    
+    .budget-stat-value {
+        font-size: 0.95rem;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    
+    .budget-stat-value.positive { color: var(--success-color); }
+    .budget-stat-value.negative { color: var(--danger-color); }
+    
+    /* Budget Status Card (compact) */
+    .budget-status-card {
+        flex: 1;
+        background: var(--bg-primary);
+        border-radius: var(--border-radius-lg);
+        padding: 0.6rem;
+        box-shadow: var(--shadow-sm);
+        border: 2px solid var(--border-color);
+    }
+    
+    .budget-status-card.passed {
+        border-color: var(--success-color);
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(5, 150, 105, 0.02));
+    }
+    
+    .budget-status-card.failed {
+        border-color: var(--danger-color);
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(220, 38, 38, 0.02));
+    }
+    
+    .budget-status-card.warning {
+        border-color: var(--warning-color);
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(217, 119, 6, 0.02));
+    }
+    
+    .budget-status-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+    }
+    
+    .budget-status-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .budget-status-icon {
+        font-size: 2.5rem;
+    }
+    
+    .budget-status-text h3 {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.1rem;
+    }
+    
+    .budget-status-text p {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+    }
+    
+    .budget-status-numbers {
+        text-align: right;
+    }
+    
+    .budget-spent {
+        font-size: 1.8rem;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    
+    .budget-spent.positive { color: var(--success-color); }
+    .budget-spent.negative { color: var(--danger-color); }
+    
+    .budget-of {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+    
+    .budget-limit {
+        font-weight: 600;
+        color: var(--text-primary);
+        font-family: 'JetBrains Mono', monospace;
+    }
+    
+    .budget-progress-container {
+        margin-top: 0.75rem;
+    }
+    
+    .budget-progress-bar {
+        height: 8px;
+        background: var(--bg-tertiary);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .budget-progress-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.5s ease;
+    }
+    
+    .budget-progress-fill.passed { background: linear-gradient(90deg, #10b981, #34d399); }
+    .budget-progress-fill.warning { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .budget-progress-fill.failed { background: linear-gradient(90deg, #ef4444, #f87171); }
+    
+    .budget-progress-info {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .budget-percentage {
+        font-weight: 600;
+    }
+    
+    .budget-percentage.passed { color: var(--success-color); }
+    .budget-percentage.warning { color: var(--warning-color); }
+    .budget-percentage.failed { color: var(--danger-color); }
+    
+    .budget-remaining {
+        color: var(--text-secondary);
+    }
+    
+    .budget-remaining strong.negative {
+        color: var(--danger-color);
+    }
+    
+    .no-budget-state {
+        text-align: center;
+        padding: 0.75rem;
+    }
+    
+    .no-budget-state .icon {
+        font-size: 1.5rem;
+        margin-bottom: 0.35rem;
+    }
+    
+    .no-budget-state h3 {
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    
+    .no-budget-state p {
+        color: var(--text-secondary);
+        font-size: 0.65rem;
+    }
+    
+    /* Personal Analysis Column (Budget Mode) */
+    .personal-analysis-column {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 150px;
+        max-width: 300px;
+    }
+    
+    .personal-analysis-card {
+        background: var(--bg-primary);
+        border-radius: var(--border-radius-lg);
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        overflow: hidden;
+    }
+    
+    .personal-analysis-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0.6rem;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-secondary);
+    }
+    
+    .personal-analysis-title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    
+    .personal-analysis-save-status {
+        font-size: 0.55rem;
+        color: var(--text-light);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .personal-analysis-save-status.visible {
+        opacity: 1;
+    }
+    
+    .personal-analysis-save-status.saved {
+        color: var(--success-color);
+    }
+    
+    .personal-analysis-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 0.4rem;
+    }
+    
+    .personal-analysis-textarea {
+        flex: 1;
+        width: 100%;
+        min-height: 100px;
+        padding: 0.5rem;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        font-family: inherit;
+        font-size: 0.7rem;
+        line-height: 1.5;
+        color: var(--text-primary);
+        resize: none;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .personal-analysis-textarea::placeholder {
+        color: var(--text-light);
+        font-style: italic;
+    }
+    
+    .personal-analysis-textarea:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+    }
+    
+    /* Compact Budget Status for budget mode */
+    .budget-status-compact {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .budget-status-main {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .budget-status-icon-compact {
+        font-size: 1.5rem;
+        line-height: 1;
+    }
+    
+    .budget-status-info {
+        flex: 1;
+    }
+    
+    .budget-status-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.15rem;
+    }
+    
+    .budget-status-amount {
+        font-size: 1.1rem;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+        line-height: 1.1;
+    }
+    
+    .budget-status-amount.positive { color: var(--success-color); }
+    .budget-status-amount.negative { color: var(--danger-color); }
+    
+    .budget-status-limit {
+        font-size: 0.6rem;
+        color: var(--text-secondary);
+        margin-top: 0.1rem;
+    }
+    
+    .budget-progress-compact {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .budget-progress-stats {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.6rem;
+    }
+    
+    .budget-remaining-compact {
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 600;
+        color: var(--success-color);
+    }
+    
+    .budget-remaining-compact.negative {
+        color: var(--danger-color);
+    }
+    
+    .budget-status-message {
+        font-size: 0.6rem;
+        color: var(--text-secondary);
+        text-align: center;
+        padding: 0.3rem;
+        background: var(--bg-tertiary);
+        border-radius: var(--border-radius);
+    }
+    
+    /* Add Recurring Button */
+    .add-recurring-btn {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
+        border: 1px dashed var(--primary-light);
+        border-radius: 4px;
+        color: var(--primary-color);
+        font-size: 0.75rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .add-recurring-btn:hover {
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.25));
+        border-style: solid;
+        transform: scale(1.05);
+    }
+    
+    .add-recurring-btn.visible {
+        display: flex;
+    }
+    
+    /* Recurring Expenses Modal */
+    .recurring-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s ease;
+    }
+    
+    .recurring-modal.show {
+        opacity: 1;
+        visibility: visible;
+    }
+    
+    .recurring-modal-content {
+        background: var(--bg-primary);
+        border-radius: var(--border-radius-xl);
+        width: 90%;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .recurring-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--border-color);
+        position: sticky;
+        top: 0;
+        background: var(--bg-primary);
+        z-index: 1;
+    }
+    
+    .recurring-modal-header h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .recurring-modal-close {
+        background: transparent;
+        border: none;
+        font-size: 1.25rem;
+        cursor: pointer;
+        color: var(--text-secondary);
+        padding: 0.25rem;
+        line-height: 1;
+        transition: var(--transition);
+    }
+    
+    .recurring-modal-close:hover {
+        color: var(--danger-color);
+    }
+    
+    .recurring-modal-body {
+        padding: 1rem 1.25rem;
+    }
+    
+    /* Recurring Form */
+    .recurring-form {
+        background: var(--bg-secondary);
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .recurring-form h4 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+    }
+    
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .form-group label {
+        font-size: 0.7rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+    }
+    
+    .form-group input,
+    .form-group select {
+        padding: 0.4rem 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-size: 0.8rem;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+    }
+    
+    .form-hint {
+        font-size: 0.65rem;
+        color: var(--text-light);
+        margin-top: 0.25rem;
+    }
+    
+    .keywords-wrapper {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        padding: 0.35rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        min-height: 34px;
+        cursor: text;
+        background: var(--bg-primary);
+    }
+    
+    .keywords-wrapper:focus-within {
+        border-color: var(--primary-color);
+    }
+    
+    .keyword-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        padding: 0.15rem 0.4rem;
+        background: rgba(99, 102, 241, 0.15);
+        border-radius: 3px;
+        font-size: 0.7rem;
+        color: var(--primary-color);
+    }
+    
+    .keyword-tag button {
+        background: none;
+        border: none;
+        padding: 0;
+        font-size: 0.8rem;
+        cursor: pointer;
+        color: inherit;
+        opacity: 0.7;
+        line-height: 1;
+    }
+    
+    .keyword-tag button:hover {
+        opacity: 1;
+    }
+    
+    .keyword-input {
+        flex: 1;
+        min-width: 100px;
+        border: none !important;
+        padding: 0.2rem !important;
+        font-size: 0.75rem !important;
+        background: transparent !important;
+    }
+    
+    .keyword-input:focus {
+        outline: none;
+    }
+    
+    .preview-box {
+        background: rgba(99, 102, 241, 0.08);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: 6px;
+        padding: 0.5rem;
+        margin-top: 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .preview-box .count {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+    
+    .preview-list {
+        max-height: 80px;
+        overflow-y: auto;
+        margin-top: 0.35rem;
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+    }
+    
+    /* Recurring List */
+    .recurring-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .recurring-item {
+        background: var(--bg-secondary);
+        border-radius: var(--border-radius);
+        padding: 0.75rem;
+        border: 1px solid var(--border-color);
+    }
+    
+    .recurring-item.disabled {
+        opacity: 0.5;
+    }
+    
+    .recurring-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .recurring-icon {
+        font-size: 1.25rem;
+    }
+    
+    .recurring-details {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .recurring-name {
+        font-weight: 600;
+        font-size: 0.85rem;
+        margin-bottom: 0.2rem;
+    }
+    
+    .recurring-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+    }
+    
+    .recurring-frequency {
+        display: inline-flex;
+        padding: 0.1rem 0.3rem;
+        background: rgba(139, 92, 246, 0.15);
+        border-radius: 3px;
+        font-size: 0.65rem;
+        font-weight: 500;
+        color: #8b5cf6;
+    }
+    
+    .recurring-keywords {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        margin-top: 0.35rem;
+    }
+    
+    .recurring-keyword {
+        font-size: 0.65rem;
+        padding: 0.1rem 0.3rem;
+        background: var(--bg-tertiary);
+        border-radius: 3px;
+        color: var(--text-secondary);
+    }
+    
+    .recurring-amount {
+        font-weight: 700;
+        font-size: 1rem;
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--danger-color);
+    }
+    
+    .recurring-actions {
+        display: flex;
+        gap: 0.25rem;
+        margin-left: 0.5rem;
+    }
+    
+    .recurring-actions button {
+        background: var(--bg-tertiary);
+        border: none;
+        padding: 0.25rem 0.4rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.7rem;
+        transition: var(--transition);
+    }
+    
+    .recurring-actions button:hover {
+        background: var(--primary-color);
+        color: white;
+    }
+    
+    .recurring-actions .btn-delete:hover {
+        background: var(--danger-color);
+    }
+    
+    /* Recurring Totals */
+    .recurring-totals {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.5rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border-color);
+    }
+    
+    .recurring-total-card {
+        background: var(--bg-secondary);
+        border-radius: 6px;
+        padding: 0.5rem;
+        text-align: center;
+    }
+    
+    .recurring-total-label {
+        font-size: 0.6rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        font-weight: 500;
+        margin-bottom: 0.2rem;
+    }
+    
+    .recurring-total-value {
+        font-size: 0.9rem;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--text-primary);
+    }
+    
+    /* ============ END BUDGET MODE STYLES ============ */
+    
     /* Transactions Section - Compact */
     .transactions-section {
         background: var(--bg-primary);
@@ -958,6 +1824,18 @@
         color: white;
     }
     
+    .transaction-category.uncategorized {
+        background: rgba(107, 114, 128, 0.1);
+        color: var(--text-light);
+        font-style: italic;
+    }
+    
+    .transaction-category.uncategorized:hover {
+        background: var(--primary-light);
+        color: white;
+        font-style: normal;
+    }
+    
     /* Category edit dropdown */
     .category-edit-wrapper {
         position: relative;
@@ -1082,11 +1960,28 @@
         padding: 0.5rem;
     }
     
+    .inline-multi-tag-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 0.35rem;
+        margin-bottom: 0.4rem;
+    }
+    
+    @media (max-width: 500px) {
+        .inline-multi-tag-row {
+            grid-template-columns: 1fr;
+        }
+    }
+    
     .inline-rule-form .rule-form-group {
         margin-bottom: 0.4rem;
     }
     
     .inline-rule-form .rule-form-group:last-of-type {
+        margin-bottom: 0;
+    }
+    
+    .inline-multi-tag-row .rule-form-group {
         margin-bottom: 0;
     }
     
@@ -1096,6 +1991,15 @@
         font-weight: 500;
         color: var(--text-secondary);
         margin-bottom: 0.15rem;
+    }
+    
+    .inline-multi-tag-row input,
+    .inline-multi-tag-row select {
+        width: 100%;
+        padding: 0.3rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-size: 0.68rem;
     }
     
     .inline-keywords-wrapper {
@@ -1571,9 +2475,79 @@
         font-size: 0.75rem;
     }
     
-    .rule-form-group input:focus {
+    .rule-form-group input:focus,
+    .rule-form-group select:focus {
         outline: none;
         border-color: var(--primary-color);
+    }
+    
+    .rule-form-group select {
+        width: 100%;
+        padding: 0.4rem 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-size: 0.75rem;
+        background: white;
+    }
+    
+    /* Multi-Tag Grid */
+    .multi-tag-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    @media (max-width: 600px) {
+        .multi-tag-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .rule-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+    
+    .rule-tag-badge {
+        font-size: 0.65rem;
+        padding: 0.15rem 0.4rem;
+        background: var(--bg-tertiary);
+        border-radius: 4px;
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+    
+    .btn-run-all {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.65rem;
+        font-weight: 600;
+        background: linear-gradient(135deg, var(--success-color), #059669);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    
+    .btn-run-all:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+    }
+    
+    .btn-run-all.sweep {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+    }
+    
+    .btn-run-all.sweep:hover {
+        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+    }
+    
+    .btn-run-all:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
     }
     
     .keywords-input-wrapper {
@@ -1794,6 +2768,133 @@
         background: rgba(99, 102, 241, 0.1);
     }
     
+    /* Search Bar */
+    .search-container {
+        display: flex;
+        align-items: center;
+        position: relative;
+    }
+    
+    .search-toggle-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        border-radius: 4px;
+        transition: var(--transition);
+        font-size: 0.85rem;
+    }
+    
+    .search-toggle-btn:hover {
+        background: rgba(99, 102, 241, 0.1);
+        color: var(--primary-color);
+    }
+    
+    .search-toggle-btn.active {
+        color: var(--primary-color);
+    }
+    
+    .search-input-wrapper {
+        display: flex;
+        align-items: center;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        overflow: hidden;
+        max-width: 0;
+        opacity: 0;
+        transition: all 0.3s ease;
+        margin-right: 0;
+    }
+    
+    .search-input-wrapper.expanded {
+        max-width: 200px;
+        opacity: 1;
+        margin-right: 0.5rem;
+    }
+    
+    .search-input-wrapper:focus-within {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+    }
+    
+    .search-input {
+        border: none !important;
+        outline: none !important;
+        padding: 0.25rem 0.4rem !important;
+        font-size: 0.7rem !important;
+        background: transparent !important;
+        width: 130px;
+        color: var(--text-primary);
+    }
+    
+    .search-input::placeholder {
+        color: var(--text-light);
+    }
+    
+    .search-clear-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        background: transparent;
+        border: none;
+        color: var(--text-light);
+        cursor: pointer;
+        font-size: 0.7rem;
+        padding: 0;
+        margin-right: 2px;
+        border-radius: 50%;
+        transition: var(--transition);
+    }
+    
+    .search-clear-btn:hover {
+        background: var(--danger-color);
+        color: white;
+    }
+    
+    .search-keywords {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.2rem;
+        align-items: center;
+        padding: 0 0.25rem;
+    }
+    
+    .search-keyword-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.15rem;
+        padding: 0.1rem 0.3rem;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 3px;
+        font-size: 0.6rem;
+        font-weight: 500;
+    }
+    
+    .search-keyword-tag .remove {
+        cursor: pointer;
+        opacity: 0.7;
+        font-size: 0.7rem;
+    }
+    
+    .search-keyword-tag .remove:hover {
+        opacity: 1;
+    }
+    
+    .search-and-connector {
+        font-size: 0.5rem;
+        color: var(--accent-color);
+        font-weight: 600;
+    }
+    
     .sweep-toggle-btn {
         display: inline-flex;
         align-items: center;
@@ -1907,6 +3008,56 @@
     .sweep-item.disabled {
         opacity: 0.5;
         border-left-color: var(--text-light);
+    }
+    
+    .sweep-item.selected {
+        border-color: var(--primary-color);
+        background: rgba(99, 102, 241, 0.05);
+    }
+    
+    /* Join Rules UI */
+    .join-rules-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 0.5rem;
+        background: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+        font-size: 0.7rem;
+    }
+    
+    .rule-select {
+        display: flex;
+        align-items: center;
+        margin-right: 0.25rem;
+    }
+    
+    .rule-select input[type="checkbox"] {
+        width: 12px;
+        height: 12px;
+        cursor: pointer;
+    }
+    
+    .joined-badge {
+        font-size: 0.5rem;
+        padding: 0.08rem 0.25rem;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 3px;
+        margin-left: 0.2rem;
+        font-weight: 600;
+    }
+    
+    .or-connector {
+        font-size: 0.55rem;
+        font-weight: 600;
+        color: #f59e0b;
+        background: rgba(245, 158, 11, 0.15);
+        padding: 0.08rem 0.2rem;
+        border-radius: 3px;
+        margin: 0 0.2rem;
     }
     
     .sweep-item-header {
@@ -2131,18 +3282,41 @@
 <!-- Rules Panel -->
 <div class="rules-panel" id="rulesPanel">
     <div class="rules-panel-header">
-        <h3>🏷️ Category Rules</h3>
+        <h3>🏷️ Auto-Tag Rules</h3>
         <button class="rules-panel-close" onclick="closeRulesPanel()">✕</button>
     </div>
     <div class="rules-panel-body">
         <!-- Create New Rule Form -->
         <div class="rule-form" id="ruleForm">
             <h4>➕ Create New Rule</h4>
-            <div class="rule-form-group">
-                <label>Category (tag to assign)</label>
-                <div class="input-with-autocomplete">
-                    <input type="text" id="ruleCategory" placeholder="e.g., Groceries, Bills, Entertainment" autocomplete="off">
-                    <div class="autocomplete-list" id="ruleCategoryAutocomplete"></div>
+            <p style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                Set multiple tags at once! Leave fields empty to skip.
+            </p>
+            <div class="multi-tag-grid">
+                <div class="rule-form-group">
+                    <label>📁 Category</label>
+                    <div class="input-with-autocomplete">
+                        <input type="text" id="ruleCategory" placeholder="e.g., Hobby..." autocomplete="off">
+                        <div class="autocomplete-list" id="ruleCategoryAutocomplete"></div>
+                    </div>
+                </div>
+                <div class="rule-form-group">
+                    <label>⚖️ Necessity</label>
+                    <select id="ruleNecessity">
+                        <option value="">— Not set —</option>
+                        <option value="Needs">Needs</option>
+                        <option value="Wants">Wants</option>
+                        <option value="Savings">Savings</option>
+                    </select>
+                </div>
+                <div class="rule-form-group">
+                    <label>🔄 Recurrence</label>
+                    <select id="ruleRecurrence">
+                        <option value="">— Not set —</option>
+                        <option value="Subscription">Subscription</option>
+                        <option value="Recurring">Recurring</option>
+                        <option value="One-time">One-time</option>
+                    </select>
                 </div>
             </div>
             <div class="rule-form-group">
@@ -2165,7 +3339,12 @@
         </div>
         
         <!-- Existing Rules List -->
-        <h4 style="margin-bottom: 0.5rem; font-size: 0.8rem;">📋 Existing Rules</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h4 style="margin: 0; font-size: 0.8rem;">📋 Existing Rules</h4>
+            <button class="btn-run-all" onclick="runAllRules()" title="Apply all rules to transactions">
+                ▶ Run All
+            </button>
+        </div>
         <div class="rules-list" id="rulesList">
             <div style="color: var(--text-secondary); font-size: 0.75rem; text-align: center; padding: 1rem;">
                 Loading rules...
@@ -2213,7 +3392,20 @@
         </div>
         
         <!-- Existing Sweep Rules List -->
-        <h4 style="margin-bottom: 0.5rem; font-size: 0.8rem;">🧹 Active Sweep Rules</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h4 style="margin: 0; font-size: 0.8rem;">🧹 Active Sweep Rules</h4>
+            <button class="btn-run-all sweep" onclick="runAllSweepRules()" title="Apply all sweep rules to transactions">
+                ▶ Run All
+            </button>
+        </div>
+        <p style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 0.35rem;">
+            Select 2+ rules to join them with OR logic.
+        </p>
+        <div class="join-rules-bar" id="joinSweepBar" style="display: none;">
+            <span id="selectedSweepCount">0</span> selected
+            <button class="btn-cancel" onclick="clearSweepSelection()">Clear</button>
+            <button class="btn-save-sweep" onclick="joinSelectedSweepRules()">🔗 Join</button>
+        </div>
         <div class="rules-list" id="sweepRulesList">
             <div style="color: var(--text-secondary); font-size: 0.75rem; text-align: center; padding: 1rem;">
                 Loading sweep rules...
@@ -2328,7 +3520,8 @@
     
     <!-- Charts Row -->
     <div class="charts-container">
-        <div class="chart-card line-chart-card">
+        <!-- Normal Mode: Line Chart -->
+        <div class="chart-card line-chart-card" id="lineChartCard">
             <h3 class="chart-title">
                  Spending Over Time <span class="chart-period-label" id="chartPeriodLabel"></span>
                 <span class="line-breakdown-selector" id="lineBreakdownSelector" onclick="toggleLineBreakdownMenu(event)">
@@ -2351,6 +3544,60 @@
             </h3>
             <div class="line-chart-container">
                 <canvas id="spendingLineChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Budget Mode: Budget Stats + Personal Analysis + Over Budget Status -->
+        <div class="budget-mode-row" id="budgetModeRow">
+            <!-- Budget Stats (Left) -->
+            <div class="budget-stats-panel">
+                <h3 class="budget-stats-title">💰 Budget Stats</h3>
+                <div class="budget-stat income-stat">
+                    <span class="budget-stat-label">Total Income</span>
+                    <span class="budget-stat-value positive" id="budgetIncome">$0.00</span>
+                </div>
+                <div class="budget-stat spending-power-stat">
+                    <span class="budget-stat-label">Spending Power</span>
+                    <span class="budget-stat-value" id="budgetSpendingPower">$0.00</span>
+                </div>
+                <div class="budget-stat discretionary-stat">
+                    <span class="budget-stat-label">Discretionary</span>
+                    <span class="budget-stat-value" id="budgetDiscretionary">$0.00</span>
+                </div>
+            </div>
+            
+            <!-- Personal Analysis (Middle) -->
+            <div class="personal-analysis-column">
+                <div class="personal-analysis-card">
+                    <div class="personal-analysis-header">
+                        <div class="personal-analysis-title">
+                            📝 Personal Analysis
+                        </div>
+                        <span class="personal-analysis-save-status" id="analysisSaveStatus"></span>
+                    </div>
+                    <div class="personal-analysis-content">
+                        <textarea 
+                            class="personal-analysis-textarea" 
+                            id="personalAnalysisText"
+                            placeholder="Write your notes for this period...
+
+• What went well?
+• Areas to improve?
+• Unexpected expenses?"
+                        ></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Over Budget Status (Right of Personal Analysis) -->
+            <div class="budget-status-column">
+                <div class="budget-status-card" id="budgetStatusCard">
+                    <div class="no-budget-state">
+                        <div class="icon">🎯</div>
+                        <h3>No Budget Set</h3>
+                        <p>Enter a budget amount</p>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -2404,6 +3651,15 @@
         <div class="transactions-header">
             <h3>💳 <span id="transactionsTitle">All Transactions</span></h3>
             <div class="transactions-summary">
+                <button class="add-recurring-btn" id="addRecurringBtn" onclick="openRecurringModal()" title="Add Recurring Expense">+</button>
+                <div class="search-container">
+                    <div class="search-input-wrapper" id="searchInputWrapper">
+                        <div class="search-keywords" id="searchKeywords"></div>
+                        <input type="text" class="search-input" id="searchInput" placeholder="Search keywords...">
+                        <button class="search-clear-btn" id="searchClearBtn" onclick="clearSearch()" style="display: none;">✕</button>
+                    </div>
+                    <button class="search-toggle-btn" id="searchToggleBtn" onclick="toggleSearchBar()" title="Search transactions">🔍</button>
+                </div>
                 <button class="rules-toggle-btn" onclick="toggleRulesPanel()">
                     Rules
                 </button>
@@ -2421,6 +3677,81 @@
             <div class="no-transactions">
                 <div class="spinner"></div>
                 <p>Loading...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recurring Expenses Modal -->
+    <div class="recurring-modal" id="recurringModal" onclick="if(event.target === this) closeRecurringModal()">
+        <div class="recurring-modal-content">
+            <div class="recurring-modal-header">
+                <h3>🔄 Recurring Expenses</h3>
+                <button class="recurring-modal-close" onclick="closeRecurringModal()">✕</button>
+            </div>
+            <div class="recurring-modal-body">
+                <!-- Add New Recurring Expense Form -->
+                <div class="recurring-form">
+                    <h4>➕ Add Recurring Expense</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Name</label>
+                            <input type="text" id="recurringName" placeholder="e.g., Rent, Car Insurance">
+                        </div>
+                        <div class="form-group">
+                            <label>Amount</label>
+                            <input type="number" id="recurringAmount" placeholder="0.00" step="0.01" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Frequency</label>
+                            <select id="recurringFrequency">
+                                <option value="monthly">Monthly</option>
+                                <option value="weekly">Weekly</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <input type="text" id="recurringCategory" placeholder="e.g., Housing, Transportation, Insurance">
+                    </div>
+                    <div class="form-group">
+                        <label>Link to Transactions (Optional)</label>
+                        <div class="keywords-wrapper" id="recurringKeywordsWrapper" onclick="document.getElementById('recurringKeywordInput').focus()">
+                            <input type="text" class="keyword-input" id="recurringKeywordInput" placeholder="Type keyword and press Enter...">
+                        </div>
+                        <div class="form-hint">Keywords help auto-detect this expense. All keywords must match (AND logic). Matching transactions will be tagged as "Recurring".</div>
+                    </div>
+                    <div class="preview-box" id="recurringPreview" style="display: none;">
+                        <span class="count" id="recurringPreviewCount">0</span> transaction(s) will be linked
+                        <div class="preview-list" id="recurringPreviewList"></div>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+                        <button class="btn btn-secondary" onclick="resetRecurringForm()">Clear</button>
+                        <button class="btn btn-primary" onclick="saveRecurringExpense()">💾 Save Expense</button>
+                    </div>
+                </div>
+                
+                <!-- Recurring Expenses List -->
+                <div id="recurringListContainer">
+                    <div class="loading-state" style="color: var(--text-secondary); font-size: 0.75rem; text-align: center; padding: 1rem;">
+                        Loading...
+                    </div>
+                </div>
+                
+                <!-- Totals Summary -->
+                <div class="recurring-totals" id="recurringTotals" style="display: none;">
+                    <div class="recurring-total-card">
+                        <div class="recurring-total-label">Weekly Total</div>
+                        <div class="recurring-total-value" id="weeklyTotal">$0.00</div>
+                    </div>
+                    <div class="recurring-total-card">
+                        <div class="recurring-total-label">Monthly Total</div>
+                        <div class="recurring-total-value" id="monthlyTotal">$0.00</div>
+                    </div>
+                    <div class="recurring-total-card">
+                        <div class="recurring-total-label">Monthly Equivalent</div>
+                        <div class="recurring-total-value" id="monthlyEquivalent">$0.00</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -2457,6 +3788,700 @@
     let pieChart = null;
     let allTransactions = [];
     let displayedTransactions = [];
+    
+    // ============ BUDGET MODE STATE ============
+    let budgetMode = false;
+    let currentBudget = 0;
+    let budgetTimeframe = localStorage.getItem('spendsight_budgetTimeframe') || 'monthly';
+    let budgetData = null;
+    let recurringExpenses = [];
+    let newRecurringKeywords = [];
+    let budgetModeInitialized = false; // Track if we've toggled to budget mode at least once
+    let currentPeriodKey = '';
+    let analysisSaveTimeout = null;
+    
+    // ============ BUDGET MODE FUNCTIONS ============
+    
+    // Store the dashboard state before entering budget mode
+    let savedDashboardPeriod = null;
+    let savedDashboardOffset = null;
+    
+    // Handle budget mode toggle (called from base.html)
+    window.handleBudgetModeToggle = function() {
+        if (!budgetMode) {
+            // Entering budget mode - save current dashboard state
+            savedDashboardPeriod = currentPeriod;
+            savedDashboardOffset = periodOffset;
+            budgetModeInitialized = true;
+        }
+        
+        budgetMode = !budgetMode;
+        updateBudgetModeUI();
+        
+        // Update navbar link active state
+        const budgetLink = document.getElementById('budgetLink');
+        const dashboardLink = document.getElementById('dashboardLink');
+        if (budgetLink) budgetLink.classList.toggle('active', budgetMode);
+        if (dashboardLink) dashboardLink.classList.toggle('active', !budgetMode);
+        
+        if (budgetMode) {
+            // Save current timeframe to ensure sync
+            saveTimeframeToStorage();
+            loadBudgetData();
+            loadRecurringExpenses();
+        } else {
+            // Returning to dashboard - restore the saved state if it was changed
+            if (savedDashboardPeriod !== null && savedDashboardOffset !== null) {
+                // The chart should already be showing the same view, just unhide it
+                // No need to change anything - the line chart maintains its state
+            }
+        }
+    };
+    
+    function updateBudgetModeUI() {
+        const lineChartCard = document.getElementById('lineChartCard');
+        const budgetModeRow = document.getElementById('budgetModeRow');
+        const addRecurringBtn = document.getElementById('addRecurringBtn');
+        const budgetInputSection = document.getElementById('budgetInputSection');
+        
+        if (budgetMode) {
+            lineChartCard.style.display = 'none';
+            budgetModeRow.classList.add('active');
+            addRecurringBtn.classList.add('visible');
+            if (budgetInputSection) budgetInputSection.style.display = 'flex';
+            loadPersonalAnalysis();
+        } else {
+            lineChartCard.style.display = '';
+            budgetModeRow.classList.remove('active');
+            addRecurringBtn.classList.remove('visible');
+            if (budgetInputSection) budgetInputSection.style.display = 'none';
+        }
+    }
+    
+    // ============ PERSONAL ANALYSIS ============
+    
+    function getVisibleDateRange() {
+        // Get the current visible date range from the line chart
+        const now = new Date();
+        let startDate, endDate;
+        
+        if (lineChart && lineChart.selectedKeys && lineChart.selectedKeys.length > 0) {
+            const keys = lineChart.selectedKeys;
+            if (currentPeriod === 'days') {
+                startDate = new Date(keys[0] + 'T12:00:00');
+                endDate = new Date(keys[keys.length - 1] + 'T12:00:00');
+            } else if (currentPeriod === 'weeks') {
+                startDate = new Date(keys[0] + 'T12:00:00');
+                const lastWeekEnd = new Date(keys[keys.length - 1] + 'T12:00:00');
+                lastWeekEnd.setDate(lastWeekEnd.getDate() + 6);
+                endDate = lastWeekEnd;
+            } else if (currentPeriod === 'months') {
+                const [year, month] = keys[0].split('-');
+                startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+                const lastMonth = keys[keys.length - 1];
+                const [ly, lm] = lastMonth.split('-');
+                endDate = new Date(parseInt(ly), parseInt(lm), 0);
+            } else if (currentPeriod === 'years') {
+                startDate = new Date(parseInt(keys[0]), 0, 1);
+                endDate = new Date(parseInt(keys[keys.length - 1]), 11, 31);
+            }
+        } else {
+            // Default to current month
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        }
+        
+        return { startDate, endDate };
+    }
+    
+    function getPeriodKey() {
+        // Generate a unique key for the current period based on budget timeframe
+        const { startDate } = getVisibleDateRange();
+        if (budgetTimeframe === 'weekly') {
+            // Get the Sunday of the week
+            const sunday = new Date(startDate);
+            sunday.setDate(startDate.getDate() - startDate.getDay());
+            return `weekly_${sunday.toISOString().split('T')[0]}`;
+        } else {
+            const year = startDate.getFullYear();
+            const month = String(startDate.getMonth() + 1).padStart(2, '0');
+            return `monthly_${year}-${month}`;
+        }
+    }
+    
+    async function loadPersonalAnalysis() {
+        currentPeriodKey = getPeriodKey();
+        
+        try {
+            const response = await fetch(`/api/period-notes/${encodeURIComponent(currentPeriodKey)}`);
+            const data = await response.json();
+            
+            const textarea = document.getElementById('personalAnalysisText');
+            if (textarea) {
+                textarea.value = data.content || '';
+            }
+        } catch (error) {
+            console.error('Error loading personal analysis:', error);
+        }
+    }
+    
+    async function savePersonalAnalysis() {
+        const textarea = document.getElementById('personalAnalysisText');
+        const statusEl = document.getElementById('analysisSaveStatus');
+        
+        if (!textarea || !currentPeriodKey) return;
+        
+        const content = textarea.value;
+        
+        // Show saving status
+        statusEl.textContent = 'Saving...';
+        statusEl.className = 'personal-analysis-save-status visible';
+        
+        try {
+            const response = await fetch(`/api/period-notes/${encodeURIComponent(currentPeriodKey)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+            
+            if (response.ok) {
+                statusEl.textContent = '✓ Saved';
+                statusEl.className = 'personal-analysis-save-status visible saved';
+                setTimeout(() => {
+                    statusEl.className = 'personal-analysis-save-status';
+                }, 2000);
+            } else {
+                throw new Error('Save failed');
+            }
+        } catch (error) {
+            console.error('Error saving personal analysis:', error);
+            statusEl.textContent = '✕ Error';
+            statusEl.className = 'personal-analysis-save-status visible';
+        }
+    }
+    
+    function setupPersonalAnalysis() {
+        const textarea = document.getElementById('personalAnalysisText');
+        if (!textarea) return;
+        
+        textarea.addEventListener('input', function() {
+            if (analysisSaveTimeout) clearTimeout(analysisSaveTimeout);
+            
+            const statusEl = document.getElementById('analysisSaveStatus');
+            statusEl.textContent = 'Typing...';
+            statusEl.className = 'personal-analysis-save-status visible';
+            
+            analysisSaveTimeout = setTimeout(() => savePersonalAnalysis(), 1000);
+        });
+        
+        textarea.addEventListener('blur', function() {
+            if (analysisSaveTimeout) clearTimeout(analysisSaveTimeout);
+            savePersonalAnalysis();
+        });
+    }
+    
+    function initBudgetInput() {
+        // Load saved budgets from localStorage (separate for monthly and weekly)
+        budgetTimeframe = localStorage.getItem('spendsight_budgetTimeframe') || 'monthly';
+        currentBudget = parseFloat(localStorage.getItem(`spendsight_budget_${budgetTimeframe}`)) || 0;
+        
+        const budgetInput = document.getElementById('budgetInput');
+        if (budgetInput && currentBudget > 0) {
+            budgetInput.value = currentBudget;
+        }
+        
+        // Set the correct timeframe button as active
+        document.querySelectorAll('.budget-timeframe-toggle button').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.budgetTf === budgetTimeframe);
+        });
+        
+        // Setup event listeners for M/W toggle
+        document.querySelectorAll('.budget-timeframe-toggle button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.budget-timeframe-toggle button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                budgetTimeframe = this.dataset.budgetTf;
+                localStorage.setItem('spendsight_budgetTimeframe', budgetTimeframe);
+                
+                // Sync Dashboard period with budget timeframe:
+                // M (monthly) → Weeks view
+                // W (weekly) → Days view
+                const targetPeriod = budgetTimeframe === 'monthly' ? 'weeks' : 'days';
+                localStorage.setItem('spendsight_dashboardPeriod', targetPeriod);
+                localStorage.setItem('spendsight_currentPeriod', targetPeriod);
+                localStorage.setItem('spendsight_periodOffset', '0');
+                
+                // Update the Days/Weeks toggle buttons
+                document.querySelectorAll('.time-toggle button').forEach(b => {
+                    b.classList.toggle('active', b.dataset.period === targetPeriod);
+                });
+                currentPeriod = targetPeriod;
+                periodOffset = 0;
+                updateLineChart();
+                
+                // Load the budget for this timeframe
+                currentBudget = parseFloat(localStorage.getItem(`spendsight_budget_${budgetTimeframe}`)) || 0;
+                const input = document.getElementById('budgetInput');
+                if (input) {
+                    input.value = currentBudget > 0 ? currentBudget : '';
+                }
+                
+                if (budgetMode) {
+                    renderBudgetStatus();
+                    loadPersonalAnalysis();
+                }
+                
+                // Sync transactions to the new visible timeframe
+                syncTransactionsToTimeframe();
+            });
+        });
+        
+        // Setup Personal Analysis textarea
+        setupPersonalAnalysis();
+        
+        // Allow pressing Enter to save budget
+        if (budgetInput) {
+            budgetInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    saveBudget();
+                }
+            });
+        }
+        
+        // Check if URL has ?budget=1 parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('budget') === '1') {
+            // Wait for charts to initialize first, then toggle budget mode
+            setTimeout(() => {
+                budgetMode = true;
+                updateBudgetModeUI();
+                
+                // Update navbar link active state
+                const budgetLink = document.getElementById('budgetLink');
+                const dashboardLink = document.getElementById('dashboardLink');
+                if (budgetLink) budgetLink.classList.add('active');
+                if (dashboardLink) dashboardLink.classList.remove('active');
+                
+                loadBudgetData();
+                loadRecurringExpenses();
+                
+                // Clean the URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }, 200);
+        }
+    }
+    
+    function saveBudget() {
+        const input = document.getElementById('budgetInput');
+        const value = parseFloat(input.value.replace(/[^0-9.]/g, '')) || 0;
+        currentBudget = value;
+        // Save to the correct key based on current timeframe (monthly or weekly)
+        localStorage.setItem(`spendsight_budget_${budgetTimeframe}`, value);
+        
+        // Flash confirmation
+        const btn = document.querySelector('.budget-set-btn');
+        if (btn) {
+            btn.style.background = 'rgba(16, 185, 129, 1)';
+            btn.textContent = '✓';
+            setTimeout(() => {
+                btn.style.background = '';
+            }, 1000);
+        }
+        
+        if (budgetMode) {
+            renderBudgetStatus();
+        }
+    }
+    
+    async function loadBudgetData() {
+        // Get the current timeframe dates from the line chart
+        let startDate, endDate;
+        const now = new Date();
+        
+        if (lineChart && lineChart.selectedKeys && lineChart.selectedKeys.length > 0) {
+            const keys = lineChart.selectedKeys;
+            if (currentPeriod === 'days') {
+                startDate = keys[0];
+                endDate = keys[keys.length - 1];
+            } else if (currentPeriod === 'weeks') {
+                startDate = keys[0];
+                const lastWeekEnd = new Date(keys[keys.length - 1] + 'T12:00:00');
+                lastWeekEnd.setDate(lastWeekEnd.getDate() + 6);
+                endDate = lastWeekEnd.toISOString().split('T')[0];
+            } else if (currentPeriod === 'months') {
+                startDate = keys[0] + '-01';
+                const lastMonth = keys[keys.length - 1];
+                const [year, month] = lastMonth.split('-');
+                const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+                endDate = `${lastMonth}-${lastDay}`;
+            } else if (currentPeriod === 'years') {
+                startDate = `${keys[0]}-01-01`;
+                endDate = `${keys[keys.length - 1]}-12-31`;
+            }
+        } else {
+            // Default to current month
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+        }
+        
+        try {
+            const response = await fetch(`/api/budget-data?start_date=${startDate}&end_date=${endDate}`);
+            budgetData = await response.json();
+            renderBudgetStats();
+            renderBudgetStatus();
+        } catch (error) {
+            console.error('Error loading budget data:', error);
+        }
+    }
+    
+    function renderBudgetStats() {
+        if (!budgetData) return;
+        
+        const income = budgetData.total_income || 0;
+        const recurringTotal = budgetData.recurring_total || 0;
+        const needsTotal = budgetData.needs_total || 0;
+        
+        const spendingPower = income - recurringTotal;
+        const discretionary = income - needsTotal;
+        
+        const incomeEl = document.getElementById('budgetIncome');
+        const spendingPowerEl = document.getElementById('budgetSpendingPower');
+        const discretionaryEl = document.getElementById('budgetDiscretionary');
+        
+        if (incomeEl) incomeEl.textContent = formatCurrency(income);
+        if (spendingPowerEl) {
+            spendingPowerEl.textContent = formatCurrency(spendingPower);
+            spendingPowerEl.className = 'budget-stat-value ' + (spendingPower >= 0 ? 'positive' : 'negative');
+        }
+        if (discretionaryEl) {
+            discretionaryEl.textContent = formatCurrency(discretionary);
+            discretionaryEl.className = 'budget-stat-value ' + (discretionary >= 0 ? 'positive' : 'negative');
+        }
+    }
+    
+    function renderBudgetStatus() {
+        const container = document.getElementById('budgetStatusCard');
+        
+        if (!currentBudget || currentBudget <= 0) {
+            container.innerHTML = `
+                <div class="no-budget-state">
+                    <div class="icon">🎯</div>
+                    <h3>No Budget Set</h3>
+                    <p>Enter a budget amount</p>
+                </div>
+            `;
+            container.className = 'budget-status-card';
+            return;
+        }
+        
+        const spent = budgetData?.total_spent || 0;
+        const percentage = (spent / currentBudget) * 100;
+        const remaining = currentBudget - spent;
+        
+        let status, statusIcon, statusText, statusMessage;
+        
+        if (percentage <= 75) {
+            status = 'passed';
+            statusIcon = '✅';
+            statusText = 'On Track!';
+            statusMessage = `${formatCurrency(remaining)} left`;
+        } else if (percentage <= 100) {
+            status = 'warning';
+            statusIcon = '⚠️';
+            statusText = 'Getting Close';
+            statusMessage = `Only ${formatCurrency(remaining)} left`;
+        } else {
+            status = 'failed';
+            statusIcon = '❌';
+            statusText = 'Over Budget!';
+            statusMessage = `${formatCurrency(Math.abs(remaining))} over`;
+        }
+        
+        const periodLabel = budgetTimeframe === 'weekly' ? 'Weekly' : 'Monthly';
+        const progressWidth = Math.min(percentage, 100);
+        
+        container.className = `budget-status-card ${status}`;
+        container.innerHTML = `
+            <div class="budget-status-compact">
+                <div class="budget-status-main">
+                    <span class="budget-status-icon-compact">${statusIcon}</span>
+                    <div class="budget-status-info">
+                        <div class="budget-status-label">${statusText}</div>
+                        <div class="budget-status-amount ${status === 'failed' ? 'negative' : (status === 'passed' ? 'positive' : '')}">${formatCurrency(spent)}</div>
+                        <div class="budget-status-limit">of ${formatCurrency(currentBudget)} ${periodLabel}</div>
+                    </div>
+                </div>
+                
+                <div class="budget-progress-compact">
+                    <div class="budget-progress-bar">
+                        <div class="budget-progress-fill ${status}" style="width: ${progressWidth}%"></div>
+                    </div>
+                    <div class="budget-progress-stats">
+                        <span class="budget-percentage ${status}">${percentage.toFixed(1)}%</span>
+                        <span class="budget-remaining-compact ${remaining >= 0 ? '' : 'negative'}">
+                            ${remaining >= 0 ? '+' : '-'}${formatCurrency(Math.abs(remaining))}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="budget-status-message">${statusMessage}</div>
+            </div>
+        `;
+    }
+    
+    function formatCurrency(amount) {
+        return '$' + Math.abs(amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+    
+    // ============ RECURRING EXPENSES FUNCTIONS ============
+    
+    function openRecurringModal() {
+        document.getElementById('recurringModal').classList.add('show');
+        loadRecurringExpenses();
+    }
+    
+    function closeRecurringModal() {
+        document.getElementById('recurringModal').classList.remove('show');
+    }
+    
+    async function loadRecurringExpenses() {
+        try {
+            const response = await fetch('/api/recurring-expenses');
+            const data = await response.json();
+            recurringExpenses = data.expenses || [];
+            renderRecurringExpenses();
+            
+            // Update totals
+            if (data.weekly_total !== undefined) {
+                document.getElementById('weeklyTotal').textContent = formatCurrency(data.weekly_total);
+                document.getElementById('monthlyTotal').textContent = formatCurrency(data.monthly_total);
+                document.getElementById('monthlyEquivalent').textContent = formatCurrency(data.monthly_equivalent);
+                document.getElementById('recurringTotals').style.display = recurringExpenses.length > 0 ? 'grid' : 'none';
+            }
+        } catch (error) {
+            console.error('Error loading recurring expenses:', error);
+        }
+    }
+    
+    function renderRecurringExpenses() {
+        const container = document.getElementById('recurringListContainer');
+        
+        if (recurringExpenses.length === 0) {
+            container.innerHTML = `<div style="color: var(--text-secondary); font-size: 0.75rem; text-align: center; padding: 1rem;">🔄 No recurring expenses yet</div>`;
+            return;
+        }
+        
+        container.innerHTML = `<div class="recurring-list">${recurringExpenses.map(expense => `
+            <div class="recurring-item ${expense.enabled ? '' : 'disabled'}">
+                <div class="recurring-info">
+                    <span class="recurring-icon">📅</span>
+                    <div class="recurring-details">
+                        <div class="recurring-name">${escapeHtml(expense.name)}</div>
+                        <div class="recurring-meta">
+                            <span class="recurring-frequency">${expense.frequency}</span>
+                            <span>${escapeHtml(expense.category || 'Other')}</span>
+                        </div>
+                        ${expense.keywords && expense.keywords.length > 0 ? `
+                            <div class="recurring-keywords">
+                                ${expense.keywords.map(kw => `<span class="recurring-keyword">${escapeHtml(kw)}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                    <span class="recurring-amount">-${formatCurrency(expense.amount)}</span>
+                    <div class="recurring-actions">
+                        <button onclick="toggleRecurringExpense('${expense.id}')" title="${expense.enabled ? 'Disable' : 'Enable'}">
+                            ${expense.enabled ? '✓' : '○'}
+                        </button>
+                        <button class="btn-delete" onclick="deleteRecurringExpense('${expense.id}')" title="Delete">✕</button>
+                    </div>
+                </div>
+            </div>
+        `).join('')}</div>`;
+    }
+    
+    function setupRecurringKeywordInput() {
+        const input = document.getElementById('recurringKeywordInput');
+        if (!input) return;
+        
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && this.value.trim()) {
+                e.preventDefault();
+                addRecurringKeyword(this.value.trim());
+                this.value = '';
+            } else if (e.key === 'Backspace' && !this.value && newRecurringKeywords.length > 0) {
+                removeRecurringKeyword(newRecurringKeywords.length - 1);
+            }
+        });
+        
+        input.addEventListener('input', debounce(previewRecurringMatches, 500));
+    }
+    
+    function addRecurringKeyword(keyword) {
+        if (!newRecurringKeywords.includes(keyword.toLowerCase())) {
+            newRecurringKeywords.push(keyword);
+            renderRecurringKeywords();
+            previewRecurringMatches();
+        }
+    }
+    
+    function removeRecurringKeyword(index) {
+        newRecurringKeywords.splice(index, 1);
+        renderRecurringKeywords();
+        previewRecurringMatches();
+    }
+    
+    function renderRecurringKeywords() {
+        const wrapper = document.getElementById('recurringKeywordsWrapper');
+        const input = document.getElementById('recurringKeywordInput');
+        
+        // Remove existing tags
+        wrapper.querySelectorAll('.keyword-tag, .and-connector').forEach(el => el.remove());
+        
+        // Add tags before input
+        newRecurringKeywords.forEach((kw, i) => {
+            if (i > 0) {
+                const connector = document.createElement('span');
+                connector.className = 'and-connector';
+                connector.textContent = 'AND';
+                wrapper.insertBefore(connector, input);
+            }
+            const tag = document.createElement('span');
+            tag.className = 'keyword-tag';
+            tag.innerHTML = `${escapeHtml(kw)}<button onclick="removeRecurringKeyword(${i})">×</button>`;
+            wrapper.insertBefore(tag, input);
+        });
+    }
+    
+    function previewRecurringMatches() {
+        const previewEl = document.getElementById('recurringPreview');
+        const countEl = document.getElementById('recurringPreviewCount');
+        const listEl = document.getElementById('recurringPreviewList');
+        
+        if (newRecurringKeywords.length === 0) {
+            previewEl.style.display = 'none';
+            return;
+        }
+        
+        const matches = allTransactions.filter(t => {
+            const desc = t.description.toLowerCase();
+            return newRecurringKeywords.every(kw => desc.includes(kw.toLowerCase()));
+        });
+        
+        previewEl.style.display = 'block';
+        countEl.textContent = matches.length;
+        listEl.innerHTML = matches.slice(0, 5).map(t => 
+            `<div>${escapeHtml(t.description.substring(0, 50))}${t.description.length > 50 ? '...' : ''}</div>`
+        ).join('') + (matches.length > 5 ? `<div>...and ${matches.length - 5} more</div>` : '');
+    }
+    
+    function resetRecurringForm() {
+        document.getElementById('recurringName').value = '';
+        document.getElementById('recurringAmount').value = '';
+        document.getElementById('recurringFrequency').value = 'monthly';
+        document.getElementById('recurringCategory').value = '';
+        document.getElementById('recurringKeywordInput').value = '';
+        newRecurringKeywords = [];
+        renderRecurringKeywords();
+        document.getElementById('recurringPreview').style.display = 'none';
+    }
+    
+    async function saveRecurringExpense() {
+        const name = document.getElementById('recurringName').value.trim();
+        const amount = parseFloat(document.getElementById('recurringAmount').value) || 0;
+        const frequency = document.getElementById('recurringFrequency').value;
+        const category = document.getElementById('recurringCategory').value.trim() || 'Other';
+        
+        if (!name || amount <= 0) {
+            alert('Please enter a name and amount');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/recurring-expenses', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, amount, frequency, category, keywords: newRecurringKeywords })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                resetRecurringForm();
+                await loadRecurringExpenses();
+                if (typeof markAsUnsynced === 'function') markAsUnsynced();
+                
+                // Refresh budget data if in budget mode
+                if (budgetMode) {
+                    loadBudgetData();
+                }
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    async function toggleRecurringExpense(id) {
+        try {
+            const response = await fetch(`/api/recurring-expenses/${id}/toggle`, { method: 'POST' });
+            if (response.ok) {
+                await loadRecurringExpenses();
+                if (budgetMode) loadBudgetData();
+            }
+        } catch (error) {
+            console.error('Error toggling recurring expense:', error);
+        }
+    }
+    
+    async function deleteRecurringExpense(id) {
+        if (!confirm('Delete this recurring expense?')) return;
+        
+        try {
+            const response = await fetch(`/api/recurring-expenses/${id}`, { method: 'DELETE' });
+            if (response.ok) {
+                await loadRecurringExpenses();
+                if (budgetMode) loadBudgetData();
+                if (typeof markAsUnsynced === 'function') markAsUnsynced();
+            }
+        } catch (error) {
+            console.error('Error deleting recurring expense:', error);
+        }
+    }
+    
+    // ============ END BUDGET MODE FUNCTIONS ============
+    
+    // Sync timeframe with Budget page
+    function saveTimeframeToStorage() {
+        if (lineChart && lineChart.selectedKeys && lineChart.selectedKeys.length > 0) {
+            const keys = lineChart.selectedKeys;
+            let startDate, endDate;
+            
+            if (currentPeriod === 'days') {
+                startDate = keys[0];
+                endDate = keys[keys.length - 1];
+            } else if (currentPeriod === 'weeks') {
+                startDate = keys[0];
+                const lastWeekEnd = new Date(keys[keys.length - 1] + 'T12:00:00');
+                lastWeekEnd.setDate(lastWeekEnd.getDate() + 6);
+                endDate = lastWeekEnd.toISOString().split('T')[0];
+            } else if (currentPeriod === 'months') {
+                startDate = keys[0] + '-01';
+                const lastMonth = keys[keys.length - 1];
+                const [year, month] = lastMonth.split('-');
+                const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+                endDate = `${lastMonth}-${lastDay}`;
+            } else if (currentPeriod === 'years') {
+                startDate = `${keys[0]}-01-01`;
+                endDate = `${keys[keys.length - 1]}-12-31`;
+            }
+            
+            if (startDate && endDate) {
+                localStorage.setItem('spendsight_startDate', startDate);
+                localStorage.setItem('spendsight_endDate', endDate);
+            }
+        }
+    }
     let selectedPeriodIndex = null; // Track which period point is clicked on line chart
     
     // Multi-filter state management
@@ -2520,11 +4545,39 @@
     document.addEventListener('DOMContentLoaded', function() {
         initLineChart();
         initPieChart();
+        initBudgetInput();
+        setupRecurringKeywordInput();
         loadAllTransactions().then(() => {
             initFilterPanel();
+            
+            // Check if we have stored dates from Budget page and try to match them
+            restoreTimeframeFromStorage();
+            
             // Sync transactions to match the initial visible timeframe
             syncTransactionsToTimeframe();
         });
+        
+    function restoreTimeframeFromStorage() {
+        const storedPeriod = localStorage.getItem('spendsight_currentPeriod') || localStorage.getItem('spendsight_dashboardPeriod');
+        const storedOffset = localStorage.getItem('spendsight_periodOffset');
+        
+        // If we have stored period state, restore it directly
+        if (storedPeriod && (storedPeriod === 'days' || storedPeriod === 'weeks' || storedPeriod === 'months' || storedPeriod === 'years')) {
+            const targetBtn = document.querySelector(`.time-toggle button[data-period="${storedPeriod}"]`);
+            if (targetBtn) {
+                document.querySelectorAll('.time-toggle button').forEach(b => b.classList.remove('active'));
+                targetBtn.classList.add('active');
+                currentPeriod = storedPeriod;
+                
+                // Restore the period offset if available
+                if (storedOffset !== null) {
+                    periodOffset = parseInt(storedOffset) || 0;
+                }
+                
+                updateLineChart();
+            }
+        }
+    }
         
         document.querySelectorAll('.time-toggle button').forEach(btn => {
             btn.addEventListener('click', function() {
@@ -2532,6 +4585,32 @@
                 this.classList.add('active');
                 currentPeriod = this.dataset.period;
                 periodOffset = 0; // Reset to current period when switching views
+                
+                // Save period state for sync with Budget page
+                localStorage.setItem('spendsight_periodOffset', periodOffset.toString());
+                localStorage.setItem('spendsight_currentPeriod', currentPeriod);
+                
+                // Sync budget timeframe with Dashboard period:
+                // Days view → Weekly (W) budget
+                // Weeks view → Monthly (M) budget
+                if (currentPeriod === 'days') {
+                    localStorage.setItem('spendsight_budgetTimeframe', 'weekly');
+                    localStorage.setItem('spendsight_dashboardPeriod', 'days');
+                    // Update the M/W toggle if visible
+                    document.querySelectorAll('.budget-timeframe-toggle button').forEach(b => {
+                        b.classList.toggle('active', b.dataset.budgetTf === 'weekly');
+                    });
+                    budgetTimeframe = 'weekly';
+                } else if (currentPeriod === 'weeks') {
+                    localStorage.setItem('spendsight_budgetTimeframe', 'monthly');
+                    localStorage.setItem('spendsight_dashboardPeriod', 'weeks');
+                    // Update the M/W toggle if visible
+                    document.querySelectorAll('.budget-timeframe-toggle button').forEach(b => {
+                        b.classList.toggle('active', b.dataset.budgetTf === 'monthly');
+                    });
+                    budgetTimeframe = 'monthly';
+                }
+                
                 updateLineChart();
                 // Also update pie chart if transactions is selected
                 if (currentPieFilter === 'transactions') {
@@ -2570,6 +4649,16 @@
         }
         // Sync transactions to the new visible timeframe
         syncTransactionsToTimeframe();
+        
+        // Save period state for sync with Budget page
+        localStorage.setItem('spendsight_periodOffset', periodOffset.toString());
+        localStorage.setItem('spendsight_currentPeriod', currentPeriod);
+        saveTimeframeToStorage();
+        
+        // Reload personal analysis for the new period if in budget mode
+        if (budgetMode) {
+            loadPersonalAnalysis();
+        }
     }
     
     function toggleBreakdownMenu(event) {
@@ -2952,6 +5041,16 @@
         if (pieChart) {
             updatePieChart();
         }
+        
+        // Refresh budget data if in budget mode (debounced to prevent rapid calls)
+        if (budgetMode && !window._budgetDataLoading) {
+            window._budgetDataLoading = true;
+            setTimeout(() => {
+                loadBudgetData().finally(() => {
+                    window._budgetDataLoading = false;
+                });
+            }, 100);
+        }
     }
     
     function handleLineChartClick(index) {
@@ -3008,56 +5107,73 @@
     function updatePieChart() {
         let labels = [], data = [], bgColors = [];
         
-        // Get the data source based on current period view
-        const getDataSource = () => {
-            if (currentPeriod === 'days') return dailySpending;
-            if (currentPeriod === 'weeks') return weeklySpending;
-            return monthlyTrends; // months and years
-        };
+        // Get visible date range from chart
+        const keys = lineChart?.selectedKeys || [];
+        let startDate, endDate;
         
-        // Get the keys to aggregate - either just the selected period or all visible periods
-        const getKeysToAggregate = () => {
-            const allKeys = lineChart?.selectedKeys || [];
-            if (selectedPeriodIndex !== null && selectedPeriodIndex >= 0 && selectedPeriodIndex < allKeys.length) {
-                return [allKeys[selectedPeriodIndex]];  // Only the clicked period
-            }
-            return allKeys;  // All visible periods
-        };
+        if (currentPeriod === 'days' && keys.length > 0) {
+            startDate = keys[0];
+            endDate = keys[keys.length - 1];
+        } else if (currentPeriod === 'weeks' && keys.length > 0) {
+            startDate = keys[0];
+            const lastWeekEnd = new Date(keys[keys.length - 1] + 'T12:00:00');
+            lastWeekEnd.setDate(lastWeekEnd.getDate() + 6);
+            endDate = lastWeekEnd.toISOString().split('T')[0];
+        } else if (currentPeriod === 'months' && keys.length > 0) {
+            startDate = keys[0] + '-01';
+            const lastMonth = keys[keys.length - 1];
+            const [year, month] = lastMonth.split('-');
+            const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+            endDate = `${lastMonth}-${lastDay}`;
+        } else if (currentPeriod === 'years' && keys.length > 0) {
+            startDate = `${keys[0]}-01-01`;
+            endDate = `${keys[keys.length - 1]}-12-31`;
+        }
         
-        // Aggregate breakdown data from selected/visible periods
-        const aggregateBreakdown = (breakdownField) => {
-            const aggregated = {};
-            const dataSource = getDataSource();
-            const keysToUse = getKeysToAggregate();
-            
-            if (currentPeriod === 'years') {
-                // For years, aggregate all months within those years
-                keysToUse.forEach(year => {
-                    Object.keys(monthlyTrends)
-                        .filter(m => m.startsWith(year))
-                        .forEach(month => {
-                            const breakdown = monthlyTrends[month]?.[breakdownField] || {};
-                            Object.entries(breakdown).forEach(([key, val]) => {
-                                aggregated[key] = (aggregated[key] || 0) + val;
-                            });
-                        });
-                });
-            } else {
-                keysToUse.forEach(key => {
-                    const breakdown = dataSource[key]?.[breakdownField] || {};
-                    Object.entries(breakdown).forEach(([k, val]) => {
-                        aggregated[k] = (aggregated[k] || 0) + val;
-                    });
-                });
+        // Filter transactions to visible range - use FRESH data from allTransactions
+        let visibleTransactions = allTransactions;
+        if (startDate && endDate) {
+            visibleTransactions = allTransactions.filter(t => {
+                const txDate = t.transaction_date;
+                return txDate >= startDate && txDate <= endDate;
+            });
+        }
+        
+        // If a specific period is selected, narrow down further
+        if (selectedPeriodIndex !== null && keys.length > 0) {
+            const selectedKey = keys[selectedPeriodIndex];
+            if (selectedKey) {
+                if (currentPeriod === 'days') {
+                    visibleTransactions = visibleTransactions.filter(t => t.transaction_date === selectedKey);
+                } else if (currentPeriod === 'weeks') {
+                    const weekStart = new Date(selectedKey + 'T12:00:00');
+                    const weekEnd = new Date(weekStart);
+                    weekEnd.setDate(weekEnd.getDate() + 6);
+                    const start = selectedKey;
+                    const end = weekEnd.toISOString().split('T')[0];
+                    visibleTransactions = visibleTransactions.filter(t => t.transaction_date >= start && t.transaction_date <= end);
+                } else if (currentPeriod === 'months') {
+                    visibleTransactions = visibleTransactions.filter(t => t.transaction_date.startsWith(selectedKey));
+                } else if (currentPeriod === 'years') {
+                    visibleTransactions = visibleTransactions.filter(t => t.transaction_date.startsWith(selectedKey));
+                }
             }
-            return aggregated;
-        };
+        }
+        
+        // Only use expenses for pie chart
+        const expenses = visibleTransactions.filter(t => t.amount < 0 || t.type === 'expense');
+        
+        const localNecessityColors = { 'Needs': '#3b82f6', 'Wants': '#ec4899', 'Savings': '#22c55e', 'Unknown': '#64748b' };
+        const localRecurrenceColors = { 'Subscription': '#a855f7', 'Recurring': '#14b8a6', 'One-time': '#64748b', 'Unknown': '#94a3b8' };
         
         if (currentPieFilter === 'category') {
-            // Aggregate categories from visible period
-            const aggregatedCategories = aggregateBreakdown('categories');
-            const sortedCats = Object.entries(aggregatedCategories)
-                .sort((a, b) => b[1] - a[1]);
+            // Calculate categories from FRESH transaction data
+            const catTotals = {};
+            expenses.forEach(t => {
+                const cat = t.category || 'Uncategorized';
+                catTotals[cat] = (catTotals[cat] || 0) + Math.abs(t.amount);
+            });
+            const sortedCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
             sortedCats.forEach(([cat, total], i) => {
                 labels.push(cat);
                 data.push(total);
@@ -3065,11 +5181,13 @@
             });
             pieChart.filterType = 'category';
         } else if (currentPieFilter === 'necessity') {
-            // Aggregate necessity from visible period
-            const aggregatedNecessity = aggregateBreakdown('necessity');
-            const localNecessityColors = { 'Needs': '#3b82f6', 'Wants': '#ec4899', 'Savings': '#22c55e', 'Unknown': '#64748b' };
-            const sortedNec = Object.entries(aggregatedNecessity)
-                .sort((a, b) => b[1] - a[1]);
+            // Calculate necessity from FRESH transaction data
+            const necTotals = {};
+            expenses.forEach(t => {
+                const nec = t.necessity || 'Unknown';
+                necTotals[nec] = (necTotals[nec] || 0) + Math.abs(t.amount);
+            });
+            const sortedNec = Object.entries(necTotals).sort((a, b) => b[1] - a[1]);
             sortedNec.forEach(([type, total], i) => {
                 labels.push(type);
                 data.push(total);
@@ -3077,11 +5195,13 @@
             });
             pieChart.filterType = 'necessity';
         } else if (currentPieFilter === 'recurrence') {
-            // Aggregate recurrence from visible period
-            const aggregatedRecurrence = aggregateBreakdown('recurrence');
-            const localRecurrenceColors = { 'Subscription': '#a855f7', 'Recurring': '#14b8a6', 'One-time': '#64748b', 'Unknown': '#94a3b8' };
-            const sortedRec = Object.entries(aggregatedRecurrence)
-                .sort((a, b) => b[1] - a[1]);
+            // Calculate recurrence from FRESH transaction data
+            const recTotals = {};
+            expenses.forEach(t => {
+                const rec = t.recurrence || 'Unknown';
+                recTotals[rec] = (recTotals[rec] || 0) + Math.abs(t.amount);
+            });
+            const sortedRec = Object.entries(recTotals).sort((a, b) => b[1] - a[1]);
             sortedRec.forEach(([type, total], i) => {
                 labels.push(type);
                 data.push(total);
@@ -3278,7 +5398,20 @@
         try {
             const response = await fetch('/api/transactions');
             allTransactions = await response.json();
+            
+            // Also update known categories from fresh data
+            allTransactions.forEach(t => {
+                if (t.category) knownCategories.add(t.category);
+                if (t.necessity) knownNecessities.add(t.necessity);
+                if (t.recurrence) knownRecurrences.add(t.recurrence);
+            });
+            
             renderTransactions(allTransactions);
+            
+            // Refresh pie chart to reflect any category/tag changes
+            if (pieChart) {
+                updatePieChart();
+            }
         } catch (error) {
             document.getElementById('transactionsList').innerHTML = `<div class="no-transactions"><div class="icon">❌</div><p>Error loading</p></div>`;
         }
@@ -3409,10 +5542,10 @@
                     </div>
                     <div class="transaction-badges">
                         <span class="add-tag-btn" onclick="openAddTagMenu(this, ${txData})" title="Add tag or note">+</span>
-                            <span class="transaction-category" 
-                              onclick="openTagEdit(this, ${txData}, 'category', '${escapeHtml(t.category || 'Other')}')" 
+                            <span class="transaction-category ${(!t.category || t.category === 'Other') ? 'uncategorized' : ''}" 
+                              onclick="openTagEdit(this, ${txData}, 'category', '${escapeHtml(t.category || 'Uncategorized')}')" 
                                   title="Click to edit category">
-                                ${escapeHtml(t.category || 'Other')}
+                                ${escapeHtml(t.category && t.category !== 'Other' ? t.category : 'Uncategorized')}
                             </span>
                         ${badgesHtml}
                     </div>
@@ -3549,6 +5682,10 @@
         
         // Render the filtered transactions
         renderTransactions(filteredTransactions);
+        
+        // Save to localStorage for sync with Budget page
+        localStorage.setItem('spendsight_startDate', startDate);
+        localStorage.setItem('spendsight_endDate', endDate);
     }
     
     // =========================================================================
@@ -4074,7 +6211,120 @@
     document.addEventListener('DOMContentLoaded', function() {
         loadCategoryRules();
         setupKeywordInput();
+        setupSearchBar();
     });
+    
+    // =================== SEARCH BAR ===================
+    let searchKeywords = [];
+    let isSearchExpanded = false;
+    
+    function setupSearchBar() {
+        const input = document.getElementById('searchInput');
+        
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && this.value.trim()) {
+                e.preventDefault();
+                addSearchKeyword(this.value.trim());
+                this.value = '';
+            } else if (e.key === 'Backspace' && !this.value && searchKeywords.length > 0) {
+                removeSearchKeyword(searchKeywords.length - 1);
+            } else if (e.key === 'Escape') {
+                if (searchKeywords.length === 0) {
+                    toggleSearchBar();
+                }
+            }
+        });
+    }
+    
+    function toggleSearchBar() {
+        const wrapper = document.getElementById('searchInputWrapper');
+        const btn = document.getElementById('searchToggleBtn');
+        const input = document.getElementById('searchInput');
+        
+        isSearchExpanded = !isSearchExpanded;
+        
+        if (isSearchExpanded) {
+            wrapper.classList.add('expanded');
+            btn.classList.add('active');
+            setTimeout(() => input.focus(), 300);
+        } else {
+            wrapper.classList.remove('expanded');
+            btn.classList.remove('active');
+            if (searchKeywords.length === 0) {
+                input.value = '';
+            }
+        }
+    }
+    
+    function addSearchKeyword(keyword) {
+        if (!searchKeywords.includes(keyword.toLowerCase())) {
+            searchKeywords.push(keyword);
+            renderSearchKeywords();
+            applySearchFilter();
+        }
+    }
+    
+    function removeSearchKeyword(index) {
+        searchKeywords.splice(index, 1);
+        renderSearchKeywords();
+        applySearchFilter();
+    }
+    
+    function renderSearchKeywords() {
+        const container = document.getElementById('searchKeywords');
+        const clearBtn = document.getElementById('searchClearBtn');
+        
+        if (searchKeywords.length === 0) {
+            container.innerHTML = '';
+            clearBtn.style.display = 'none';
+            return;
+        }
+        
+        clearBtn.style.display = 'flex';
+        container.innerHTML = searchKeywords.map((kw, i) => `
+            ${i > 0 ? '<span class="search-and-connector">AND</span>' : ''}
+            <span class="search-keyword-tag">${escapeHtml(kw)}<span class="remove" onclick="removeSearchKeyword(${i})">×</span></span>
+        `).join('');
+    }
+    
+    function clearSearch() {
+        searchKeywords = [];
+        document.getElementById('searchInput').value = '';
+        renderSearchKeywords();
+        applySearchFilter();
+    }
+    
+    function applySearchFilter() {
+        if (searchKeywords.length === 0) {
+            // No search filter - show transactions based on timeframe
+            syncTransactionsToTimeframe();
+            return;
+        }
+        
+        // Filter displayed transactions by search keywords (AND logic)
+        const filtered = displayedTransactions.filter(t => {
+            const desc = t.description.toLowerCase();
+            return searchKeywords.every(kw => desc.includes(kw.toLowerCase()));
+        });
+        
+        // Update title to show search is active
+        document.getElementById('transactionsTitle').textContent = `Search Results (${filtered.length})`;
+        
+        renderTransactions(filtered);
+        
+        // Update stats for filtered results
+        const amounts = filtered.filter(t => t.amount < 0 || t.type === 'expense').map(t => Math.abs(t.amount));
+        const total = amounts.reduce((a, b) => a + b, 0);
+        const avg = amounts.length > 0 ? total / amounts.length : 0;
+        const sortedAmounts = [...amounts].sort((a, b) => a - b);
+        const median = sortedAmounts.length > 0 ? 
+            (sortedAmounts.length % 2 === 0 
+                ? (sortedAmounts[sortedAmounts.length/2 - 1] + sortedAmounts[sortedAmounts.length/2]) / 2 
+                : sortedAmounts[Math.floor(sortedAmounts.length/2)]) 
+            : 0;
+        
+        updateStatsDisplay(filtered.length, avg, median, total);
+    }
     
     function toggleRulesPanel() {
         document.getElementById('rulesPanel').classList.toggle('open');
@@ -4097,6 +6347,43 @@
         }
     }
     
+    async function runAllRules() {
+        if (categoryRules.length === 0) {
+            alert('No rules to apply.');
+            return;
+        }
+        
+        const btn = document.querySelector('.btn-run-all:not(.sweep)');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Running...';
+        
+        try {
+            const response = await fetch('/api/category-rules/apply-all', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                await loadAllTransactions();
+                syncTransactionsToTimeframe();
+                if (typeof markAsUnsynced === 'function') {
+                    markAsUnsynced();
+                }
+                alert(`Applied all rules! ${data.transactions_updated || 0} transaction(s) updated.`);
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+    
     function renderRulesList() {
         const container = document.getElementById('rulesList');
         
@@ -4116,15 +6403,17 @@
         };
         
         container.innerHTML = categoryRules.map(rule => {
-            const fieldIcon = fieldLabels[rule.field] || fieldLabels['category'];
-            const fieldName = rule.field || 'category';
+            // Support both new multi-tag format and legacy format
+            const tags = rule.tags || {[rule.field || 'category']: rule.category};
+            const tagBadges = Object.entries(tags)
+                .filter(([k, v]) => v)
+                .map(([field, value]) => `<span class="rule-tag-badge">${fieldLabels[field] || ''} ${escapeHtml(value)}</span>`)
+                .join(' ');
+            
             return `
             <div class="rule-item ${rule.enabled ? '' : 'disabled'}">
                 <div class="rule-item-header">
-                    <span class="rule-category">
-                        <span title="${fieldName}">${fieldIcon}</span>
-                        ${escapeHtml(rule.category)}
-                    </span>
+                    <div class="rule-tags">${tagBadges}</div>
                     <div class="rule-actions">
                         <button class="btn-toggle-rule" onclick="toggleRule('${rule.id}')" title="${rule.enabled ? 'Disable' : 'Enable'}">
                             ${rule.enabled ? '✓' : '○'}
@@ -4257,6 +6546,8 @@
     
     function resetRuleForm() {
         document.getElementById('ruleCategory').value = '';
+        document.getElementById('ruleNecessity').value = '';
+        document.getElementById('ruleRecurrence').value = '';
         document.getElementById('keywordInput').value = '';
         newRuleKeywords = [];
         editingRuleId = null;
@@ -4267,9 +6558,17 @@
     
     async function saveRule() {
         const category = document.getElementById('ruleCategory').value.trim();
+        const necessity = document.getElementById('ruleNecessity').value;
+        const recurrence = document.getElementById('ruleRecurrence').value;
         
-        if (!category) {
-            alert('Please enter a category name');
+        // Build tags object with only non-empty values
+        const tags = {};
+        if (category) tags.category = category;
+        if (necessity) tags.necessity = necessity;
+        if (recurrence) tags.recurrence = recurrence;
+        
+        if (Object.keys(tags).length === 0) {
+            alert('Please set at least one tag (Category, Necessity, or Recurrence).');
             return;
         }
         
@@ -4284,13 +6583,13 @@
                 response = await fetch(`/api/category-rules/${editingRuleId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ category, keywords: newRuleKeywords })
+                    body: JSON.stringify({ tags, keywords: newRuleKeywords })
                 });
             } else {
                 response = await fetch('/api/category-rules', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ category, keywords: newRuleKeywords })
+                    body: JSON.stringify({ tags, keywords: newRuleKeywords })
                 });
             }
             
@@ -4300,6 +6599,9 @@
                 resetRuleForm();
                 await loadCategoryRules();
                 await loadAllTransactions(); // Refresh transactions to show new categories
+                
+                // Preserve the current timeframe filter after reloading transactions
+                syncTransactionsToTimeframe();
                 
                 // Mark as unsynced since transactions were updated
                 if (data.transactions_updated && data.transactions_updated > 0 && typeof markAsUnsynced === 'function') {
@@ -4478,16 +6780,37 @@
     function buildCategoryEditHTML(transaction, currentValue) {
         return `
             <div class="dropdown-columns">
-                <!-- Left: Rule Creation -->
+                <!-- Left: Rule Creation with Multi-Tag -->
                 <div class="dropdown-column rule-column">
                     <div class="dropdown-section">
                         <div class="dropdown-section-title">🏷️ Create Auto-Tag Rule</div>
+                        <p style="font-size: 0.6rem; color: var(--text-secondary); margin: 0 0 0.35rem 0;">Set multiple tags at once!</p>
                         <div class="inline-rule-form">
-                            <div class="rule-form-group">
-                                <label>Category to assign</label>
-                                <div class="input-with-autocomplete">
-                                    <input type="text" id="inlineRuleCategory" placeholder="Category name..." autocomplete="off">
-                                    <div class="autocomplete-list" id="inlineRuleCategoryAutocomplete"></div>
+                            <div class="inline-multi-tag-row">
+                                <div class="rule-form-group">
+                                    <label>📁 Category</label>
+                                    <div class="input-with-autocomplete">
+                                        <input type="text" id="inlineRuleCategory" placeholder="e.g., Hobby" autocomplete="off">
+                                        <div class="autocomplete-list" id="inlineRuleCategoryAutocomplete"></div>
+                                    </div>
+                                </div>
+                                <div class="rule-form-group">
+                                    <label>⚖️ Necessity</label>
+                                    <select id="inlineRuleNecessity" style="width: 100%; padding: 0.3rem; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.68rem;">
+                                        <option value="">— Skip —</option>
+                                        <option value="Needs">Needs</option>
+                                        <option value="Wants">Wants</option>
+                                        <option value="Savings">Savings</option>
+                                    </select>
+                                </div>
+                                <div class="rule-form-group">
+                                    <label>🔄 Recurrence</label>
+                                    <select id="inlineRuleRecurrence" style="width: 100%; padding: 0.3rem; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.68rem;">
+                                        <option value="">— Skip —</option>
+                                        <option value="Subscription">Subscription</option>
+                                        <option value="Recurring">Recurring</option>
+                                        <option value="One-time">One-time</option>
+                                    </select>
                                 </div>
                             </div>
                             <div class="rule-form-group">
@@ -4839,20 +7162,33 @@
                     <!-- Right: Rule Creation Form -->
                     <div class="auto-tag-form-column">
                         <div class="dropdown-section-title">🏷️ Create Auto-Tag Rule</div>
+                        <p style="font-size: 0.6rem; color: var(--text-secondary); margin: 0 0 0.35rem 0;">Set multiple tags at once!</p>
                         <div class="inline-rule-form">
-                            <div class="rule-form-group">
-                                <label>Field to update</label>
-                                <select id="inlineRuleField" style="width: 100%; padding: 0.35rem; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.72rem;">
-                                    <option value="category">Category</option>
-                                    <option value="necessity">Necessity (Needs/Wants)</option>
-                                    <option value="recurrence">Recurrence</option>
-                                </select>
-                            </div>
-                            <div class="rule-form-group">
-                                <label>Value to assign</label>
-                                <div class="input-with-autocomplete">
-                                    <input type="text" id="inlineRuleCategory" placeholder="Start typing..." autocomplete="off">
-                                    <div class="autocomplete-list" id="inlineRuleCategoryAutocomplete"></div>
+                            <div class="inline-multi-tag-row">
+                                <div class="rule-form-group">
+                                    <label>📁 Category</label>
+                                    <div class="input-with-autocomplete">
+                                        <input type="text" id="inlineRuleCategory" placeholder="e.g., Hobby" autocomplete="off">
+                                        <div class="autocomplete-list" id="inlineRuleCategoryAutocomplete"></div>
+                                    </div>
+                                </div>
+                                <div class="rule-form-group">
+                                    <label>⚖️ Necessity</label>
+                                    <select id="inlineRuleNecessity">
+                                        <option value="">— Skip —</option>
+                                        <option value="Needs">Needs</option>
+                                        <option value="Wants">Wants</option>
+                                        <option value="Savings">Savings</option>
+                                    </select>
+                                </div>
+                                <div class="rule-form-group">
+                                    <label>🔄 Recurrence</label>
+                                    <select id="inlineRuleRecurrence">
+                                        <option value="">— Skip —</option>
+                                        <option value="Subscription">Subscription</option>
+                                        <option value="Recurring">Recurring</option>
+                                        <option value="One-time">One-time</option>
+                                    </select>
                                 </div>
                             </div>
                             <div class="rule-form-group">
@@ -5072,14 +7408,22 @@
     }
     
     async function saveAddTagRule() {
-        const fieldSelect = document.getElementById('inlineRuleField');
-        const valueInput = document.getElementById('inlineRuleCategory');
+        const categoryInput = document.getElementById('inlineRuleCategory');
+        const necessitySelect = document.getElementById('inlineRuleNecessity');
+        const recurrenceSelect = document.getElementById('inlineRuleRecurrence');
         
-        const field = fieldSelect ? fieldSelect.value : 'category';
-        const value = valueInput ? valueInput.value.trim() : '';
+        const category = categoryInput ? categoryInput.value.trim() : '';
+        const necessity = necessitySelect ? necessitySelect.value : '';
+        const recurrence = recurrenceSelect ? recurrenceSelect.value : '';
         
-        if (!value) {
-            alert('Please enter a value for the rule');
+        // Build tags object with only non-empty values
+        const tags = {};
+        if (category) tags.category = category;
+        if (necessity) tags.necessity = necessity;
+        if (recurrence) tags.recurrence = recurrence;
+        
+        if (Object.keys(tags).length === 0) {
+            alert('Please set at least one tag (Category, Necessity, or Recurrence).');
             return;
         }
         
@@ -5092,11 +7436,7 @@
             const response = await fetch('/api/category-rules', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    category: value, 
-                    keywords: inlineRuleKeywords, 
-                    field: field 
-                })
+                body: JSON.stringify({ tags, keywords: inlineRuleKeywords })
             });
             
             const data = await response.json();
@@ -5105,6 +7445,9 @@
                 closeCategoryDropdown();
                 await loadCategoryRules();
                 await loadAllTransactions();
+                
+                // Preserve the current timeframe filter after reloading transactions
+                syncTransactionsToTimeframe();
                 
                 if (data.transactions_updated > 0) {
                     alert(`Rule created! ${data.transactions_updated} transaction(s) updated.`);
@@ -5377,10 +7720,21 @@
     
     async function saveInlineRule() {
         const categoryInput = document.getElementById('inlineRuleCategory');
-        const category = categoryInput ? categoryInput.value.trim() : '';
+        const necessitySelect = document.getElementById('inlineRuleNecessity');
+        const recurrenceSelect = document.getElementById('inlineRuleRecurrence');
         
-        if (!category) {
-            alert('Please enter a category name for the rule');
+        const category = categoryInput ? categoryInput.value.trim() : '';
+        const necessity = necessitySelect ? necessitySelect.value : '';
+        const recurrence = recurrenceSelect ? recurrenceSelect.value : '';
+        
+        // Build tags object with only non-empty values
+        const tags = {};
+        if (category) tags.category = category;
+        if (necessity) tags.necessity = necessity;
+        if (recurrence) tags.recurrence = recurrence;
+        
+        if (Object.keys(tags).length === 0) {
+            alert('Please set at least one tag (Category, Necessity, or Recurrence).');
             return;
         }
         
@@ -5393,7 +7747,7 @@
             const response = await fetch('/api/category-rules', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ category, keywords: inlineRuleKeywords, field: 'category' })
+                body: JSON.stringify({ tags, keywords: inlineRuleKeywords })
             });
             
             const data = await response.json();
@@ -5402,6 +7756,9 @@
                 closeCategoryDropdown();
                 await loadCategoryRules();
                 await loadAllTransactions();
+                
+                // Preserve the current timeframe filter after reloading transactions
+                syncTransactionsToTimeframe();
                 
                 // Mark as unsynced since transactions were updated
                 if (data.transactions_updated > 0 && typeof markAsUnsynced === 'function') {
@@ -5458,6 +7815,9 @@
                 closeCategoryDropdown();
                 await loadCategoryRules();
                 await loadAllTransactions();
+                
+                // Preserve the current timeframe filter after reloading transactions
+                syncTransactionsToTimeframe();
                 
                 // Mark as unsynced since transactions were updated
                 if (data.transactions_updated > 0 && typeof markAsUnsynced === 'function') {
@@ -5588,6 +7948,7 @@
     
     let sweepRules = [];
     let newSweepKeywords = [];
+    let selectedSweepRules = new Set();
     
     // Load sweep rules on page load
     document.addEventListener('DOMContentLoaded', function() {
@@ -5622,6 +7983,43 @@
         }
     }
     
+    async function runAllSweepRules() {
+        if (sweepRules.length === 0) {
+            alert('No sweep rules to apply.');
+            return;
+        }
+        
+        const btn = document.querySelector('.btn-run-all.sweep');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Running...';
+        
+        try {
+            const response = await fetch('/api/sweep-rules/apply-all', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                await loadAllTransactions();
+                syncTransactionsToTimeframe();
+                if (typeof markAsUnsynced === 'function') {
+                    markAsUnsynced();
+                }
+                alert(`Applied all sweep rules! ${data.swept_count || 0} transaction(s) swept.`);
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+    
     function renderSweepRulesList() {
         const container = document.getElementById('sweepRulesList');
         
@@ -5631,29 +8029,100 @@
                     No sweep rules yet. Create one above!
                 </div>
             `;
+            updateSweepJoinBar();
             return;
         }
         
-        container.innerHTML = sweepRules.map(rule => `
-            <div class="sweep-item ${rule.enabled ? '' : 'disabled'}">
-                <div class="sweep-item-header">
-                    <span class="sweep-keyword-display">🧹 ${rule.title ? escapeHtml(rule.title) : 'Sweep Rule'}</span>
-                    <div class="sweep-actions">
-                        <button class="btn-toggle-sweep" onclick="toggleSweepRule('${rule.id}')" title="${rule.enabled ? 'Disable' : 'Enable'}">
-                            ${rule.enabled ? '✓' : '○'}
-                        </button>
-                        <button class="btn-delete-sweep" onclick="deleteSweepRule('${rule.id}')" title="Delete">✕</button>
+        container.innerHTML = sweepRules.map(rule => {
+            const isJoined = rule.keywords.length === 1 && rule.keywords[0].includes('|OR|');
+            let keywordsHtml;
+            
+            if (isJoined) {
+                const keywordSets = rule.keywords[0].split('|OR|');
+                keywordsHtml = keywordSets.map((set, setIndex) => {
+                    const keywords = set.split(',').map(k => k.trim()).filter(k => k);
+                    const kwHtml = keywords.map((kw, i) => `${i > 0 ? '<span class="and-connector">AND</span>' : ''}<span class="sweep-keyword">${escapeHtml(kw)}</span>`).join('');
+                    return `${setIndex > 0 ? '<span class="or-connector">OR</span>' : ''}(${kwHtml})`;
+                }).join(' ');
+            } else {
+                keywordsHtml = rule.keywords.map((kw, i) => `${i > 0 ? '<span class="and-connector">AND</span>' : ''}<span class="sweep-keyword">${escapeHtml(kw)}</span>`).join('');
+            }
+            
+            return `
+                <div class="sweep-item ${rule.enabled ? '' : 'disabled'} ${selectedSweepRules.has(rule.id) ? 'selected' : ''}">
+                    <div class="sweep-item-header">
+                        <label class="rule-select">
+                            <input type="checkbox" ${selectedSweepRules.has(rule.id) ? 'checked' : ''} onchange="toggleSweepRuleSelection('${rule.id}')">
+                        </label>
+                        <span class="sweep-keyword-display">🧹 ${rule.title ? escapeHtml(rule.title) : 'Sweep Rule'}${isJoined ? ' <span class="joined-badge">JOINED</span>' : ''}</span>
+                        <div class="sweep-actions">
+                            <button class="btn-toggle-sweep" onclick="toggleSweepRule('${rule.id}')" title="${rule.enabled ? 'Disable' : 'Enable'}">
+                                ${rule.enabled ? '✓' : '○'}
+                            </button>
+                            <button class="btn-delete-sweep" onclick="deleteSweepRule('${rule.id}')" title="Delete">✕</button>
+                        </div>
                     </div>
+                    <div class="sweep-keywords">${keywordsHtml}</div>
+                    ${rule.swept_count ? `<div class="sweep-stats">Swept ${rule.swept_count} transaction(s)</div>` : ''}
                 </div>
-                <div class="sweep-keywords">
-                    ${rule.keywords.map((kw, i) => `
-                        ${i > 0 ? '<span class="and-connector">AND</span>' : ''}
-                        <span class="sweep-keyword">${escapeHtml(kw)}</span>
-                    `).join('')}
-                </div>
-                ${rule.swept_count ? `<div class="sweep-stats">Swept ${rule.swept_count} transaction(s)</div>` : ''}
-            </div>
-        `).join('');
+            `;
+        }).join('');
+        
+        updateSweepJoinBar();
+    }
+    
+    function toggleSweepRuleSelection(ruleId) {
+        if (selectedSweepRules.has(ruleId)) {
+            selectedSweepRules.delete(ruleId);
+        } else {
+            selectedSweepRules.add(ruleId);
+        }
+        renderSweepRulesList();
+    }
+    
+    function clearSweepSelection() {
+        selectedSweepRules.clear();
+        renderSweepRulesList();
+    }
+    
+    function updateSweepJoinBar() {
+        const bar = document.getElementById('joinSweepBar');
+        if (!bar) return;
+        const count = selectedSweepRules.size;
+        bar.style.display = count > 0 ? 'flex' : 'none';
+        document.getElementById('selectedSweepCount').textContent = count;
+    }
+    
+    async function joinSelectedSweepRules() {
+        if (selectedSweepRules.size < 2) {
+            alert('Please select at least 2 rules to join.');
+            return;
+        }
+        
+        const title = prompt('Enter a title for the joined rule (optional):');
+        
+        try {
+            const response = await fetch('/api/sweep-rules/join', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    rule_ids: Array.from(selectedSweepRules),
+                    title: title || ''
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                selectedSweepRules.clear();
+                await loadSweepRules();
+                alert(`Joined ${data.joined_count} rules!`);
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
     }
     
     function setupSweepKeywordInput() {
@@ -5783,6 +8252,9 @@
                 resetSweepForm();
                 await loadSweepRules();
                 await loadAllTransactions(); // Refresh transactions list
+                
+                // Preserve the current timeframe filter after reloading transactions
+                syncTransactionsToTimeframe();
                 
                 // Mark as unsynced since transactions were removed
                 if (typeof markAsUnsynced === 'function') {
