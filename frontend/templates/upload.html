@@ -1,9 +1,228 @@
 {% extends "base.html" %}
+
+{% block title %}Upload - Spendsight{% endblock %}
+
 {% block content %}
-<h1>Upload Bank Statements</h1>
-<form method="POST" enctype="multipart/form-data">
-    <input type="file" name="files" multiple accept=".csv">
-    <button type="submit">Upload</button>
-</form>
-<p>Supports Chase and Discover CSV exports</p>
+<div class="upload-page">
+    <h2 class="page-title">Upload Transactions</h2>
+    
+    <div class="upload-container">
+        <div class="upload-card">
+            <h3>Upload Bank CSVs</h3>
+            <p>Upload one or more transaction CSV files from Chase or Discover — bank type is auto-detected!</p>
+            
+            <form method="POST" enctype="multipart/form-data" class="upload-form">
+                <div class="form-group">
+                    <label for="files">Select CSV File(s)</label>
+                    <input type="file" id="files" name="files" accept=".csv" multiple required>
+                    <small class="form-hint">Supports: Chase credit/debit and Discover credit card CSV exports. Select multiple files at once!</small>
+                </div>
+                
+                <div class="form-group category-source-group" id="category-source-section" style="display: none;">
+                    <label>Category Source</label>
+                    <div class="category-source-options">
+                        <label class="radio-option">
+                            <input type="radio" name="category_source" value="csv" checked>
+                            <span class="radio-label">
+                                <strong>Use CSV Categories</strong>
+                                <small>Import the category column from your bank's CSV file as-is</small>
+                            </span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="category_source" value="rules">
+                            <span class="radio-label">
+                                <strong>Use Auto-Tagging Rules</strong>
+                                <small>Apply your custom keyword-matching rules to categorize transactions</small>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Upload and Process</button>
+            </form>
+        </div>
+        
+        <div class="info-card">
+            <h3>How to Export CSVs</h3>
+            
+            <div class="bank-instructions">
+                <h4>Chase (Credit & Debit):</h4>
+                <ol>
+                    <li>Log in to <a href="https://secure.chase.com/web/auth/dashboard#/dashboard/accountDetails/downloadAccountTransactions/index" target="_blank" rel="noopener">Chase.com</a></li>
+                    <li>Go to <strong>Plan & Track</strong></li>
+                    <li>Click <strong>Budget</strong> (scroll down on the right under "More financial tools")</li>
+                    <li>Click <strong>Download transactions</strong></li>
+                    <li>Choose your date range</li>
+                    <li>Download and save the file</li>
+                </ol>
+                <p class="note">
+                    <em>Chase credit card CSVs include a Category column, but Chase debit/checking CSVs do not.</em>
+                </p>
+            </div>
+            
+            <div class="bank-instructions">
+                <h4>Discover Credit Card:</h4>
+                <ol>
+                    <li>Log in to <a href="https://card.discover.com/cardmembersvcs/statements/app/search?ICMPGN=AC_NAV_L3_SEARCH_TRANS" target="_blank" rel="noopener">Discover.com</a></li>
+                    <li>Click <strong>Activity</strong> from the navbar at the top</li>
+                    <li>Click <strong>Search Transactions</strong></li>
+                    <li>Select your date range and click <strong>Search</strong></li>
+                    <li>Click <strong>Download</strong></li>
+                    <li>Choose <strong>CSV</strong> format and save the file</li>
+                </ol>
+                <p class="note"><em>Discover CSVs include a Category column</em></p>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<style>
+.category-source-group {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color, #e0e0e0);
+}
+
+.category-source-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.radio-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 2px solid var(--border-color, #e0e0e0);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.radio-option:hover {
+    border-color: var(--primary-color, #4a90d9);
+    background: rgba(74, 144, 217, 0.05);
+}
+
+.radio-option input[type="radio"] {
+    margin-top: 0.25rem;
+    accent-color: var(--primary-color, #4a90d9);
+    width: 18px;
+    height: 18px;
+}
+
+.radio-option input[type="radio"]:checked + .radio-label strong {
+    color: var(--primary-color, #4a90d9);
+}
+
+.radio-option:has(input:checked) {
+    border-color: var(--primary-color, #4a90d9);
+    background: rgba(74, 144, 217, 0.08);
+}
+
+.radio-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.radio-label strong {
+    font-size: 1rem;
+}
+
+.radio-label small {
+    color: var(--text-muted, #666);
+    font-size: 0.85rem;
+}
+
+.category-info {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: var(--bg-secondary, #f8f9fa);
+    border-radius: 8px;
+}
+
+.category-info h4 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1rem;
+}
+
+.category-info p {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.category-info .note {
+    margin-top: 1rem;
+    color: var(--text-muted, #666);
+    font-size: 0.85rem;
+}
+
+.form-hint {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--text-muted, #666);
+    font-size: 0.85rem;
+}
+
+.bank-instructions .note {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--success-color, #28a745);
+}
+
+.bank-instructions .note.warning {
+    color: var(--warning-color, #dc8c00);
+}
+
+.upload-form input[type="file"] {
+    display: block;
+    width: 100%;
+    padding: 1.25rem;
+    font-size: 1rem;
+    border-radius: 12px;
+    border: 2px dashed var(--border-color, #c0c0c0);
+    background: var(--bg-secondary, #f8f9fa);
+    cursor: pointer;
+}
+
+.upload-form input[type="file"]::-webkit-file-upload-button,
+.upload-form input[type="file"]::file-selector-button {
+    padding: 0.85rem 1.5rem;
+    margin-right: 1rem;
+    border-radius: 999px;
+    border: none;
+    background: var(--primary-color, #4a90d9);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.upload-form input[type="file"]::-webkit-file-upload-button:hover,
+.upload-form input[type="file"]::file-selector-button:hover {
+    background: #3a78b8;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var fileInput = document.getElementById('files');
+    var categorySection = document.getElementById('category-source-section');
+    
+    if (fileInput && categorySection) {
+        fileInput.addEventListener('change', function () {
+            if (fileInput.files && fileInput.files.length > 0) {
+                categorySection.style.display = 'block';
+            } else {
+                categorySection.style.display = 'none';
+            }
+        });
+    }
+});
+</script>
 {% endblock %}
+
