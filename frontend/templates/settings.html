@@ -1,0 +1,2722 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Spendsight{% endblock %}
+
+{% block extra_css %}
+<style>
+    .settings-page {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+    
+    .settings-header {
+        margin-bottom: 1.5rem;
+    }
+    
+    .settings-header h2 {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.25rem;
+    }
+    
+    .settings-header p {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+    }
+    
+    .settings-tabs {
+        display: flex;
+        gap: 0.5rem;
+        border-bottom: 2px solid var(--border-color);
+        margin-bottom: 1.5rem;
+        overflow-x: auto;
+        padding-bottom: 0;
+    }
+    
+    .settings-tab {
+        padding: 0.6rem 1rem;
+        background: transparent;
+        border: none;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+    }
+    
+    .settings-tab:hover {
+        color: var(--text-primary);
+    }
+    
+    .settings-tab.active {
+        color: var(--primary-color);
+        border-bottom-color: var(--primary-color);
+    }
+    
+    .settings-panel {
+        display: none;
+        animation: fadeIn 0.2s ease;
+    }
+    
+    .settings-panel.active {
+        display: block;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .settings-section {
+        background: var(--bg-primary);
+        border-radius: var(--border-radius-lg);
+        border: 1px solid var(--border-color);
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+    }
+    
+    .settings-section h3 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .settings-section h4 {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin: 1rem 0 0.75rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border-color);
+    }
+    
+    .settings-section h4:first-of-type {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
+    }
+    
+    /* Diagnostics Grid */
+    .diag-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.75rem;
+    }
+    
+    .diag-card {
+        background: var(--bg-secondary);
+        border-radius: var(--border-radius);
+        padding: 0.75rem 1rem;
+    }
+    
+    .diag-card.full-width {
+        grid-column: 1 / -1;
+    }
+    
+    .diag-card .label {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-secondary);
+        margin-bottom: 0.25rem;
+    }
+    
+    .diag-card .value {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    
+    .diag-card .value.success { color: var(--success-color); }
+    .diag-card .value.warning { color: var(--warning-color); }
+    .diag-card .value.error { color: var(--danger-color); }
+    .diag-card .value.mono {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        font-weight: 400;
+        word-break: break-all;
+        color: var(--text-secondary);
+    }
+    
+    .alert-box {
+        padding: 0.75rem 1rem;
+        border-radius: var(--border-radius);
+        font-size: 0.8rem;
+        margin-top: 0.75rem;
+    }
+    
+    .alert-box.warning {
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        color: #92400e;
+    }
+    
+    .alert-box.error {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #b91c1c;
+    }
+    
+    .alert-box.success {
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        color: #047857;
+    }
+    
+    .alert-box.info {
+        background: rgba(59, 130, 246, 0.1);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        color: #1e40af;
+    }
+    
+    /* Action Buttons */
+    .action-row {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+    
+    .btn {
+        padding: 0.5rem 1rem;
+        border-radius: var(--border-radius);
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+    
+    .btn-secondary {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+    
+    .btn-secondary:hover {
+        background: var(--bg-secondary);
+        border-color: var(--text-light);
+    }
+    
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+    
+    .btn-danger:hover {
+        background: #dc2626;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    }
+    
+    .btn-warning {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: white;
+    }
+    
+    .btn-warning:hover {
+        background: linear-gradient(135deg, #d97706, #b45309);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    }
+    
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+    
+    .btn-success:hover {
+        background: #059669;
+    }
+    
+    .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none !important;
+    }
+    
+    /* Rules Form */
+    .rule-form {
+        background: var(--bg-secondary);
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .form-group {
+        margin-bottom: 0.75rem;
+    }
+    
+    .form-group label {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        margin-bottom: 0.35rem;
+    }
+    
+    .form-group input,
+    .form-group select {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        font-size: 0.85rem;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    
+    .form-hint {
+        font-size: 0.7rem;
+        color: var(--text-light);
+        margin-top: 0.25rem;
+    }
+    
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+    
+    @media (max-width: 600px) {
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    /* Multi-Tag Grid */
+    .multi-tag-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    @media (max-width: 700px) {
+        .multi-tag-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .rule-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+    
+    /* Keywords Input */
+    .keywords-wrapper {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        padding: 0.4rem 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        background: var(--bg-primary);
+        min-height: 38px;
+        cursor: text;
+    }
+    
+    .keywords-wrapper:focus-within {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    
+    .keyword-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.2rem 0.5rem;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        border-radius: 12px;
+        font-size: 0.75rem;
+        color: var(--primary-color);
+    }
+    
+    .keyword-tag .remove {
+        cursor: pointer;
+        font-size: 0.9rem;
+        line-height: 1;
+        opacity: 0.7;
+    }
+    
+    .keyword-tag .remove:hover {
+        opacity: 1;
+    }
+    
+    .and-connector {
+        font-size: 0.6rem;
+        color: var(--text-light);
+        font-weight: 600;
+        padding: 0 0.15rem;
+    }
+    
+    .keyword-input {
+        flex: 1;
+        min-width: 100px;
+        border: none !important;
+        outline: none !important;
+        padding: 0.2rem !important;
+        font-size: 0.85rem;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    
+    /* Preview Section */
+    .preview-box {
+        background: rgba(59, 130, 246, 0.08);
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        border-radius: var(--border-radius);
+        padding: 0.75rem;
+        margin-top: 0.75rem;
+    }
+    
+    .preview-box .count {
+        font-weight: 600;
+        color: var(--info-color);
+    }
+    
+    .preview-list {
+        margin-top: 0.5rem;
+        max-height: 120px;
+        overflow-y: auto;
+    }
+    
+    .preview-item {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        padding: 0.2rem 0;
+    }
+    
+    /* Rules List */
+    .rules-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .rule-item {
+        background: var(--bg-secondary);
+        border-radius: var(--border-radius);
+        padding: 0.75rem;
+        border: 1px solid var(--border-color);
+    }
+    
+    .rule-item.disabled {
+        opacity: 0.5;
+    }
+    
+    .rule-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 0.5rem;
+    }
+    
+    .rule-title {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    
+    .rule-field-badge {
+        font-size: 0.65rem;
+        padding: 0.1rem 0.35rem;
+        background: var(--bg-tertiary);
+        border-radius: 4px;
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+    
+    .rule-actions {
+        display: flex;
+        gap: 0.25rem;
+    }
+    
+    .rule-actions button {
+        padding: 0.25rem 0.4rem;
+        background: transparent;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        transition: all 0.15s ease;
+    }
+    
+    .rule-actions button:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+    
+    .rule-actions .btn-delete:hover {
+        background: rgba(239, 68, 68, 0.1);
+    }
+    
+    /* Join Rules UI */
+    .join-rules-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        background: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        border-radius: var(--border-radius);
+        margin-bottom: 0.75rem;
+        font-size: 0.8rem;
+        color: var(--text-primary);
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem !important;
+        font-size: 0.7rem !important;
+    }
+    
+    .rule-select {
+        display: flex;
+        align-items: center;
+        margin-right: 0.35rem;
+    }
+    
+    .rule-select input[type="checkbox"] {
+        width: 14px;
+        height: 14px;
+        cursor: pointer;
+    }
+    
+    .rule-item.selected {
+        border-color: var(--primary-color);
+        background: rgba(99, 102, 241, 0.05);
+    }
+    
+    .joined-badge {
+        font-size: 0.55rem;
+        padding: 0.1rem 0.3rem;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 3px;
+        margin-left: 0.25rem;
+        font-weight: 600;
+    }
+    
+    .joined-keywords {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .keyword-set {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+    
+    .keyword-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .or-connector {
+        font-size: 0.6rem;
+        font-weight: 600;
+        color: var(--warning-color);
+        background: rgba(245, 158, 11, 0.15);
+        padding: 0.1rem 0.3rem;
+        border-radius: 3px;
+        margin-right: 0.25rem;
+        color: var(--danger-color);
+    }
+    
+    .rule-keywords {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        align-items: center;
+    }
+    
+    .rule-keyword {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.4rem;
+        background: var(--bg-tertiary);
+        border-radius: 4px;
+        color: var(--text-primary);
+    }
+    
+    .rule-stats {
+        font-size: 0.65rem;
+        color: var(--text-light);
+        margin-top: 0.35rem;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-secondary);
+    }
+    
+    .empty-state .icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Tags Management - 3 Column Layout */
+    .tags-columns {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr;
+        gap: 1rem;
+    }
+    
+    @media (max-width: 768px) {
+        .tags-columns {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .tag-column {
+        background: var(--bg-secondary);
+        border-radius: var(--border-radius-lg);
+        padding: 1rem;
+        border: 1px solid var(--border-color);
+    }
+    
+    .tag-column-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .tag-column-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    
+    .tag-column-add {
+        padding: 0.25rem 0.5rem;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
+        border: 1px dashed var(--primary-light);
+        border-radius: 4px;
+        color: var(--primary-color);
+        font-size: 0.7rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    
+    .tag-column-add:hover {
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.25));
+        border-style: solid;
+    }
+    
+    .tags-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .tags-list.two-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.35rem;
+    }
+    
+    @media (max-width: 900px) {
+        .tags-list.two-columns {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .tag-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.4rem 0.6rem;
+        background: var(--bg-primary);
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+    }
+    
+    .tag-item:hover {
+        border-color: var(--primary-light);
+    }
+    
+    .tag-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .tag-name {
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .tag-count {
+        font-size: 0.65rem;
+        color: var(--text-secondary);
+        background: var(--bg-tertiary);
+        padding: 0.1rem 0.35rem;
+        border-radius: 10px;
+        flex-shrink: 0;
+    }
+    
+    .tag-actions {
+        display: flex;
+        gap: 0.15rem;
+        flex-shrink: 0;
+    }
+    
+    .tag-actions button {
+        padding: 0.15rem 0.3rem;
+        background: transparent;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.65rem;
+        color: var(--text-light);
+        transition: all 0.15s ease;
+    }
+    
+    .tag-actions button:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+    
+    .tag-actions button.btn-delete:hover {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger-color);
+    }
+    
+    .tags-empty {
+        text-align: center;
+        padding: 1rem;
+        color: var(--text-light);
+        font-size: 0.75rem;
+        font-style: italic;
+    }
+    
+    /* Rename Modal */
+    .modal-backdrop {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        z-index: 9999;
+    }
+    
+    .modal-backdrop.show {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal-content {
+        background: var(--bg-primary);
+        border-radius: var(--border-radius-lg);
+        padding: 1.5rem;
+        width: 90%;
+        max-width: 400px;
+        animation: slideUp 0.2s ease-out;
+    }
+    
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    
+    .modal-header h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.2rem;
+        cursor: pointer;
+        color: var(--text-secondary);
+        padding: 0.25rem;
+    }
+    
+    .modal-close:hover {
+        color: var(--text-primary);
+    }
+    
+    .modal-footer {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+        margin-top: 1rem;
+    }
+    
+    /* Loading Spinner */
+    .spinner {
+        width: 24px;
+        height: 24px;
+        border: 3px solid var(--border-color);
+        border-top-color: var(--primary-color);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .loading-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 2rem;
+        color: var(--text-secondary);
+    }
+    
+    .loading-state .spinner {
+        margin-bottom: 0.75rem;
+    }
+    
+    /* Data Management Grid */
+    .data-mgmt-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    
+    @media (max-width: 700px) {
+        .data-mgmt-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .data-mgmt-card {
+        background: var(--bg-secondary);
+        border-radius: var(--border-radius-lg);
+        padding: 1.25rem;
+        border: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .data-mgmt-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .data-mgmt-header h4 {
+        margin: 0;
+        padding: 0;
+        border: none;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    
+    .data-mgmt-icon {
+        font-size: 1.25rem;
+    }
+    
+    .data-mgmt-desc {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-bottom: 1rem;
+        flex: 1;
+        line-height: 1.5;
+    }
+    
+    .data-mgmt-card .alert-box.compact {
+        padding: 0.5rem 0.75rem;
+        margin-bottom: 1rem;
+        font-size: 0.75rem;
+    }
+    
+    .data-mgmt-card .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    /* Progress Bar */
+    .progress-container {
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .progress-bar {
+        flex: 1;
+        height: 8px;
+        background: var(--bg-tertiary);
+        border-radius: 999px;
+        overflow: hidden;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        border-radius: 999px;
+        transition: width 0.3s ease;
+    }
+    
+    .progress-text {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--primary-color);
+        min-width: 40px;
+        text-align: right;
+    }
+    
+    .progress-container.complete .progress-fill {
+        background: var(--success-color);
+    }
+    
+    .progress-container.complete .progress-text {
+        color: var(--success-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-page">
+    <div class="settings-header">
+        <h2>Settings</h2>
+        <p>Manage sync, rules, and categories</p>
+    </div>
+    
+    <div class="settings-tabs">
+        <button class="settings-tab active" data-tab="sync">Sync & Data</button>
+        <button class="settings-tab" data-tab="sweep">Sweep Rules</button>
+        <button class="settings-tab" data-tab="autotag">Auto-Tag Rules</button>
+        <button class="settings-tab" data-tab="categories">Categories & Tags</button>
+    </div>
+    
+    <!-- Sync & Data Panel -->
+    <div class="settings-panel active" id="panel-sync">
+        <div class="settings-section">
+            <h3>Rules Export/Import</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Export or import your auto-tag and sweep rules to backup or transfer them.
+            </p>
+            
+            <div class="data-mgmt-grid">
+                <div class="data-mgmt-card">
+                    <div class="data-mgmt-header">
+                        <h4>Export Rules</h4>
+                    </div>
+                    <p class="data-mgmt-desc">
+                        Download all your auto-tag and sweep rules as a JSON file for backup or transfer to another device.
+                    </p>
+                    <button class="btn btn-primary" onclick="exportRules()">Export Rules</button>
+                </div>
+                
+                <div class="data-mgmt-card">
+                    <div class="data-mgmt-header">
+                        <h4>Import Rules</h4>
+                    </div>
+                    <p class="data-mgmt-desc">
+                        Import rules from a previously exported JSON file. Duplicate rules will be skipped.
+                    </p>
+                    <input type="file" id="importRulesFile" accept=".json" style="display: none;" onchange="handleImportFile(event)">
+                    <button class="btn btn-secondary" onclick="document.getElementById('importRulesFile').click()">Import Rules</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="settings-section">
+            <h3>Personal Analysis Export/Import</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Export or import your personal analysis notes (weekly/monthly budget reflections).
+            </p>
+            
+            <div class="data-mgmt-grid">
+                <div class="data-mgmt-card">
+                    <div class="data-mgmt-header">
+                        <h4>Export Personal Analysis</h4>
+                    </div>
+                    <p class="data-mgmt-desc">
+                        Download all your weekly and monthly personal analysis notes as a JSON file.
+                    </p>
+                    <button class="btn btn-primary" onclick="exportPersonalAnalysis()">Export Notes</button>
+                </div>
+                
+                <div class="data-mgmt-card">
+                    <div class="data-mgmt-header">
+                        <h4>Import Personal Analysis</h4>
+                    </div>
+                    <p class="data-mgmt-desc">
+                        Import notes from a previously exported JSON file. Existing notes won't be overwritten.
+                    </p>
+                    <input type="file" id="importNotesFile" accept=".json" style="display: none;" onchange="handleImportNotesFile(event)">
+                    <button class="btn btn-secondary" onclick="document.getElementById('importNotesFile').click()">Import Notes</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="settings-section">
+            <h3>Sync Diagnostics</h3>
+            <div id="diagnosticsContainer">
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Loading diagnostics...</p>
+                </div>
+            </div>
+            <div class="action-row">
+                <button class="btn btn-secondary" onclick="refreshDiagnostics()">Refresh</button>
+                <button class="btn btn-primary" onclick="testSync()">Test Sync</button>
+                <button class="btn btn-secondary" onclick="rerunSetup()">Rerun Setup</button>
+            </div>
+        </div>
+        
+        <div class="settings-section">
+            <h3>Data Management</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Manage your transaction data - remove duplicates or clear all transactions.
+            </p>
+            
+            <div class="data-mgmt-grid">
+                <div class="data-mgmt-card">
+                    <div class="data-mgmt-header">
+                        <h4>Remove Duplicates</h4>
+                    </div>
+                    <p class="data-mgmt-desc">
+                        Find and remove duplicate transactions based on date, description, amount, and bank. 
+                        This also updates Google Sheets.
+                    </p>
+                    <div class="progress-container" id="dedupeProgress" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="dedupeProgressFill"></div>
+                        </div>
+                        <span class="progress-text" id="dedupeProgressText">0%</span>
+                    </div>
+                    <button class="btn btn-primary" id="dedupeBtn" onclick="removeDuplicates()">Remove Duplicates</button>
+                </div>
+                
+                <div class="data-mgmt-card">
+                    <div class="data-mgmt-header">
+                        <h4>Clear All Data</h4>
+                    </div>
+                    <p class="data-mgmt-desc">
+                        Remove all transactions from memory. You will need to re-upload your CSV files.
+                    </p>
+                    <div class="alert-box warning compact">
+                        This cannot be undone!
+                    </div>
+                    <button class="btn btn-danger" onclick="clearAllTransactions()">Clear All</button>
+                </div>
+            </div>
+            
+            <h3 style="margin-top: 1.5rem;">Apply Rules to Google Sheets</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                These operations fetch ALL transactions from your Google Sheet, apply rules, and update the sheet directly.
+            </p>
+            
+            <div class="data-mgmt-grid">
+                <div class="data-mgmt-card">
+                    <div class="data-mgmt-header">
+                        <h4>Apply Auto-Tag Rules to Sheet</h4>
+                    </div>
+                    <p class="data-mgmt-desc">
+                        Load ALL transactions from Google Sheets, apply all auto-tag rules (categories, necessity, recurrence), 
+                        and update the sheet with the tagged data.
+                    </p>
+                    <div class="progress-container" id="sheetRulesProgress" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="sheetRulesProgressFill"></div>
+                        </div>
+                        <span class="progress-text" id="sheetRulesProgressText">0%</span>
+                    </div>
+                    <button class="btn btn-primary" id="applyRulesToSheetBtn" onclick="applyRulesToSheet()">Apply Rules to Sheet</button>
+                </div>
+                
+                <div class="data-mgmt-card">
+                    <div class="data-mgmt-header">
+                        <h4>Apply Sweep Rules to Sheet</h4>
+                    </div>
+                    <p class="data-mgmt-desc">
+                        Load ALL transactions from Google Sheets, remove transactions matching sweep rules, 
+                        and update the sheet with the filtered data.
+                    </p>
+                    <div class="alert-box warning compact">
+                        ⚠️ This permanently removes transactions from your Google Sheet!
+                    </div>
+                    <div class="progress-container" id="sheetSweepProgress" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="sheetSweepProgressFill"></div>
+                        </div>
+                        <span class="progress-text" id="sheetSweepProgressText">0%</span>
+                    </div>
+                    <button class="btn btn-warning" id="applySweepToSheetBtn" onclick="applySweepToSheet()">Apply Sweep to Sheet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sweep Rules Panel -->
+    <div class="settings-panel" id="panel-sweep">
+        <div class="settings-section">
+            <h3>Sweep Rules</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Sweep rules automatically remove transactions that match ALL specified keywords.
+                Use this to exclude payments, transfers, or other non-spending transactions.
+            </p>
+            
+            <div class="rule-form">
+                <h4 style="margin-top: 0; border-top: none; padding-top: 0;">Create New Sweep Rule</h4>
+                <div class="form-group">
+                    <label>Rule Title</label>
+                    <input type="text" id="sweepTitle" placeholder="e.g., Credit Card Payments">
+                </div>
+                <div class="form-group">
+                    <label>Keywords (ALL must match)</label>
+                    <div class="keywords-wrapper" id="sweepKeywordsWrapper" onclick="document.getElementById('sweepKeywordInput').focus()">
+                        <input type="text" class="keyword-input" id="sweepKeywordInput" placeholder="Type and press Enter...">
+                    </div>
+                    <div class="form-hint">Press Enter to add each keyword. Transactions with ALL keywords will be swept.</div>
+                </div>
+                <div class="preview-box" id="sweepPreview" style="display: none;">
+                    <span class="count" id="sweepPreviewCount">0</span> transactions will be swept
+                    <div class="preview-list" id="sweepPreviewList"></div>
+                </div>
+                <div class="action-row">
+                    <button class="btn btn-secondary" onclick="resetSweepForm()">Clear</button>
+                    <button class="btn btn-primary" onclick="saveSweepRule()">Sweep & Save</button>
+                </div>
+            </div>
+            
+            <!-- Apply All Sweep Rules -->
+            <div class="data-mgmt-card" style="margin-bottom: 1rem;">
+                <div class="data-mgmt-header">
+                    <h4>Apply All Sweep Rules</h4>
+                </div>
+                <p class="data-mgmt-desc">
+                    Re-apply all sweep rules to remove matching transactions. Useful after syncing from Google Sheets.
+                </p>
+                <div class="progress-container" id="sweepApplyProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="sweepApplyProgressFill"></div>
+                    </div>
+                    <span class="progress-text" id="sweepApplyProgressText">0%</span>
+                </div>
+                <button class="btn btn-primary" id="applyAllSweepBtn" onclick="applyAllSweepRulesWithProgress()">Apply All Sweep Rules</button>
+            </div>
+            
+            <h4>Active Sweep Rules</h4>
+            <p style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                Select 2+ rules and click "Join Rules" to combine them with OR logic.
+            </p>
+            <div class="join-rules-bar" id="joinRulesBar" style="display: none;">
+                <span id="selectedRulesCount">0</span> rules selected
+                <button class="btn btn-secondary btn-sm" onclick="clearSweepSelection()">Clear</button>
+                <button class="btn btn-primary btn-sm" onclick="joinSelectedSweepRules()">Join Rules</button>
+            </div>
+            <div class="rules-list" id="sweepRulesList">
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Loading rules...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Auto-Tag Rules Panel -->
+    <div class="settings-panel" id="panel-autotag">
+        <div class="settings-section">
+            <h3>Auto-Tagging Rules</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Auto-tagging rules automatically apply categories, necessities, or recurrence labels
+                to transactions that match ALL specified keywords.
+            </p>
+            
+            <div class="rule-form">
+                <h4 style="margin-top: 0; border-top: none; padding-top: 0;">Create New Auto-Tag Rule</h4>
+                <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                    Set multiple tags at once! Leave fields empty to skip them.
+                </p>
+                <div class="multi-tag-grid">
+                    <div class="form-group">
+                        <label>Category</label>
+                        <input type="text" id="tagCategory" placeholder="e.g., Hobby, Groceries...">
+                    </div>
+                    <div class="form-group">
+                        <label>Necessity</label>
+                        <select id="tagNecessity">
+                            <option value="">— Not set —</option>
+                            <option value="Needs">Needs</option>
+                            <option value="Wants">Wants</option>
+                            <option value="Savings">Savings</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Recurrence</label>
+                        <select id="tagRecurrence">
+                            <option value="">— Not set —</option>
+                            <option value="Subscription">Subscription</option>
+                            <option value="Recurring">Recurring</option>
+                            <option value="One-time">One-time</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Keywords (ALL must match)</label>
+                    <div class="keywords-wrapper" id="tagKeywordsWrapper" onclick="document.getElementById('tagKeywordInput').focus()">
+                        <input type="text" class="keyword-input" id="tagKeywordInput" placeholder="Type and press Enter...">
+                    </div>
+                    <div class="form-hint">Press Enter to add each keyword. Transactions with ALL keywords will be tagged.</div>
+                </div>
+                <div class="preview-box" id="tagPreview" style="display: none;">
+                    <span class="count" id="tagPreviewCount">0</span> transactions will be tagged
+                    <div class="preview-list" id="tagPreviewList"></div>
+                </div>
+                <div class="action-row">
+                    <button class="btn btn-secondary" onclick="resetTagForm()">Clear</button>
+                    <button class="btn btn-primary" onclick="saveTagRule()">Save Rule</button>
+                </div>
+            </div>
+            
+            <!-- Apply All Auto-Tag Rules -->
+            <div class="data-mgmt-card" style="margin-bottom: 1rem;">
+                <div class="data-mgmt-header">
+                    <h4>Apply All Auto-Tag Rules</h4>
+                </div>
+                <p class="data-mgmt-desc">
+                    Re-apply all auto-tag rules to categorize transactions. Useful after syncing from Google Sheets.
+                </p>
+                <div class="progress-container" id="tagApplyProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="tagApplyProgressFill"></div>
+                    </div>
+                    <span class="progress-text" id="tagApplyProgressText">0%</span>
+                </div>
+                <button class="btn btn-primary" id="applyAllTagBtn" onclick="applyAllTagRulesWithProgress()">Apply All Auto-Tag Rules</button>
+            </div>
+            
+            <h4>Active Auto-Tag Rules</h4>
+            <div class="rules-list" id="tagRulesList">
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Loading rules...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Categories & Tags Panel -->
+    <div class="settings-panel" id="panel-categories">
+        <div class="settings-section">
+            <h3>Categories & Tags</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                View, rename, or delete categories and tags. Renaming will update ALL transactions and rules using that value.
+            </p>
+            
+            <div class="tags-columns" id="categoriesContainer">
+                <div class="loading-state" style="grid-column: 1 / -1;">
+                    <div class="spinner"></div>
+                    <p>Loading categories...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Tag Modal -->
+<div class="modal-backdrop" id="addTagModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add New <span id="addTagFieldLabel">Category</span></h3>
+            <button class="modal-close" onclick="closeAddTagModal()">×</button>
+        </div>
+        <div class="form-group">
+            <label>Tag Name</label>
+            <input type="text" id="addTagValue" placeholder="Enter tag name...">
+        </div>
+        <div class="alert-box info" style="margin-top: 0.5rem;">
+            ℹ️ New tags will appear once applied to transactions via auto-tag rules or manual editing.
+        </div>
+        <input type="hidden" id="addTagField">
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeAddTagModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="confirmAddTag()">Add Tag</button>
+        </div>
+    </div>
+</div>
+
+<!-- Rename Modal -->
+<div class="modal-backdrop" id="renameModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>✏️ Rename <span id="renameFieldLabel">Category</span></h3>
+            <button class="modal-close" onclick="closeRenameModal()">×</button>
+        </div>
+        <div class="form-group">
+            <label>Current Name</label>
+            <input type="text" id="renameOldValue" readonly style="background: var(--bg-tertiary);">
+        </div>
+        <div class="form-group">
+            <label>New Name</label>
+            <input type="text" id="renameNewValue" placeholder="Enter new name...">
+        </div>
+        <div class="alert-box info" style="margin-top: 0.5rem;">
+            ℹ️ This will update all transactions and rules using this value.
+        </div>
+        <input type="hidden" id="renameField">
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeRenameModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="confirmRename()">✓ Rename</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // State
+    let sweepRules = [];
+    let tagRules = [];
+    let newSweepKeywords = [];
+    let newTagKeywords = [];
+    let categoriesData = {};
+    let selectedSweepRules = new Set();
+    
+    // Tab Switching
+    document.querySelectorAll('.settings-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+            
+            this.classList.add('active');
+            document.getElementById('panel-' + this.dataset.tab).classList.add('active');
+        });
+    });
+    
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', function() {
+        refreshDiagnostics();
+        loadSweepRules();
+        loadTagRules();
+        loadCategories();
+        setupKeywordInputs();
+    });
+    
+    // =================== DIAGNOSTICS ===================
+    async function refreshDiagnostics() {
+        const container = document.getElementById('diagnosticsContainer');
+        container.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Loading...</p></div>`;
+        
+        try {
+            const response = await fetch('/api/sync-diagnostics');
+            const data = await response.json();
+            
+            const statusClass = data.connection_status === 'connected' ? 'success' : 
+                               data.connection_status === 'error' ? 'error' : 'warning';
+            const statusIcon = data.connection_status === 'connected' ? '' : 
+                              data.connection_status === 'error' ? '' : '';
+            
+            container.innerHTML = `
+                <h4 style="margin-top: 0; border-top: none; padding-top: 0;">Transaction Status</h4>
+                <div class="diag-grid">
+                    <div class="diag-card">
+                        <div class="label">Transactions in Memory</div>
+                        <div class="value ${data.transactions_in_memory > 0 ? 'success' : 'warning'}">${data.transactions_in_memory}</div>
+                    </div>
+                    <div class="diag-card">
+                        <div class="label">Expenses</div>
+                        <div class="value">${data.expense_count}</div>
+                    </div>
+                    <div class="diag-card">
+                        <div class="label">Income</div>
+                        <div class="value">${data.income_count}</div>
+                    </div>
+                </div>
+                ${data.transactions_in_memory === 0 ? `
+                    <div class="alert-box warning">
+                        <strong>No transactions in memory!</strong><br>
+                        Transactions are stored in memory and reset when the server restarts.
+                        Please upload your CSV files again.
+                    </div>
+                ` : ''}
+                
+                <h4>Google Sheets Connection</h4>
+                <div class="diag-grid">
+                    <div class="diag-card">
+                        <div class="label">Status</div>
+                        <div class="value ${statusClass}">${statusIcon} ${data.connection_status}</div>
+                    </div>
+                    <div class="diag-card">
+                        <div class="label">Credentials</div>
+                        <div class="value ${data.credentials_exist ? 'success' : 'error'}">${data.credentials_exist ? 'Found' : 'Missing'}</div>
+                    </div>
+                    <div class="diag-card">
+                        <div class="label">Sheet ID</div>
+                        <div class="value ${data.sheet_id ? 'success' : 'error'}">${data.sheet_id_preview || 'Not set'}</div>
+                    </div>
+                    ${data.sheet_title ? `
+                    <div class="diag-card">
+                        <div class="label">Sheet Name</div>
+                        <div class="value">${data.sheet_title}</div>
+                    </div>
+                    ` : ''}
+                </div>
+                ${data.connection_error ? `
+                    <div class="alert-box error">${data.connection_error}</div>
+                ` : ''}
+                
+                <h4>Configuration</h4>
+                <div class="diag-grid">
+                    <div class="diag-card full-width">
+                        <div class="label">Credentials Path</div>
+                        <div class="value mono">${data.credentials_path}</div>
+                    </div>
+                    <div class="diag-card full-width">
+                        <div class="label">Full Sheet ID</div>
+                        <div class="value mono">${data.sheet_id || 'Not configured'}</div>
+                    </div>
+                </div>
+                <p style="font-size: 0.7rem; color: var(--text-light); text-align: right; margin-top: 0.5rem;">
+                    Last checked: ${data.last_test}
+                </p>
+            `;
+        } catch (error) {
+            container.innerHTML = `<div class="alert-box error">Failed to load: ${error.message}</div>`;
+        }
+    }
+    
+    async function testSync() {
+        const container = document.getElementById('diagnosticsContainer');
+        const originalHTML = container.innerHTML;
+        
+        container.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Testing sync...</p></div>` + originalHTML;
+        
+        try {
+            const response = await fetch('/api/sync-to-sheets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+            
+            await refreshDiagnostics();
+            
+            const alertDiv = document.createElement('div');
+            if (data.success) {
+                alertDiv.className = 'alert-box success';
+                alertDiv.innerHTML = `<strong>Sync successful!</strong> ${data.synced_count} transactions synced.`;
+            } else {
+                alertDiv.className = 'alert-box error';
+                alertDiv.innerHTML = `<strong>Sync failed:</strong> ${data.error}`;
+            }
+            container.insertBefore(alertDiv, container.firstChild);
+            
+        } catch (error) {
+            await refreshDiagnostics();
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert-box error';
+            alertDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
+            container.insertBefore(alertDiv, container.firstChild);
+        }
+    }
+    
+    async function clearAllTransactions() {
+        if (!confirm('Are you sure you want to clear ALL transactions from memory?\n\nThis cannot be undone. You will need to re-upload your CSV files.')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/clear-transactions', { method: 'POST' });
+            const data = await response.json();
+            
+            if (data.success) {
+                alert(`Cleared ${data.cleared_count} transactions.`);
+                refreshDiagnostics();
+                loadCategories();
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    async function removeDuplicates() {
+        if (!confirm('This will find and remove duplicate transactions based on date, description, amount, and bank.\n\nDuplicates will also be removed from Google Sheets.\n\nContinue?')) {
+            return;
+        }
+        
+        const btn = document.getElementById('dedupeBtn');
+        const progressContainer = document.getElementById('dedupeProgress');
+        const progressFill = document.getElementById('dedupeProgressFill');
+        const progressText = document.getElementById('dedupeProgressText');
+        
+        // Show progress and disable button
+        btn.disabled = true;
+        btn.textContent = 'Processing...';
+        progressContainer.style.display = 'flex';
+        progressContainer.classList.remove('complete');
+        
+        // Simulate progress while waiting
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            if (progress < 90) {
+                progress += Math.random() * 15;
+                progress = Math.min(progress, 90);
+                progressFill.style.width = progress + '%';
+                progressText.textContent = Math.round(progress) + '%';
+            }
+        }, 200);
+        
+        try {
+            const response = await fetch('/api/deduplicate', { method: 'POST' });
+            const data = await response.json();
+            
+            clearInterval(progressInterval);
+            
+            if (data.success) {
+                // Complete the progress
+                progressFill.style.width = '100%';
+                progressText.textContent = '100%';
+                progressContainer.classList.add('complete');
+                
+                setTimeout(() => {
+                    let message = data.message;
+                    if (data.sheets_synced) {
+                        message += '\n\nGoogle Sheets has been updated.';
+                    }
+                    alert(message);
+                    
+                    // Reset UI
+                    btn.disabled = false;
+                    btn.textContent = 'Remove Duplicates';
+                    progressContainer.style.display = 'none';
+                    progressFill.style.width = '0%';
+                    
+                    refreshDiagnostics();
+                    loadCategories();
+                }, 500);
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Remove Duplicates';
+                progressContainer.style.display = 'none';
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            clearInterval(progressInterval);
+            btn.disabled = false;
+            btn.textContent = 'Remove Duplicates';
+            progressContainer.style.display = 'none';
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    async function applyAllSweepRulesWithProgress() {
+        if (sweepRules.length === 0) {
+            alert('No sweep rules to apply.');
+            return;
+        }
+        
+        const btn = document.getElementById('applyAllSweepBtn');
+        const progressContainer = document.getElementById('sweepApplyProgress');
+        const progressFill = document.getElementById('sweepApplyProgressFill');
+        const progressText = document.getElementById('sweepApplyProgressText');
+        
+        btn.disabled = true;
+        btn.textContent = 'Processing...';
+        progressContainer.style.display = 'flex';
+        progressContainer.classList.remove('complete');
+        
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            if (progress < 90) {
+                progress += Math.random() * 20;
+                progress = Math.min(progress, 90);
+                progressFill.style.width = progress + '%';
+                progressText.textContent = Math.round(progress) + '%';
+            }
+        }, 150);
+        
+        try {
+            const response = await fetch('/api/sweep-rules/apply-all', { method: 'POST' });
+            const data = await response.json();
+            
+            clearInterval(progressInterval);
+            
+            if (data.success) {
+                progressFill.style.width = '100%';
+                progressText.textContent = '100%';
+                progressContainer.classList.add('complete');
+                
+                setTimeout(() => {
+                    alert(`Sweep complete! ${data.swept_count || 0} transaction(s) removed.`);
+                    btn.disabled = false;
+                    btn.textContent = 'Apply All Sweep Rules';
+                    progressContainer.style.display = 'none';
+                    progressFill.style.width = '0%';
+                    refreshDiagnostics();
+                }, 500);
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Apply All Sweep Rules';
+                progressContainer.style.display = 'none';
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            clearInterval(progressInterval);
+            btn.disabled = false;
+            btn.textContent = 'Apply All Sweep Rules';
+            progressContainer.style.display = 'none';
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    async function applyRulesToSheet() {
+        if (!confirm('This will load ALL transactions from your Google Sheet, apply all auto-tag rules, and update the sheet.\n\nThis may take a while for large datasets.\n\nContinue?')) {
+            return;
+        }
+        
+        const btn = document.getElementById('applyRulesToSheetBtn');
+        const progressContainer = document.getElementById('sheetRulesProgress');
+        const progressFill = document.getElementById('sheetRulesProgressFill');
+        const progressText = document.getElementById('sheetRulesProgressText');
+        
+        btn.disabled = true;
+        btn.textContent = 'Loading from Sheet...';
+        progressContainer.style.display = 'flex';
+        progressContainer.classList.remove('complete');
+        
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            if (progress < 85) {
+                progress += Math.random() * 8;
+                progress = Math.min(progress, 85);
+                progressFill.style.width = progress + '%';
+                progressText.textContent = Math.round(progress) + '%';
+                
+                // Update button text based on progress
+                if (progress > 30 && progress < 60) {
+                    btn.textContent = 'Applying rules...';
+                } else if (progress >= 60) {
+                    btn.textContent = 'Updating sheet...';
+                }
+            }
+        }, 300);
+        
+        try {
+            const response = await fetch('/api/apply-rules-to-sheets', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            clearInterval(progressInterval);
+            
+            if (data.success) {
+                progressFill.style.width = '100%';
+                progressText.textContent = '100%';
+                progressContainer.classList.add('complete');
+                
+                setTimeout(() => {
+                    alert(`Success!\n\nProcessed ${data.total_transactions} transactions.\n${data.transactions_updated} were updated with tags.`);
+                    btn.disabled = false;
+                    btn.textContent = 'Apply Rules to Sheet';
+                    progressContainer.style.display = 'none';
+                    progressFill.style.width = '0%';
+                    refreshDiagnostics();
+                }, 500);
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Apply Rules to Sheet';
+                progressContainer.style.display = 'none';
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            clearInterval(progressInterval);
+            btn.disabled = false;
+            btn.textContent = 'Apply Rules to Sheet';
+            progressContainer.style.display = 'none';
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    async function applySweepToSheet() {
+        if (!confirm('WARNING: This will PERMANENTLY REMOVE transactions from your Google Sheet!\n\nThis will:\n1. Load ALL transactions from your Google Sheet\n2. Remove transactions matching your sweep rules\n3. Update the sheet with remaining transactions\n\nThis cannot be undone!\n\nAre you sure?')) {
+            return;
+        }
+        
+        const btn = document.getElementById('applySweepToSheetBtn');
+        const progressContainer = document.getElementById('sheetSweepProgress');
+        const progressFill = document.getElementById('sheetSweepProgressFill');
+        const progressText = document.getElementById('sheetSweepProgressText');
+        
+        btn.disabled = true;
+        btn.textContent = 'Loading from Sheet...';
+        progressContainer.style.display = 'flex';
+        progressContainer.classList.remove('complete');
+        
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            if (progress < 85) {
+                progress += Math.random() * 8;
+                progress = Math.min(progress, 85);
+                progressFill.style.width = progress + '%';
+                progressText.textContent = Math.round(progress) + '%';
+                
+                if (progress > 30 && progress < 60) {
+                    btn.textContent = 'Applying sweep...';
+                } else if (progress >= 60) {
+                    btn.textContent = 'Updating sheet...';
+                }
+            }
+        }, 300);
+        
+        try {
+            const response = await fetch('/api/apply-sweep-to-sheets', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            clearInterval(progressInterval);
+            
+            if (data.success) {
+                progressFill.style.width = '100%';
+                progressText.textContent = '100%';
+                progressContainer.classList.add('complete');
+                
+                setTimeout(() => {
+                    alert(`Sweep Complete!\n\nOriginal: ${data.original_count} transactions\nSwept: ${data.swept_count} transactions\nRemaining: ${data.remaining_count} transactions`);
+                    btn.disabled = false;
+                    btn.textContent = 'Apply Sweep to Sheet';
+                    progressContainer.style.display = 'none';
+                    progressFill.style.width = '0%';
+                    refreshDiagnostics();
+                }, 500);
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Apply Sweep to Sheet';
+                progressContainer.style.display = 'none';
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            clearInterval(progressInterval);
+            btn.disabled = false;
+            btn.textContent = 'Apply Sweep to Sheet';
+            progressContainer.style.display = 'none';
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    async function applyAllTagRulesWithProgress() {
+        if (tagRules.length === 0) {
+            alert('No auto-tag rules to apply.');
+            return;
+        }
+        
+        const btn = document.getElementById('applyAllTagBtn');
+        const progressContainer = document.getElementById('tagApplyProgress');
+        const progressFill = document.getElementById('tagApplyProgressFill');
+        const progressText = document.getElementById('tagApplyProgressText');
+        
+        btn.disabled = true;
+        btn.textContent = 'Processing...';
+        progressContainer.style.display = 'flex';
+        progressContainer.classList.remove('complete');
+        
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            if (progress < 90) {
+                progress += Math.random() * 20;
+                progress = Math.min(progress, 90);
+                progressFill.style.width = progress + '%';
+                progressText.textContent = Math.round(progress) + '%';
+            }
+        }, 150);
+        
+        try {
+            const response = await fetch('/api/category-rules/apply-all', { method: 'POST' });
+            const data = await response.json();
+            
+            clearInterval(progressInterval);
+            
+            if (data.success) {
+                progressFill.style.width = '100%';
+                progressText.textContent = '100%';
+                progressContainer.classList.add('complete');
+                
+                setTimeout(() => {
+                    alert(`Auto-tagging complete! ${data.transactions_updated || 0} transaction(s) updated.`);
+                    btn.disabled = false;
+                    btn.textContent = 'Apply All Auto-Tag Rules';
+                    progressContainer.style.display = 'none';
+                    progressFill.style.width = '0%';
+                    refreshDiagnostics();
+                    loadCategories();
+                }, 500);
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Apply All Auto-Tag Rules';
+                progressContainer.style.display = 'none';
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            clearInterval(progressInterval);
+            btn.disabled = false;
+            btn.textContent = 'Apply All Auto-Tag Rules';
+            progressContainer.style.display = 'none';
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    // =================== SWEEP RULES ===================
+    function setupKeywordInputs() {
+        // Sweep keywords
+        const sweepInput = document.getElementById('sweepKeywordInput');
+        sweepInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && this.value.trim()) {
+                e.preventDefault();
+                addKeyword('sweep', this.value.trim());
+                this.value = '';
+            } else if (e.key === 'Backspace' && !this.value && newSweepKeywords.length > 0) {
+                removeKeyword('sweep', newSweepKeywords.length - 1);
+            }
+        });
+        sweepInput.addEventListener('input', debounce(() => previewRule('sweep'), 500));
+        
+        // Tag keywords
+        const tagInput = document.getElementById('tagKeywordInput');
+        tagInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && this.value.trim()) {
+                e.preventDefault();
+                addKeyword('tag', this.value.trim());
+                this.value = '';
+            } else if (e.key === 'Backspace' && !this.value && newTagKeywords.length > 0) {
+                removeKeyword('tag', newTagKeywords.length - 1);
+            }
+        });
+        tagInput.addEventListener('input', debounce(() => previewRule('tag'), 500));
+    }
+    
+    function addKeyword(type, keyword) {
+        const keywords = type === 'sweep' ? newSweepKeywords : newTagKeywords;
+        if (!keywords.includes(keyword.toLowerCase())) {
+            keywords.push(keyword);
+            renderKeywords(type);
+            previewRule(type);
+        }
+    }
+    
+    function removeKeyword(type, index) {
+        const keywords = type === 'sweep' ? newSweepKeywords : newTagKeywords;
+        keywords.splice(index, 1);
+        renderKeywords(type);
+        previewRule(type);
+    }
+    
+    function renderKeywords(type) {
+        const keywords = type === 'sweep' ? newSweepKeywords : newTagKeywords;
+        const wrapper = document.getElementById(type === 'sweep' ? 'sweepKeywordsWrapper' : 'tagKeywordsWrapper');
+        const input = document.getElementById(type === 'sweep' ? 'sweepKeywordInput' : 'tagKeywordInput');
+        
+        wrapper.querySelectorAll('.keyword-tag, .and-connector').forEach(el => el.remove());
+        
+        keywords.forEach((kw, i) => {
+            if (i > 0) {
+                const conn = document.createElement('span');
+                conn.className = 'and-connector';
+                conn.textContent = 'AND';
+                wrapper.insertBefore(conn, input);
+            }
+            
+            const tag = document.createElement('span');
+            tag.className = 'keyword-tag';
+            tag.innerHTML = `${escapeHtml(kw)} <span class="remove" onclick="removeKeyword('${type}', ${i})">×</span>`;
+            wrapper.insertBefore(tag, input);
+        });
+    }
+    
+    async function previewRule(type) {
+        const keywords = type === 'sweep' ? newSweepKeywords : newTagKeywords;
+        const previewBox = document.getElementById(type === 'sweep' ? 'sweepPreview' : 'tagPreview');
+        
+        if (keywords.length === 0) {
+            previewBox.style.display = 'none';
+            return;
+        }
+        
+        try {
+            const endpoint = type === 'sweep' ? '/api/sweep-rules/preview' : '/api/category-rules/preview';
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keywords })
+            });
+            const data = await response.json();
+            
+            previewBox.style.display = 'block';
+            const count = data.match_count || data.matching_count || 0;
+            document.getElementById(type === 'sweep' ? 'sweepPreviewCount' : 'tagPreviewCount').textContent = count;
+            
+            const listEl = document.getElementById(type === 'sweep' ? 'sweepPreviewList' : 'tagPreviewList');
+            const matches = data.sample_matches || data.matches || [];
+            if (matches.length > 0) {
+                listEl.innerHTML = matches.slice(0, 10).map(m => {
+                    const text = typeof m === 'string' ? m : m.description;
+                    return `<div class="preview-item">• ${escapeHtml(text)}</div>`;
+                }).join('');
+                if (matches.length > 10) {
+                    listEl.innerHTML += `<div class="preview-item" style="font-style: italic;">... and ${matches.length - 10} more</div>`;
+                }
+            } else {
+                listEl.innerHTML = '';
+            }
+        } catch (error) {
+            console.error('Preview error:', error);
+        }
+    }
+    
+    async function loadSweepRules() {
+        try {
+            const response = await fetch('/api/sweep-rules');
+            const data = await response.json();
+            sweepRules = data.rules || [];
+            renderSweepRules();
+        } catch (error) {
+            console.error('Error loading sweep rules:', error);
+        }
+    }
+    
+    function renderSweepRules() {
+        const container = document.getElementById('sweepRulesList');
+        
+        if (sweepRules.length === 0) {
+            container.innerHTML = `<div class="empty-state"><p>No sweep rules yet</p></div>`;
+            updateJoinBar();
+            return;
+        }
+        
+        container.innerHTML = sweepRules.map(rule => {
+            // Check if this is a joined rule (contains OR marker)
+            const isJoined = rule.keywords.length === 1 && rule.keywords[0].includes('|OR|');
+            let keywordsHtml;
+            
+            if (isJoined) {
+                // Display joined rule with OR logic
+                const keywordSets = rule.keywords[0].split('|OR|');
+                keywordsHtml = keywordSets.map((set, setIndex) => {
+                    const keywords = set.split(',').map(k => k.trim()).filter(k => k);
+                    const kwHtml = keywords.map((kw, i) => `
+                        ${i > 0 ? '<span class="and-connector">AND</span>' : ''}
+                        <span class="rule-keyword">${escapeHtml(kw)}</span>
+                    `).join('');
+                    return `
+                        <div class="keyword-set">
+                            ${setIndex > 0 ? '<span class="or-connector">OR</span>' : ''}
+                            <div class="keyword-group">(${kwHtml})</div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                keywordsHtml = rule.keywords.map((kw, i) => `
+                    ${i > 0 ? '<span class="and-connector">AND</span>' : ''}
+                    <span class="rule-keyword">${escapeHtml(kw)}</span>
+                `).join('');
+            }
+            
+            return `
+                <div class="rule-item ${rule.enabled ? '' : 'disabled'} ${selectedSweepRules.has(rule.id) ? 'selected' : ''}" data-rule-id="${rule.id}">
+                    <div class="rule-header">
+                        <label class="rule-select">
+                            <input type="checkbox" ${selectedSweepRules.has(rule.id) ? 'checked' : ''} onchange="toggleSweepRuleSelection('${rule.id}')">
+                        </label>
+                        <span class="rule-title">${escapeHtml(rule.title || 'Sweep Rule')}${isJoined ? ' <span class="joined-badge">JOINED</span>' : ''}</span>
+                        <div class="rule-actions">
+                            <button onclick="toggleSweepRule('${rule.id}')" title="${rule.enabled ? 'Disable' : 'Enable'}">${rule.enabled ? '✓' : '○'}</button>
+                            <button class="btn-delete" onclick="deleteSweepRule('${rule.id}')" title="Delete">✕</button>
+                        </div>
+                    </div>
+                    <div class="rule-keywords ${isJoined ? 'joined-keywords' : ''}">
+                        ${keywordsHtml}
+                    </div>
+                    ${rule.swept_count ? `<div class="rule-stats">Swept ${rule.swept_count} transaction(s)</div>` : ''}
+                </div>
+            `;
+        }).join('');
+        
+        updateJoinBar();
+    }
+    
+    function toggleSweepRuleSelection(ruleId) {
+        if (selectedSweepRules.has(ruleId)) {
+            selectedSweepRules.delete(ruleId);
+        } else {
+            selectedSweepRules.add(ruleId);
+        }
+        renderSweepRules();
+    }
+    
+    function clearSweepSelection() {
+        selectedSweepRules.clear();
+        renderSweepRules();
+    }
+    
+    function updateJoinBar() {
+        const bar = document.getElementById('joinRulesBar');
+        const count = selectedSweepRules.size;
+        bar.style.display = count > 0 ? 'flex' : 'none';
+        document.getElementById('selectedRulesCount').textContent = count;
+    }
+    
+    async function joinSelectedSweepRules() {
+        if (selectedSweepRules.size < 2) {
+            alert('Please select at least 2 rules to join.');
+            return;
+        }
+        
+        const title = prompt('Enter a title for the joined rule (optional):');
+        
+        try {
+            const response = await fetch('/api/sweep-rules/join', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    rule_ids: Array.from(selectedSweepRules),
+                    title: title || ''
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                selectedSweepRules.clear();
+                await loadSweepRules();
+                alert(`Successfully joined ${data.joined_count} rules!`);
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    function resetSweepForm() {
+        document.getElementById('sweepTitle').value = '';
+        document.getElementById('sweepKeywordInput').value = '';
+        newSweepKeywords = [];
+        renderKeywords('sweep');
+        document.getElementById('sweepPreview').style.display = 'none';
+    }
+    
+    async function saveSweepRule() {
+        const title = document.getElementById('sweepTitle').value.trim();
+        
+        if (!title) {
+            alert('Please enter a title for this sweep rule.');
+            return;
+        }
+        
+        if (newSweepKeywords.length === 0) {
+            alert('Please add at least one keyword.');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/sweep-rules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, keywords: newSweepKeywords })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                resetSweepForm();
+                await loadSweepRules();
+                if (data.swept_count > 0) {
+                    alert(`Swept ${data.swept_count} transaction(s)!`);
+                }
+                refreshDiagnostics();
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    async function toggleSweepRule(ruleId) {
+        const rule = sweepRules.find(r => r.id === ruleId);
+        if (!rule) return;
+        
+        try {
+            await fetch(`/api/sweep-rules/${ruleId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: !rule.enabled })
+            });
+            await loadSweepRules();
+        } catch (error) {
+            console.error('Toggle error:', error);
+        }
+    }
+    
+    async function deleteSweepRule(ruleId) {
+        if (!confirm('Delete this sweep rule?')) return;
+        
+        try {
+            await fetch(`/api/sweep-rules/${ruleId}`, { method: 'DELETE' });
+            await loadSweepRules();
+        } catch (error) {
+            console.error('Delete error:', error);
+        }
+    }
+    
+    // =================== TAG RULES ===================
+    async function loadTagRules() {
+        try {
+            const response = await fetch('/api/category-rules');
+            const data = await response.json();
+            tagRules = data.rules || [];
+            renderTagRules();
+        } catch (error) {
+            console.error('Error loading tag rules:', error);
+        }
+    }
+    
+    function renderTagRules() {
+        const container = document.getElementById('tagRulesList');
+        
+        if (tagRules.length === 0) {
+            container.innerHTML = `<div class="empty-state"><p>No auto-tag rules yet</p></div>`;
+            return;
+        }
+        
+        const fieldLabels = {
+            'category': '',
+            'necessity': '',
+            'recurrence': ''
+        };
+        
+        container.innerHTML = tagRules.map(rule => {
+            // Get tags - support both new multi-tag format and legacy format
+            const tags = rule.tags || {[rule.field]: rule.category};
+            const tagBadges = Object.entries(tags)
+                .filter(([k, v]) => v)
+                .map(([field, value]) => `<span class="rule-field-badge">${fieldLabels[field] || ''} ${escapeHtml(value)}</span>`)
+                .join(' ');
+            
+            return `
+                <div class="rule-item ${rule.enabled ? '' : 'disabled'}">
+                    <div class="rule-header">
+                        <div class="rule-tags">${tagBadges}</div>
+                        <div class="rule-actions">
+                            <button onclick="toggleTagRule('${rule.id}')" title="${rule.enabled ? 'Disable' : 'Enable'}">${rule.enabled ? '✓' : '○'}</button>
+                            <button class="btn-delete" onclick="deleteTagRule('${rule.id}')" title="Delete">✕</button>
+                        </div>
+                    </div>
+                    <div class="rule-keywords">
+                        ${rule.keywords.map((kw, i) => `
+                            ${i > 0 ? '<span class="and-connector">AND</span>' : ''}
+                            <span class="rule-keyword">${escapeHtml(kw)}</span>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    function resetTagForm() {
+        document.getElementById('tagCategory').value = '';
+        document.getElementById('tagNecessity').value = '';
+        document.getElementById('tagRecurrence').value = '';
+        document.getElementById('tagKeywordInput').value = '';
+        newTagKeywords = [];
+        renderKeywords('tag');
+        document.getElementById('tagPreview').style.display = 'none';
+    }
+    
+    async function saveTagRule() {
+        const category = document.getElementById('tagCategory').value.trim();
+        const necessity = document.getElementById('tagNecessity').value;
+        const recurrence = document.getElementById('tagRecurrence').value;
+        
+        // Build tags object with only non-empty values
+        const tags = {};
+        if (category) tags.category = category;
+        if (necessity) tags.necessity = necessity;
+        if (recurrence) tags.recurrence = recurrence;
+        
+        if (Object.keys(tags).length === 0) {
+            alert('Please set at least one tag (Category, Necessity, or Recurrence).');
+            return;
+        }
+        
+        if (newTagKeywords.length === 0) {
+            alert('Please add at least one keyword.');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/category-rules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tags,
+                    keywords: newTagKeywords,
+                    priority: 0
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                resetTagForm();
+                await loadTagRules();
+                if (data.transactions_updated > 0) {
+                    alert(`Tagged ${data.transactions_updated} transaction(s)!`);
+                }
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    async function toggleTagRule(ruleId) {
+        const rule = tagRules.find(r => r.id === ruleId);
+        if (!rule) return;
+        
+        try {
+            await fetch(`/api/category-rules/${ruleId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: !rule.enabled })
+            });
+            await loadTagRules();
+        } catch (error) {
+            console.error('Toggle error:', error);
+        }
+    }
+    
+    async function deleteTagRule(ruleId) {
+        if (!confirm('Delete this auto-tag rule?')) return;
+        
+        try {
+            await fetch(`/api/category-rules/${ruleId}`, { method: 'DELETE' });
+            await loadTagRules();
+        } catch (error) {
+            console.error('Delete error:', error);
+        }
+    }
+    
+    // =================== CATEGORIES ===================
+    async function loadCategories() {
+        const container = document.getElementById('categoriesContainer');
+        container.innerHTML = `<div class="loading-state" style="grid-column: 1 / -1;"><div class="spinner"></div><p>Loading...</p></div>`;
+        
+        try {
+            const response = await fetch('/api/tag-values');
+            categoriesData = await response.json();
+            renderCategories();
+        } catch (error) {
+            container.innerHTML = `<div class="alert-box error" style="grid-column: 1 / -1;">Failed to load: ${error.message}</div>`;
+        }
+    }
+    
+    function renderCategories() {
+        const container = document.getElementById('categoriesContainer');
+        
+        if (categoriesData.transaction_count === 0) {
+            container.innerHTML = `
+                <div class="alert-box warning" style="grid-column: 1 / -1;">
+                    No transactions loaded. Upload CSV files to see categories.
+                </div>
+            `;
+            return;
+        }
+        
+        const categories = categoriesData.categories || [];
+        const recurrences = categoriesData.recurrences || [];
+        const necessities = categoriesData.necessities || [];
+        
+        container.innerHTML = `
+            <!-- Categories Column (double width with two-column tags) -->
+            <div class="tag-column">
+                <div class="tag-column-header">
+                    <span class="tag-column-title">Categories</span>
+                    <button class="tag-column-add" onclick="openAddTagModal('category', 'Category')">+ Add</button>
+                </div>
+                <div class="tags-list two-columns">
+                    ${categories.length > 0 ? categories.map(item => `
+                        <div class="tag-item">
+                            <div class="tag-info">
+                                <span class="tag-name">${escapeHtml(item.name)}</span>
+                                <span class="tag-count">${item.count}</span>
+                            </div>
+                            <div class="tag-actions">
+                                <button onclick="openRenameModal('category', '${escapeHtml(item.name)}')" title="Rename">✏️</button>
+                                <button class="btn-delete" onclick="deleteTag('category', '${escapeHtml(item.name)}')" title="Delete">🗑️</button>
+                            </div>
+                        </div>
+                    `).join('') : '<div class="tags-empty" style="grid-column: 1 / -1;">No categories yet</div>'}
+                </div>
+            </div>
+            
+            <!-- Recurrence Column -->
+            <div class="tag-column">
+                <div class="tag-column-header">
+                    <span class="tag-column-title">Recurrence</span>
+                    <button class="tag-column-add" onclick="openAddTagModal('recurrence', 'Recurrence')">+ Add</button>
+                </div>
+                <div class="tags-list">
+                    ${recurrences.length > 0 ? recurrences.map(item => `
+                        <div class="tag-item">
+                            <div class="tag-info">
+                                <span class="tag-name">${escapeHtml(item.name)}</span>
+                                <span class="tag-count">${item.count}</span>
+                            </div>
+                            <div class="tag-actions">
+                                <button onclick="openRenameModal('recurrence', '${escapeHtml(item.name)}')" title="Rename">✏️</button>
+                                <button class="btn-delete" onclick="deleteTag('recurrence', '${escapeHtml(item.name)}')" title="Delete">🗑️</button>
+                            </div>
+                        </div>
+                    `).join('') : '<div class="tags-empty">No recurrence tags yet</div>'}
+                </div>
+            </div>
+            
+            <!-- Necessity Column -->
+            <div class="tag-column">
+                <div class="tag-column-header">
+                    <span class="tag-column-title">⚖️ Necessity</span>
+                    <button class="tag-column-add" onclick="openAddTagModal('necessity', 'Necessity')">+ Add</button>
+                </div>
+                <div class="tags-list">
+                    ${necessities.length > 0 ? necessities.map(item => `
+                        <div class="tag-item">
+                            <div class="tag-info">
+                                <span class="tag-name">${escapeHtml(item.name)}</span>
+                                <span class="tag-count">${item.count}</span>
+                            </div>
+                            <div class="tag-actions">
+                                <button onclick="openRenameModal('necessity', '${escapeHtml(item.name)}')" title="Rename">✏️</button>
+                                <button class="btn-delete" onclick="deleteTag('necessity', '${escapeHtml(item.name)}')" title="Delete">🗑️</button>
+                            </div>
+                        </div>
+                    `).join('') : '<div class="tags-empty">No necessity tags yet</div>'}
+                </div>
+            </div>
+        `;
+    }
+    
+    // Add Tag Modal
+    function openAddTagModal(field, label) {
+        document.getElementById('addTagFieldLabel').textContent = label;
+        document.getElementById('addTagField').value = field;
+        document.getElementById('addTagValue').value = '';
+        document.getElementById('addTagModal').classList.add('show');
+        document.getElementById('addTagValue').focus();
+    }
+    
+    function closeAddTagModal() {
+        document.getElementById('addTagModal').classList.remove('show');
+    }
+    
+    async function confirmAddTag() {
+        const field = document.getElementById('addTagField').value;
+        const value = document.getElementById('addTagValue').value.trim();
+        
+        if (!value) {
+            alert('Please enter a tag name.');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/add-tag', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ field, value })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                closeAddTagModal();
+                alert(data.message);
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    // Rerun Setup
+    async function rerunSetup() {
+        if (!confirm('This will delete your credentials.json and reset Google Sheets configuration.\n\nYou will need to re-upload your credentials file.\n\nContinue?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/reset-sheets-config', { method: 'POST' });
+            const data = await response.json();
+            
+            if (data.success) {
+                window.location.href = '/setup';
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    function openRenameModal(field, value) {
+        const fieldLabels = {
+            'category': 'Category',
+            'necessity': 'Necessity',
+            'recurrence': 'Recurrence'
+        };
+        
+        document.getElementById('renameFieldLabel').textContent = fieldLabels[field] || field;
+        document.getElementById('renameField').value = field;
+        document.getElementById('renameOldValue').value = value;
+        document.getElementById('renameNewValue').value = value;
+        document.getElementById('renameModal').classList.add('show');
+        document.getElementById('renameNewValue').focus();
+        document.getElementById('renameNewValue').select();
+    }
+    
+    function closeRenameModal() {
+        document.getElementById('renameModal').classList.remove('show');
+    }
+    
+    async function confirmRename() {
+        const field = document.getElementById('renameField').value;
+        const oldValue = document.getElementById('renameOldValue').value;
+        const newValue = document.getElementById('renameNewValue').value.trim();
+        
+        if (!newValue) {
+            alert('Please enter a new name.');
+            return;
+        }
+        
+        if (oldValue === newValue) {
+            closeRenameModal();
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/rename-tag', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ field, old_value: oldValue, new_value: newValue })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                closeRenameModal();
+                await loadCategories();
+                await loadTagRules();
+                alert(`Renamed "${oldValue}" to "${newValue}"\n\nUpdated ${data.transactions_updated} transaction(s) and ${data.rules_updated} rule(s).`);
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    async function deleteTag(field, value) {
+        const defaultValues = {
+            'category': 'Other',
+            'necessity': 'Unknown',
+            'recurrence': 'Unknown'
+        };
+        
+        if (!confirm(`Reset all transactions with "${value}" to "${defaultValues[field]}"?\n\nThis will affect all transactions using this value.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/delete-tag', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ field, value })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                await loadCategories();
+                alert(`Reset ${data.transactions_updated} transaction(s) to "${data.reset_to}".`);
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+    
+    // =================== UTILITIES ===================
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+    
+    // Close modals on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeRenameModal();
+            closeAddTagModal();
+        }
+    });
+    
+    // =================== EXPORT/IMPORT RULES ===================
+    async function exportRules() {
+        try {
+            const response = await fetch('/api/rules/export');
+            const data = await response.json();
+            
+            if (data.error) {
+                alert('Error: ' + data.error);
+                return;
+            }
+            
+            // Create downloadable file
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Generate filename with date
+            const date = new Date().toISOString().split('T')[0];
+            a.download = `spendsight-rules-${date}.json`;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            const tagCount = data.auto_tag_rules ? data.auto_tag_rules.length : 0;
+            const sweepCount = data.sweep_rules ? data.sweep_rules.length : 0;
+            alert(`Exported ${tagCount} auto-tag rule(s) and ${sweepCount} sweep rule(s).`);
+        } catch (error) {
+            alert('Error exporting rules: ' + error.message);
+        }
+    }
+    
+    function handleImportFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                // Validate the file structure
+                if (!data.auto_tag_rules && !data.sweep_rules) {
+                    alert('Invalid rules file. Please select a valid Spendsight rules export file.');
+                    return;
+                }
+                
+                const tagCount = data.auto_tag_rules ? data.auto_tag_rules.length : 0;
+                const sweepCount = data.sweep_rules ? data.sweep_rules.length : 0;
+                
+                if (!confirm(`Import ${tagCount} auto-tag rule(s) and ${sweepCount} sweep rule(s)?\n\nDuplicate rules will be skipped.`)) {
+                    return;
+                }
+                
+                const response = await fetch('/api/rules/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`Import complete!\n\n• ${result.imported_auto_tag_rules} auto-tag rule(s) imported\n• ${result.imported_sweep_rules} sweep rule(s) imported\n• ${result.skipped_duplicates} duplicate(s) skipped`);
+                    
+                    // Reload rules lists
+                    await loadSweepRules();
+                    await loadTagRules();
+                } else {
+                    alert('Error importing rules: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error reading file: ' + error.message);
+            }
+        };
+        
+        reader.readAsText(file);
+        
+        // Reset the input so the same file can be selected again
+        event.target.value = '';
+    }
+    
+    // =================== EXPORT/IMPORT PERSONAL ANALYSIS ===================
+    async function exportPersonalAnalysis() {
+        try {
+            const response = await fetch('/api/period-notes/export');
+            const data = await response.json();
+            
+            if (data.error) {
+                alert('Error: ' + data.error);
+                return;
+            }
+            
+            const notesCount = data.personal_analysis_notes ? data.personal_analysis_notes.length : 0;
+            
+            if (notesCount === 0) {
+                alert('No personal analysis notes to export.');
+                return;
+            }
+            
+            // Create downloadable file
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Generate filename with date
+            const date = new Date().toISOString().split('T')[0];
+            a.download = `spendsight-personal-analysis-${date}.json`;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert(`Exported ${notesCount} personal analysis note(s).`);
+        } catch (error) {
+            alert('Error exporting notes: ' + error.message);
+        }
+    }
+    
+    function handleImportNotesFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                // Validate the file structure
+                if (!data.personal_analysis_notes) {
+                    alert('Invalid file. Please select a valid Spendsight personal analysis export file.');
+                    return;
+                }
+                
+                const notesCount = data.personal_analysis_notes.length;
+                
+                if (!confirm(`Import ${notesCount} personal analysis note(s)?\n\nExisting notes won't be overwritten.`)) {
+                    return;
+                }
+                
+                const response = await fetch('/api/period-notes/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`Import complete!\n\n• ${result.imported} note(s) imported\n• ${result.skipped} skipped (already exist or empty)`);
+                } else {
+                    alert('Error importing notes: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error reading file: ' + error.message);
+            }
+        };
+        
+        reader.readAsText(file);
+        
+        // Reset the input so the same file can be selected again
+        event.target.value = '';
+    }
+</script>
+{% endblock %}
+
+
