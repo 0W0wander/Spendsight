@@ -620,7 +620,7 @@
     .charts-container {
         display: grid;
         grid-template-columns: 1.4fr 1fr;
-        gap: 0.5rem;
+        gap: 0.35rem;
         margin-bottom: 0.5rem;
         overflow: visible;
         position: relative;
@@ -642,7 +642,7 @@
     
     .pie-analytics-wrapper {
         display: flex;
-        gap: 0.5rem;
+        gap: 0.35rem;
     }
     
     .pie-chart-card {
@@ -927,7 +927,7 @@
     /* Budget Mode Layout - replaces line chart area */
     .budget-mode-row {
         display: none;
-        gap: 0.5rem;
+        gap: 0.35rem;
         flex: 1;
     }
     
@@ -1315,32 +1315,6 @@
         border-radius: var(--border-radius);
     }
     
-    /* Add Recurring Button */
-    .add-recurring-btn {
-        display: none;
-        align-items: center;
-        justify-content: center;
-        width: 20px;
-        height: 20px;
-        background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
-        border: 1px dashed var(--primary-light);
-        border-radius: 4px;
-        color: var(--primary-color);
-        font-size: 0.75rem;
-        font-weight: 500;
-        cursor: pointer;
-        transition: var(--transition);
-    }
-    
-    .add-recurring-btn:hover {
-        background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.25));
-        border-style: solid;
-        transform: scale(1.05);
-    }
-    
-    .add-recurring-btn.visible {
-        display: flex;
-    }
     
     /* Cash Transaction Modal - Modern Purple Theme */
     .cash-modal {
@@ -3929,7 +3903,6 @@
                 <button class="sweep-toggle-btn" onclick="toggleSweepPanel()" title="Sweep: Remove transactions matching keywords">
                     🧹
                 </button>
-                <button class="add-recurring-btn" id="addRecurringBtn" onclick="openRecurringModal()" title="Add Recurring Expense">↻</button>
             </div>
             <!-- Hidden elements for JS compatibility -->
             <span id="summaryCount" style="display:none;">{{ statistics.count }}</span>
@@ -4182,19 +4155,16 @@
     function updateBudgetModeUI() {
         const lineChartCard = document.getElementById('lineChartCard');
         const budgetModeRow = document.getElementById('budgetModeRow');
-        const addRecurringBtn = document.getElementById('addRecurringBtn');
         const budgetInputSection = document.getElementById('budgetInputSection');
         
         if (budgetMode) {
             lineChartCard.style.display = 'none';
             budgetModeRow.classList.add('active');
-            addRecurringBtn.classList.add('visible');
             if (budgetInputSection) budgetInputSection.style.display = 'flex';
             loadPersonalAnalysis();
         } else {
             lineChartCard.style.display = '';
             budgetModeRow.classList.remove('active');
-            addRecurringBtn.classList.remove('visible');
             if (budgetInputSection) budgetInputSection.style.display = 'none';
         }
     }
