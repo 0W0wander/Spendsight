@@ -29,7 +29,7 @@ class InsightsGenerator:
             avg_transaction = total_spent / len(expense_transactions)
             insights.append({
                 'type': 'summary',
-                'icon': '💰',
+                'icon': '',
                 'title': 'Overall Spending',
                 'message': f'You spent ${total_spent:,.2f} across {len(expense_transactions)} transactions. Average transaction: ${avg_transaction:.2f}'
             })
@@ -37,10 +37,9 @@ class InsightsGenerator:
         # Insight 2: Savings rate
         if total_income > 0:
             savings_rate = ((total_income - total_spent) / total_income) * 100
-            emoji = '🎉' if savings_rate > 20 else '👍' if savings_rate > 10 else '⚠️'
             insights.append({
                 'type': 'savings',
-                'icon': emoji,
+                'icon': '',
                 'title': 'Savings Rate',
                 'message': f'Your savings rate is {savings_rate:.1f}%. {"Great job!" if savings_rate > 20 else "Keep it up!" if savings_rate > 10 else "Consider reducing expenses."}'
             })
@@ -51,7 +50,7 @@ class InsightsGenerator:
             top_category = list(categories.items())[0]
             insights.append({
                 'type': 'category',
-                'icon': '📊',
+                'icon': '',
                 'title': 'Top Spending Category',
                 'message': f'{top_category[0]}: ${top_category[1]["total"]:,.2f} ({top_category[1]["percentage"]}% of total spending)'
             })
@@ -61,7 +60,7 @@ class InsightsGenerator:
         if large_transactions:
             insights.append({
                 'type': 'alert',
-                'icon': '🔔',
+                'icon': '',
                 'title': 'Large Transactions',
                 'message': f'You have {len(large_transactions)} transactions over $500. Total: ${sum(abs(t.amount) for t in large_transactions):,.2f}'
             })
@@ -72,7 +71,7 @@ class InsightsGenerator:
             total_recurring = sum(abs(r['amount']) * r['frequency'] for r in recurring)
             insights.append({
                 'type': 'recurring',
-                'icon': '🔄',
+                'icon': '',
                 'title': 'Recurring Transactions',
                 'message': f'Detected {len(recurring)} recurring charges totaling ${total_recurring:,.2f}'
             })
@@ -85,10 +84,9 @@ class InsightsGenerator:
             previous = monthly_data[months[-2]]
             
             change = ((latest['spent'] - previous['spent']) / previous['spent']) * 100 if previous['spent'] > 0 else 0
-            emoji = '📈' if change > 0 else '📉'
             insights.append({
                 'type': 'trend',
-                'icon': emoji,
+                'icon': '',
                 'title': 'Monthly Trend',
                 'message': f'Spending {"increased" if change > 0 else "decreased"} by {abs(change):.1f}% compared to last month'
             })
@@ -99,7 +97,7 @@ class InsightsGenerator:
             top_merchant = merchants[0]
             insights.append({
                 'type': 'merchant',
-                'icon': '🏪',
+                'icon': '',
                 'title': 'Top Merchant',
                 'message': f'{top_merchant["merchant"]}: ${top_merchant["total"]:,.2f} ({top_merchant["count"]} transactions)'
             })

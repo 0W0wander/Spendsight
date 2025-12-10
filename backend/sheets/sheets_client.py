@@ -1,9 +1,33 @@
 """Google Sheets API client."""
 import gspread
+import logging
+import sys
+import ssl
+import certifi
+import os
 from google.oauth2.service_account import Credentials
 from typing import List
 from backend.models.transaction import Transaction
-from backend.config import Config
+from backend.config import Config, BASE_DIR
+
+# Set up logger
+logger = logging.getLogger('spendsight')
+
+# Fix SSL certificate issues on Windows with PyInstaller
+# This ensures the certificate bundle is found correctly
+if getattr(sys, 'frozen', False):
+    os.environ['SSL_CERT_FILE'] = certifi.where()
+    os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
+
+def _log_and_flush(message, level='info'):
+    """Log a message and flush to ensure it's written before any crash."""
+    if level == 'error':
+        logger.error(message)
+    else:
+        logger.info(message)
+    # Flush all handlers to ensure the message is written
+    for handler in logger.handlers:
+        handler.flush()
 
 class SheetsClient:
     """Client for interacting with Google Sheets."""
@@ -23,23 +47,32 @@ class SheetsClient:
     def _connect(self):
         """Connect to Google Sheets API."""
         self.last_error = None
+        _log_and_flush(f"SheetsClient: Connecting... creds_path={Config.GOOGLE_CREDENTIALS_PATH}, sheet_id={Config.GOOGLE_SHEETS_ID[:20] if Config.GOOGLE_SHEETS_ID else 'None'}...")
         
         # Check if credentials file exists
         if not Config.GOOGLE_CREDENTIALS_PATH.exists():
             self.last_error = f"Credentials file not found at: {Config.GOOGLE_CREDENTIALS_PATH}"
-            print(f"Error connecting to Google Sheets: {self.last_error}")
+            _log_and_flush(f"SheetsClient Error: {self.last_error}", 'error')
             return
         
         try:
+            _log_and_flush("SheetsClient: Loading credentials...")
             credentials = Credentials.from_service_account_file(
                 str(Config.GOOGLE_CREDENTIALS_PATH),
                 scopes=self.SCOPES
             )
+            _log_and_flush("SheetsClient: Authorizing with gspread...")
             self.client = gspread.authorize(credentials)
             
             if Config.GOOGLE_SHEETS_ID:
                 try:
+                    _log_and_flush("SheetsClient: Opening spreadsheet by key...")
+                    # Add a small delay to ensure network stack is ready
+                    import time
+                    time.sleep(0.5)
+                    _log_and_flush("SheetsClient: Making API call to Google...")
                     self.spreadsheet = self.client.open_by_key(Config.GOOGLE_SHEETS_ID)
+                    _log_and_flush("SheetsClient: Connected successfully!")
                 except gspread.exceptions.APIError as api_error:
                     error_details = str(api_error)
                     if "404" in error_details:
@@ -55,11 +88,19 @@ class SheetsClient:
                 print(f"Warning: {self.last_error}")
         except FileNotFoundError:
             self.last_error = f"Credentials file not found at: {Config.GOOGLE_CREDENTIALS_PATH}"
-            print(f"Error connecting to Google Sheets: {self.last_error}")
+            _log_and_flush(f"SheetsClient Error: {self.last_error}", 'error')
             self.client = None
         except Exception as e:
             self.last_error = f"{type(e).__name__}: {str(e)}" if str(e) else f"{type(e).__name__} (no details)"
-            print(f"Error connecting to Google Sheets: {self.last_error}")
+            _log_and_flush(f"SheetsClient Error: {self.last_error}", 'error')
+            import traceback
+            _log_and_flush(traceback.format_exc(), 'error')
+            self.client = None
+        except BaseException as e:
+            # Catch even system-level exceptions
+            _log_and_flush(f"SheetsClient CRITICAL: {type(e).__name__}: {str(e)}", 'error')
+            import traceback
+            _log_and_flush(traceback.format_exc(), 'error')
             self.client = None
     
     def is_connected(self) -> bool:
@@ -200,18 +241,25 @@ class SheetsClient:
         Returns:
             Dictionary with loaded transactions or error
         """
+        _log_and_flush(f"SheetsClient: load_transactions called, start_date={start_date}")
+        
         if not self.is_connected():
+            _log_and_flush("SheetsClient: Not connected!", 'error')
             return {'error': 'Not connected to Google Sheets', 'transactions': []}
         
         try:
             # Try to get the "All Transactions" worksheet
+            _log_and_flush("SheetsClient: Getting worksheet 'All Transactions'...")
             try:
                 worksheet = self.spreadsheet.worksheet('All Transactions')
             except gspread.exceptions.WorksheetNotFound:
+                _log_and_flush("SheetsClient: Worksheet not found, returning empty")
                 return {'transactions': [], 'message': 'No transactions found in Google Sheets'}
             
             # Get all data
+            _log_and_flush("SheetsClient: Fetching all values from worksheet...")
             all_data = worksheet.get_all_values()
+            _log_and_flush(f"SheetsClient: Got {len(all_data)} rows from worksheet")
             
             if len(all_data) <= 1:  # Only header or empty
                 return {'transactions': [], 'message': 'No transactions found in Google Sheets'}
@@ -264,6 +312,8 @@ class SheetsClient:
                     errors.append(f"Row {row_num}: {str(e)}")
                     continue
             
+            _log_and_flush(f"SheetsClient: Successfully loaded {len(transactions)} transactions")
+            
             return {
                 'transactions': transactions,
                 'loaded_count': len(transactions),
@@ -273,6 +323,9 @@ class SheetsClient:
             }
             
         except Exception as e:
+            import traceback
+            _log_and_flush(f"SheetsClient: Exception in load_transactions: {str(e)}", 'error')
+            _log_and_flush(traceback.format_exc(), 'error')
             return {'error': f'Error loading from Google Sheets: {str(e)}', 'transactions': []}
     
     def create_monthly_summary(self, transactions: List[Transaction]) -> dict:
@@ -331,4 +384,78 @@ class SheetsClient:
             
         except Exception as e:
             return {'error': f'Error creating monthly summary: {str(e)}'}
+    
+    def sync_period_notes(self, notes: dict) -> dict:
+        """
+        Sync period notes (weekly/monthly analysis) to Google Sheets.
+        
+        Args:
+            notes: Dictionary mapping period_key to content
+                   e.g., {'weekly_2024-01-07': 'My analysis...', 'monthly_2024-01': '...'}
+            
+        Returns:
+            Dictionary with sync results
+        """
+        if not self.is_connected():
+            return {'error': 'Not connected to Google Sheets'}
+        
+        try:
+            headers = ['Period', 'Type', 'Date Range', 'Analysis Notes']
+            
+            # Get or create the Period Notes worksheet
+            notes_sheet = self._get_or_create_worksheet('Period Notes', headers)
+            
+            # Clear and rebuild
+            notes_sheet.clear()
+            notes_sheet.append_row(headers)
+            
+            rows = []
+            for period_key, content in sorted(notes.items(), reverse=True):
+                if not content or not content.strip():
+                    continue  # Skip empty notes
+                
+                # Parse period key to get type and date info
+                if period_key.startswith('weekly_'):
+                    period_type = 'Weekly'
+                    date_str = period_key.replace('weekly_', '')
+                    # Format: weekly_2024-01-07 (Sunday of that week)
+                    try:
+                        from datetime import datetime, timedelta
+                        sunday = datetime.strptime(date_str, '%Y-%m-%d')
+                        saturday = sunday + timedelta(days=6)
+                        date_range = f"{sunday.strftime('%b %d')} - {saturday.strftime('%b %d, %Y')}"
+                    except:
+                        date_range = date_str
+                elif period_key.startswith('monthly_'):
+                    period_type = 'Monthly'
+                    date_str = period_key.replace('monthly_', '')
+                    # Format: monthly_2024-01
+                    try:
+                        from datetime import datetime
+                        month_date = datetime.strptime(date_str + '-01', '%Y-%m-%d')
+                        date_range = month_date.strftime('%B %Y')
+                    except:
+                        date_range = date_str
+                else:
+                    period_type = 'Other'
+                    date_range = period_key
+                
+                rows.append([
+                    period_key,
+                    period_type,
+                    date_range,
+                    content
+                ])
+            
+            if rows:
+                notes_sheet.append_rows(rows)
+            
+            return {
+                'success': True,
+                'synced_count': len(rows),
+                'total_notes': len(notes)
+            }
+            
+        except Exception as e:
+            return {'error': f'Error syncing period notes: {str(e)}'}
 

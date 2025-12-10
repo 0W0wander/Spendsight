@@ -397,7 +397,7 @@
 }
 
 .loading-icon::after {
-    content: '📊';
+    content: '';
     position: absolute;
     top: 50%;
     left: 50%;
@@ -576,7 +576,6 @@
     <div class="main-container">
         <!-- Page Header -->
         <div class="page-header">
-            <div class="page-icon">📈</div>
             <h1 class="page-title">Load Your Transactions</h1>
             <p class="page-subtitle">Choose how to import your transaction data</p>
         </div>
@@ -586,7 +585,6 @@
             <!-- Google Sheets Option -->
             <div class="option-card">
                 <div class="option-header">
-                    <div class="option-icon">📊</div>
                     <h2 class="option-title">From Google Sheets</h2>
                 </div>
                 <p class="option-desc">Load existing transactions from your connected Google Sheet</p>
@@ -595,7 +593,6 @@
                     <label class="time-range-option">
                         <input type="radio" name="dateRange" value="last_month">
                         <div class="time-range-card">
-                            <span class="time-range-icon">📅</span>
                             <span class="time-range-label">Last Month</span>
                             <span class="time-range-desc">Quick view</span>
                         </div>
@@ -604,7 +601,6 @@
                     <label class="time-range-option">
                         <input type="radio" name="dateRange" value="last_year" checked>
                         <div class="time-range-card">
-                            <span class="time-range-icon">📆</span>
                             <span class="time-range-label">Last Year</span>
                             <span class="time-range-desc">Recommended</span>
                         </div>
@@ -613,7 +609,6 @@
                     <label class="time-range-option">
                         <input type="radio" name="dateRange" value="last_3_years">
                         <div class="time-range-card">
-                            <span class="time-range-icon">🗓️</span>
                             <span class="time-range-label">3 Years</span>
                             <span class="time-range-desc">Extended</span>
                         </div>
@@ -622,7 +617,6 @@
                     <label class="time-range-option">
                         <input type="radio" name="dateRange" value="all_time">
                         <div class="time-range-card">
-                            <span class="time-range-icon">🌐</span>
                             <span class="time-range-label">All Time</span>
                             <span class="time-range-desc">Everything</span>
                         </div>
@@ -638,14 +632,12 @@
             <!-- CSV Upload Option -->
             <div class="option-card">
                 <div class="option-header">
-                    <div class="option-icon">📤</div>
                     <h2 class="option-title">Upload CSV Files</h2>
                 </div>
                 <p class="option-desc">Import transactions directly from Chase or Discover CSV exports</p>
                 
                 <div class="upload-zone" id="uploadZone" onclick="document.getElementById('csvFiles').click()">
                     <input type="file" id="csvFiles" accept=".csv" multiple>
-                    <div class="upload-zone-icon">📁</div>
                     <div class="upload-zone-text">Drop CSV files here or click to browse</div>
                     <div class="upload-zone-hint">Chase & Discover CSVs auto-detected</div>
                 </div>
@@ -854,7 +846,7 @@ function updateFileList() {
     fileListDiv.innerHTML = selectedFiles.map((file, index) => `
         <div class="file-item">
             <span class="file-item-name">
-                <span>📄</span>
+                <span></span>
                 <span>${file.name}</span>
             </span>
             <button class="file-remove" onclick="removeFile(${index})" title="Remove">&times;</button>

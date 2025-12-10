@@ -6,9 +6,10 @@ from typing import Optional
 
 class NecessityLevel:
     """Essential vs Discretionary classification (50/30/20 rule)."""
-    NEEDS = "Needs"          # 50% - Essential expenses
-    WANTS = "Wants"          # 30% - Discretionary spending
-    SAVINGS = "Savings"      # 20% - Financial goals
+    NEEDS = "Needs"              # 50% - Essential expenses
+    FLEXIBLE_NEED = "Flexible Need"  # Expenses that are needed but have flexibility in amount
+    WANTS = "Wants"              # 30% - Discretionary spending
+    SAVINGS = "Savings"          # 20% - Financial goals
     UNKNOWN = "Unknown"
     # Note: Income is a CATEGORY, not a necessity level
 

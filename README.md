@@ -1,4 +1,4 @@
-# Spendsight 💰
+# Spendsight
 
 A personal budget tracking service that provides insights and analytics on your spending.
 
@@ -11,11 +11,11 @@ Spendsight helps you track and analyze your spending by:
 
 ## Features
 
-- 📊 **CSV Import**: Upload transaction CSVs from Chase and Discover
-- 📈 **Google Sheets Integration**: Automatic sync to Google Sheets for backup and manual review
-- 🎯 **Spending Insights**: AI-powered categorization and trend analysis
+- **CSV Import**: Upload transaction CSVs from Chase and Discover
+- **Google Sheets Integration**: Automatic sync to Google Sheets for backup and manual review
+- **Spending Insights**: AI-powered categorization and trend analysis
 - 📉 **Analytics Dashboard**: Visual charts and spending breakdowns
-- 🔔 **Budget Alerts**: Track spending against categories
+- **Budget Alerts**: Track spending against categories
 
 ## Project Structure
 

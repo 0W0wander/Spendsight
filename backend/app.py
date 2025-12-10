@@ -2,10 +2,18 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 import os
+import sys
 import json
 import secrets
+import logging
 from pathlib import Path
-from backend.config import Config
+from backend.config import Config, BASE_DIR
+
+# Get the logger that was set up in run.py (don't create new handlers)
+logger = logging.getLogger('spendsight')
+# Don't add handlers here - they're already set up in run.py
+# Just ensure we propagate to root logger which run.py configured
+logger.propagate = True
 from backend.parsers.chase_parser import ChaseParser
 from backend.parsers.discover_parser import DiscoverParser
 from backend.parsers.csv_detector import CSVDetector, CSVType
@@ -30,9 +38,15 @@ Config.init_app()
 # Global storage for transactions (in production, use a database)
 all_transactions = []
 
+# Lock to prevent duplicate simultaneous requests
+import threading
+_load_sheets_lock = threading.Lock()
+_load_sheets_in_progress = False
+
 def needs_setup():
     """Check if the application needs initial setup."""
-    env_file = Path(__file__).resolve().parent.parent / '.env'
+    # Always look for .env relative to the application base directory
+    env_file = BASE_DIR / '.env'
     
     # Check if .env exists
     if not env_file.exists():
@@ -50,7 +64,8 @@ def needs_setup():
 
 def write_env_file(sheet_id, credentials_path='credentials.json', secret_key=None):
     """Write the .env file with configuration."""
-    env_file = Path(__file__).resolve().parent.parent / '.env'
+    # Write .env next to the executable (PyInstaller) or project root (source)
+    env_file = BASE_DIR / '.env'
     
     # Generate secret key if not provided
     if not secret_key or secret_key.strip() == '':
@@ -109,6 +124,14 @@ def filter_duplicates(new_transactions, existing_transactions):
     return unique_transactions, duplicate_count
 
 @app.before_request
+def log_request():
+    """Log incoming requests for debugging."""
+    import logging
+    logger = logging.getLogger('spendsight')
+    if not request.endpoint or not request.endpoint.startswith('static'):
+        logger.info(f"Request: {request.method} {request.path}")
+
+@app.before_request
 def check_setup():
     """Redirect to setup if configuration is incomplete."""
     # Skip check for static files and setup routes
@@ -144,9 +167,8 @@ def upload_credentials():
         return jsonify({'success': False, 'error': 'Please upload a JSON file'}), 400
     
     try:
-        # Save to project root as credentials.json
-        project_root = Path(__file__).resolve().parent.parent
-        credentials_path = project_root / 'credentials.json'
+        # Save to base directory as credentials.json
+        credentials_path = BASE_DIR / 'credentials.json'
         file.save(str(credentials_path))
         
         # Extract the service account email from the credentials file
@@ -221,22 +243,28 @@ def setup_submit():
 
 @app.route('/setup/restart', methods=['POST'])
 def restart_server():
-    """Restart the server to apply new configuration."""
-    import sys
-    import subprocess
+    """Apply new configuration without server restart.
     
-    def restart():
-        """Restart the Flask server."""
-        import time
-        time.sleep(1)  # Brief delay to send response
-        python = sys.executable
-        subprocess.Popen([python, 'run.py'], cwd=Path(__file__).resolve().parent.parent)
-        os._exit(0)
-    
-    import threading
-    threading.Thread(target=restart).start()
-    
-    return jsonify({'status': 'restarting'})
+    Instead of actually restarting, we reload the Config in-place.
+    This provides a seamless experience - no manual restart needed,
+    even for PyInstaller executables.
+    """
+    try:
+        # Reload configuration from the newly written .env file
+        Config.reload()
+        
+        # Update Flask app config with new values
+        app.config['SECRET_KEY'] = Config.SECRET_KEY
+        
+        return jsonify({
+            'status': 'ready',
+            'message': 'Configuration loaded successfully'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to reload configuration: {str(e)}'
+        }), 500
 
 @app.route('/loading')
 def loading():
@@ -247,14 +275,25 @@ def loading():
 @app.route('/api/load-from-sheets', methods=['POST'])
 def api_load_from_sheets():
     """Load transactions from Google Sheets into memory with optional date filtering."""
-    global all_transactions
+    global all_transactions, _load_sheets_in_progress
     from datetime import datetime, timedelta
     from dateutil.relativedelta import relativedelta
+    import time
+    
+    logger.info("API: load-from-sheets called")
+    
+    # Prevent duplicate simultaneous requests
+    with _load_sheets_lock:
+        if _load_sheets_in_progress:
+            logger.info("API: load-from-sheets already in progress, skipping duplicate request")
+            return jsonify({'success': False, 'error': 'Load already in progress'})
+        _load_sheets_in_progress = True
     
     try:
         # Get date range from request
         data = request.get_json() or {}
         date_range = data.get('date_range', 'all_time')
+        logger.info(f"API: date_range={date_range}")
         
         # Calculate start date based on date_range
         start_date = None
@@ -271,6 +310,10 @@ def api_load_from_sheets():
             # Start from 3 years ago
             start_date = today - relativedelta(years=3)
         # 'all_time' leaves start_date as None
+        
+        logger.info(f"API: Creating SheetsClient, Config.GOOGLE_SHEETS_ID={Config.GOOGLE_SHEETS_ID[:20] if Config.GOOGLE_SHEETS_ID else 'None'}...")
+        for handler in logger.handlers:
+            handler.flush()
         
         sheets_client = SheetsClient()
         
@@ -300,6 +343,9 @@ def api_load_from_sheets():
         # Replace in-memory transactions with loaded data
         all_transactions = loaded_transactions
         
+        logger.info(f"API: load-from-sheets success - loaded {len(loaded_transactions)} transactions")
+        
+        _load_sheets_in_progress = False
         return jsonify({
             'success': True,
             'loaded_count': len(loaded_transactions),
@@ -309,10 +355,16 @@ def api_load_from_sheets():
         })
         
     except Exception as e:
+        logger.error(f"API: load-from-sheets error - {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        _load_sheets_in_progress = False
         return jsonify({
             'success': False,
             'error': str(e)
         })
+    finally:
+        _load_sheets_in_progress = False
 
 
 @app.route('/api/upload-csv', methods=['POST'])
@@ -911,60 +963,6 @@ def api_transactions_filter():
         }
     })
 
-@app.route('/extra-analytics')
-def extra_analytics_page():
-    """Extra detailed analytics page."""
-    expense_transactions = [t for t in all_transactions if t.is_expense]
-    
-    # Get detailed analytics
-    categories = TransactionCategorizer.categorize_by_spending(expense_transactions)
-    top_merchants = TransactionCategorizer.analyze_merchants(expense_transactions, top_n=10)
-    recurring = TransactionCategorizer.detect_recurring(all_transactions)
-    monthly_trends = TransactionCategorizer.monthly_trends(all_transactions)
-    budget_recommendations = InsightsGenerator.get_budget_recommendations(all_transactions)
-    
-    # New enhanced analytics
-    weekly_spending = TransactionCategorizer.weekly_spending(all_transactions)
-    daily_spending = TransactionCategorizer.daily_spending(all_transactions, days=30)
-    day_of_week = TransactionCategorizer.day_of_week_analysis(all_transactions)
-    spending_by_bank = TransactionCategorizer.spending_by_bank(all_transactions)
-    velocity = TransactionCategorizer.spending_velocity(all_transactions)
-    category_trends = TransactionCategorizer.category_trends(all_transactions)
-    top_spending_days = TransactionCategorizer.get_top_spending_days(all_transactions, top_n=10)
-    statistics = TransactionCategorizer.get_statistics(all_transactions)
-    
-    # Enhanced classification analytics
-    classification_analysis = ExpenseClassifier.analyze_by_dimension(all_transactions)
-    budget_health = ExpenseClassifier.get_budget_health(all_transactions)
-    subscriptions = ExpenseClassifier.get_subscription_summary(all_transactions)
-    reduction_opportunities = ExpenseClassifier.get_reduction_opportunities(all_transactions)
-    
-    # Calculate totals
-    total_spent = sum(abs(t.amount) for t in all_transactions if t.is_expense)
-    total_income = sum(t.amount for t in all_transactions if t.is_income)
-    
-    return render_template('extra_analytics.html',
-                         categories=categories,
-                         top_merchants=top_merchants,
-                         recurring=recurring,
-                         monthly_trends=monthly_trends,
-                         budget_recommendations=budget_recommendations,
-                         weekly_spending=weekly_spending,
-                         daily_spending=daily_spending,
-                         day_of_week=day_of_week,
-                         spending_by_bank=spending_by_bank,
-                         velocity=velocity,
-                         category_trends=category_trends,
-                         top_spending_days=top_spending_days,
-                         statistics=statistics,
-                         total_spent=total_spent,
-                         total_income=total_income,
-                         category_colors=TransactionCategorizer.CATEGORY_COLORS,
-                         # Enhanced classification data
-                         classification_analysis=classification_analysis,
-                         budget_health=budget_health,
-                         subscriptions=subscriptions,
-                         reduction_opportunities=reduction_opportunities)
 
 # =========================================================================
 # CATEGORY RULES API ENDPOINTS
@@ -1458,6 +1456,87 @@ def api_update_transaction_field():
     return jsonify({'success': True, 'field': field, 'value': value, 'updated_fields': updated_fields})
 
 
+@app.route('/api/transactions/add-cash', methods=['POST'])
+def api_add_cash_transaction():
+    """Add a manual cash transaction.
+    
+    This allows users to add transactions that weren't in their bank CSV exports,
+    such as cash purchases. The transaction is added to memory and synced to Google Sheets.
+    """
+    from backend.models.transaction import Transaction
+    from datetime import datetime
+    
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # Required fields
+    date_str = data.get('date', '').strip()
+    amount = data.get('amount')
+    description = data.get('description', '').strip()
+    
+    if not date_str or amount is None or not description:
+        return jsonify({'error': 'Date, amount, and description are required'}), 400
+    
+    try:
+        amount = float(amount)
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid amount'}), 400
+    
+    # Parse date
+    try:
+        transaction_date = datetime.strptime(date_str, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+    
+    # Optional fields
+    category = data.get('category', 'Other').strip() or 'Other'
+    bank = data.get('bank', 'Cash').strip() or 'Cash'
+    necessity = data.get('necessity', 'Unknown').strip() or 'Unknown'
+    recurrence = data.get('recurrence', 'One-time').strip() or 'One-time'
+    note = data.get('note', '').strip()
+    
+    # Create the transaction object
+    transaction = Transaction(
+        transaction_date=transaction_date,
+        post_date=transaction_date,  # Same as transaction date for cash
+        description=description,
+        amount=amount,
+        category=category,
+        bank=bank
+    )
+    
+    # Set additional fields
+    transaction.necessity = necessity
+    transaction.recurrence = recurrence
+    transaction.note = note
+    
+    # Add to global transactions list
+    all_transactions.append(transaction)
+    
+    # Sync to Google Sheets
+    sheets_synced = False
+    sheets_error = None
+    try:
+        sheets_client = SheetsClient()
+        if sheets_client.is_connected():
+            sync_result = sheets_client.sync_transactions([transaction])
+            if 'error' in sync_result:
+                sheets_error = sync_result['error']
+            else:
+                sheets_synced = True
+    except Exception as e:
+        sheets_error = str(e)
+    
+    return jsonify({
+        'success': True,
+        'transaction': transaction.to_dict(),
+        'sheets_synced': sheets_synced,
+        'sheets_error': sheets_error
+    })
+
+
 # =========================================================================
 # GOOGLE SHEETS SYNC ENDPOINT
 # =========================================================================
@@ -1483,13 +1562,19 @@ def api_sync_to_sheets():
         # Also update the monthly summary
         sheets_client.create_monthly_summary(all_transactions)
         
+        # Sync period notes (weekly/monthly analysis) to Google Sheets
+        all_notes = period_notes_engine.get_all_notes()
+        notes_result = sheets_client.sync_period_notes(all_notes)
+        notes_synced = notes_result.get('synced_count', 0) if notes_result.get('success') else 0
+        
         if 'error' in sync_result:
             return jsonify({'success': False, 'error': sync_result['error']})
         
         return jsonify({
             'success': True,
             'synced_count': sync_result.get('synced_count', len(all_transactions)),
-            'message': f'Successfully synced {sync_result.get("synced_count", len(all_transactions))} transactions to Google Sheets'
+            'notes_synced': notes_synced,
+            'message': f'Successfully synced {sync_result.get("synced_count", len(all_transactions))} transactions and {notes_synced} period notes to Google Sheets'
         })
         
     except Exception as e:
@@ -1609,10 +1694,6 @@ def api_apply_sweep_to_sheets():
         return jsonify({'success': False, 'error': str(e)})
 
 
-@app.route('/budget')
-def budget_page():
-    """Budget tracking page."""
-    return render_template('budget.html')
 
 
 @app.route('/api/budget-data')
@@ -1860,8 +1941,8 @@ def api_reset_sheets_config():
         if Config.GOOGLE_CREDENTIALS_PATH.exists():
             Config.GOOGLE_CREDENTIALS_PATH.unlink()
         
-        # Delete .env file to force setup wizard
-        env_file = Path(__file__).resolve().parent.parent / '.env'
+        # Delete .env file to force setup wizard (relative to base directory)
+        env_file = BASE_DIR / '.env'
         if env_file.exists():
             env_file.unlink()
         

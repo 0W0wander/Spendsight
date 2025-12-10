@@ -24,3 +24,10 @@ chardet==5.2.0
 # Utilities
 Werkzeug==3.0.1
 
+# System Tray (for background app without console window)
+pystray==0.19.5
+Pillow==10.1.0
+
+# SSL Certificates (for PyInstaller compatibility)
+certifi>=2023.0.0
+

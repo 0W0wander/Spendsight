@@ -227,7 +227,6 @@
 
     <div class="container">
         <div class="card">
-            <div class="success-icon">🎉</div>
             <h1>Setup Complete!</h1>
             <p class="subtitle">Your configuration has been saved.</p>
 
@@ -237,20 +236,27 @@
             </div>
 
             <a href="https://docs.google.com/spreadsheets/d/{{ sheet_id }}/edit" target="_blank" class="sheet-link">
-                📊 Open Your Sheet
+                Open Your Sheet
             </a>
 
             <div class="loading-box status-loading" id="loading-box">
                 <div class="loading-spinner"></div>
                 <p class="loading-text" id="loading-text">
-                    <strong>Restarting server...</strong><br>
+                    <strong>Applying configuration...</strong><br>
                     Please wait a moment
                 </p>
             </div>
 
-            <div class="loading-box status-done" id="done-box" style="background: rgba(74, 222, 128, 0.08); border-color: rgba(74, 222, 128, 0.2);">
+            <div class="loading-box status-done" id="done-box" style="display: none; background: rgba(74, 222, 128, 0.08); border-color: rgba(74, 222, 128, 0.2);">
                 <p class="loading-text" style="color: var(--accent-mint);">
-                    ✅ <strong>Ready!</strong> Redirecting to dashboard...
+                    <strong>Ready!</strong> Redirecting to dashboard...
+                </p>
+            </div>
+
+            <div class="loading-box status-error" id="error-box" style="display: none; background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.2);">
+                <p class="loading-text" style="color: #ef4444;" id="error-text">
+                    <strong>Error</strong><br>
+                    Something went wrong. <a href="/" style="color: var(--accent-mint);">Click here to continue →</a>
                 </p>
             </div>
         </div>
@@ -272,56 +278,44 @@
             container.appendChild(confetti);
         }
 
-        // Auto-restart and redirect
+        // Apply config and redirect (no server restart needed!)
         const loadingBox = document.getElementById('loading-box');
         const doneBox = document.getElementById('done-box');
+        const errorBox = document.getElementById('error-box');
         const loadingText = document.getElementById('loading-text');
 
-        async function restartAndRedirect() {
+        async function applyConfigAndRedirect() {
             try {
-                // Trigger server restart
-                await fetch('/setup/restart', { method: 'POST' });
-            } catch (e) {
-                // Server might close connection during restart - that's expected
-            }
-
-            // Wait for server to come back up
-            loadingText.innerHTML = '<strong>Restarting server...</strong><br>Waiting for server to restart';
-            
-            let attempts = 0;
-            const maxAttempts = 30;
-            
-            const checkServer = async () => {
-                attempts++;
-                try {
-                    const response = await fetch('/', { method: 'HEAD' });
-                    if (response.ok || response.status === 302) {
-                        // Server is back!
-                        loadingBox.classList.add('hide');
-                        doneBox.classList.add('show');
-                        setTimeout(() => {
-                            window.location.href = '/';
-                        }, 1500);
-                        return;
-                    }
-                } catch (e) {
-                    // Server not ready yet
-                }
-
-                if (attempts < maxAttempts) {
-                    loadingText.innerHTML = `<strong>Restarting server...</strong><br>Attempt ${attempts}/${maxAttempts}`;
-                    setTimeout(checkServer, 1000);
+                // Apply the new configuration (reloads config in-place, no restart)
+                const response = await fetch('/setup/restart', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.status === 'ready') {
+                    // Success! Config loaded, redirect to dashboard
+                    loadingBox.style.display = 'none';
+                    doneBox.style.display = 'block';
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1500);
+                } else if (data.status === 'error') {
+                    // Error occurred
+                    loadingBox.style.display = 'none';
+                    errorBox.style.display = 'block';
+                    document.getElementById('error-text').innerHTML = 
+                        `<strong>Error</strong><br>${data.message || 'Something went wrong.'} <a href="/" style="color: var(--accent-mint);">Click here to continue →</a>`;
                 } else {
-                    loadingText.innerHTML = '<strong>Server restart taking longer than expected</strong><br><a href="/" style="color: var(--accent-mint);">Click here to continue →</a>';
+                    // Unknown status, just redirect
+                    window.location.href = '/';
                 }
-            };
-
-            // Start checking after a brief delay
-            setTimeout(checkServer, 2000);
+            } catch (e) {
+                // Network error - just redirect anyway
+                console.error('Config apply error:', e);
+                window.location.href = '/';
+            }
         }
 
-        // Start the restart process
-        restartAndRedirect();
+        // Start the process
+        applyConfigAndRedirect();
 
         // Clean up confetti
         setTimeout(() => container.remove(), 5000);
