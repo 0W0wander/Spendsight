@@ -1,12 +1,33 @@
+# Web Framework
 Flask==3.0.0
 Flask-CORS==4.0.0
-pandas==2.1.4
-numpy==1.26.2
-python-dotenv==1.0.0
-python-dateutil==2.8.2
-chardet==5.2.0
-Werkzeug==3.0.1
+
+# Google Sheets API
 google-auth==2.25.2
 google-auth-oauthlib==1.2.0
 google-auth-httplib2==0.2.0
 gspread==5.12.4
+
+# Data Processing
+pandas==2.1.4
+numpy==1.26.2
+
+# Data Validation
+python-dateutil==2.8.2
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# CSV Processing
+chardet==5.2.0
+
+# Utilities
+Werkzeug==3.0.1
+
+# System Tray (for background app without console window)
+pystray==0.19.5
+Pillow==10.1.0
+
+# SSL Certificates (for PyInstaller compatibility)
+certifi>=2023.0.0
+
