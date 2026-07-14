@@ -198,9 +198,10 @@ class SheetsClient:
                     all_transactions_sheet.append_rows(new_rows)
                 synced_count = len(new_rows)
             
-            # Sync by bank
-            chase_transactions = [t for t in transactions if t.bank == 'chase']
-            discover_transactions = [t for t in transactions if t.bank == 'discover']
+            # Sync by bank (case-insensitive; parsers store title-case bank names)
+            chase_transactions = [t for t in transactions if t.bank.lower() == 'chase']
+            discover_transactions = [t for t in transactions if t.bank.lower() == 'discover']
+            td_transactions = [t for t in transactions if t.bank.lower() == 'td']
             
             if chase_transactions:
                 chase_sheet = self._get_or_create_worksheet('Chase', headers)
@@ -219,6 +220,15 @@ class SheetsClient:
                 discover_rows = [[str(val) for val in t.to_sheet_row()] for t in discover_transactions]
                 if discover_rows:
                     discover_sheet.append_rows(discover_rows)
+
+            if td_transactions:
+                td_sheet = self._get_or_create_worksheet('TD', headers)
+                if clear_first:
+                    td_sheet.clear()
+                    td_sheet.append_row(headers)
+                td_rows = [[str(val) for val in t.to_sheet_row()] for t in td_transactions]
+                if td_rows:
+                    td_sheet.append_rows(td_rows)
             
             return {
                 'success': True,

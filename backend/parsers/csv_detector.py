@@ -1,4 +1,5 @@
 """CSV auto-detector for identifying bank/card type from CSV columns."""
+import os
 import pandas as pd
 from typing import Tuple, Optional
 from enum import Enum
@@ -9,6 +10,8 @@ class CSVType(Enum):
     CHASE_CREDIT = "chase_credit"
     CHASE_DEBIT = "chase_debit"
     DISCOVER = "discover"
+    TD_CHECKING = "td_checking"
+    TD_CREDIT = "td_credit"
     UNKNOWN = "unknown"
 
 
@@ -43,6 +46,17 @@ class CSVDetector:
         'characteristic': {'Trans. Date'},  # The period in "Trans." distinguishes it
         'all': {'Trans. Date', 'Post Date', 'Description', 'Amount', 'Category'}
     }
+
+    # TD Bank checking & credit share the same export columns
+    # Date, Bank RTN, Account Number, Transaction Type, Description, Debit, Credit, Check Number, Account Running Balance
+    TD_COLUMNS = {
+        'required': {'Date', 'Description', 'Debit', 'Credit'},
+        'characteristic': {'Bank RTN', 'Account Running Balance'},
+        'all': {
+            'Date', 'Bank RTN', 'Account Number', 'Transaction Type',
+            'Description', 'Debit', 'Credit', 'Check Number', 'Account Running Balance'
+        }
+    }
     
     @classmethod
     def detect(cls, file_path: str) -> Tuple[CSVType, float, bool]:
@@ -61,26 +75,59 @@ class CSVDetector:
         try:
             # Read just the header row
             df = pd.read_csv(file_path, nrows=0, index_col=False)
-            columns = set(df.columns)
+            columns = {str(c).strip() for c in df.columns}
             
-            return cls._detect_from_columns(columns)
+            csv_type, confidence, has_categories = cls._detect_from_columns(columns)
+
+            # TD checking and credit share columns — use filename to distinguish
+            if csv_type in (CSVType.TD_CHECKING, CSVType.TD_CREDIT):
+                csv_type = cls._td_subtype_from_filename(file_path)
+
+            return csv_type, confidence, has_categories
             
         except Exception as e:
             return CSVType.UNKNOWN, 0.0, False
     
     @classmethod
-    def detect_from_dataframe(cls, df: pd.DataFrame) -> Tuple[CSVType, float, bool]:
+    def detect_from_dataframe(cls, df: pd.DataFrame, file_path: Optional[str] = None) -> Tuple[CSVType, float, bool]:
         """
         Detect the type of CSV from an already-loaded DataFrame.
         
         Args:
             df: Pandas DataFrame with CSV data
+            file_path: Optional path used to distinguish TD checking vs credit
             
         Returns:
             Tuple of (CSVType, confidence_score, has_categories)
         """
-        columns = set(df.columns)
-        return cls._detect_from_columns(columns)
+        columns = {str(c).strip() for c in df.columns}
+        csv_type, confidence, has_categories = cls._detect_from_columns(columns)
+        if csv_type in (CSVType.TD_CHECKING, CSVType.TD_CREDIT) and file_path:
+            csv_type = cls._td_subtype_from_filename(file_path)
+        return csv_type, confidence, has_categories
+
+    @classmethod
+    def _td_subtype_from_filename(cls, file_path: str) -> CSVType:
+        """
+        Distinguish TD checking vs credit using the filename.
+
+        TD uses the same column layout for both account types, so filename
+        hints (e.g. 'Credit card.csv', 'Checking acct.csv') are the signal.
+        Defaults to checking when ambiguous.
+        """
+        name = os.path.basename(file_path).lower().replace('_', ' ').replace('-', ' ')
+        credit_hints = ('credit', ' cc ', 'cc.', 'card')
+        checking_hints = ('checking', 'check', 'debit', 'savings', 'acct', 'dda')
+
+        if any(h.strip() in name for h in credit_hints):
+            # Prefer credit when both could match (e.g. unlikely), but 'card' alone is enough
+            if 'checking' not in name and 'debit' not in name:
+                return CSVType.TD_CREDIT
+        if any(h in name for h in checking_hints):
+            return CSVType.TD_CHECKING
+        if any(h.strip() in name for h in credit_hints):
+            return CSVType.TD_CREDIT
+        return CSVType.TD_CHECKING
     
     @classmethod
     def _detect_from_columns(cls, columns: set) -> Tuple[CSVType, float, bool]:
@@ -123,6 +170,16 @@ class CSVDetector:
             cls.DISCOVER_COLUMNS['characteristic'],
             cls.DISCOVER_COLUMNS['all']
         )
+
+        # Score TD Bank (checking/credit share columns; subtype resolved via filename)
+        td_score = cls._calculate_score(
+            columns,
+            cls.TD_COLUMNS['required'],
+            cls.TD_COLUMNS['characteristic'],
+            cls.TD_COLUMNS['all']
+        )
+        scores[CSVType.TD_CHECKING] = td_score
+        scores[CSVType.TD_CREDIT] = td_score
         
         # Find the best match
         best_type = max(scores, key=scores.get)
@@ -216,6 +273,20 @@ class CSVDetector:
                 'has_categories': True,
                 'description': 'Discover credit card transaction export'
             },
+            CSVType.TD_CHECKING: {
+                'name': 'TD Bank Checking',
+                'bank': 'td',
+                'card_type': 'debit',
+                'has_categories': False,
+                'description': 'TD Bank checking/savings account transaction export'
+            },
+            CSVType.TD_CREDIT: {
+                'name': 'TD Bank Credit Card',
+                'bank': 'td',
+                'card_type': 'credit',
+                'has_categories': False,
+                'description': 'TD Bank credit card transaction export'
+            },
             CSVType.UNKNOWN: {
                 'name': 'Unknown Format',
                 'bank': 'unknown',
@@ -226,4 +297,3 @@ class CSVDetector:
         }
         
         return info.get(csv_type, info[CSVType.UNKNOWN])
-

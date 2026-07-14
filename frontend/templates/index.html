@@ -5601,17 +5601,18 @@
             // Calculate categories from FRESH transaction data
             const catTotals = {};
             expenses.forEach(t => {
-                const cat = t.category || 'Uncategorized';
-                // Skip "Unknown" and "Other" placeholder categories
-                if (cat !== 'Unknown' && cat !== 'Other') {
-                    catTotals[cat] = (catTotals[cat] || 0) + Math.abs(t.amount);
+                let cat = t.category || 'Uncategorized';
+                // Normalize placeholder categories to match transaction list labels
+                if (cat === 'Other' || cat === 'Unknown' || cat === '') {
+                    cat = 'Uncategorized';
                 }
+                catTotals[cat] = (catTotals[cat] || 0) + Math.abs(t.amount);
             });
             const sortedCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
             sortedCats.forEach(([cat, total], i) => {
                 labels.push(cat);
                 data.push(total);
-                bgColors.push(categoryColors[cat] || colors[i % colors.length]);
+                bgColors.push(categoryColors[cat] || categoryColors['Other'] || colors[i % colors.length]);
             });
             pieChart.filterType = 'category';
         } else if (currentPieFilter === 'necessity') {
@@ -5714,7 +5715,11 @@
             sortedBank.forEach(([bank, total]) => {
                 labels.push(bank);
                 data.push(total);
-                bgColors.push(bank.toLowerCase() === 'chase' ? '#0066b2' : '#ff6000');
+                bgColors.push(
+                    bank.toLowerCase() === 'chase' ? '#0066b2'
+                    : bank.toLowerCase() === 'td' ? '#34a853'
+                    : '#ff6000'
+                );
             });
             pieChart.filterType = 'bank';
         }
@@ -5815,13 +5820,29 @@
         activeFilters.categories = [];
         activeFilters.necessities = [];
         activeFilters.recurrences = [];
+        activeFilters.untaggedCategory = false;
+        activeFilters.untaggedNecessity = false;
+        activeFilters.untaggedRecurrence = false;
         
         if (filterType === 'category') {
-            activeFilters.categories = [filterValue];
+            // "Uncategorized" maps to Other/Unknown placeholders in the data
+            if (filterValue === 'Uncategorized') {
+                activeFilters.untaggedCategory = true;
+            } else {
+                activeFilters.categories = [filterValue];
+            }
         } else if (filterType === 'necessity') {
-            activeFilters.necessities = [filterValue];
+            if (filterValue === 'Unknown') {
+                activeFilters.untaggedNecessity = true;
+            } else {
+                activeFilters.necessities = [filterValue];
+            }
         } else if (filterType === 'recurrence') {
-            activeFilters.recurrences = [filterValue];
+            if (filterValue === 'Unknown') {
+                activeFilters.untaggedRecurrence = true;
+            } else {
+                activeFilters.recurrences = [filterValue];
+            }
         }
         
         updateFilterChips();
@@ -6561,17 +6582,17 @@
         if (currentPieFilter === 'category') {
             const catTotals = {};
             expenses.forEach(t => {
-                const cat = t.category || 'Other';
-                // Skip "Unknown" and "Other" placeholder categories
-                if (cat !== 'Unknown' && cat !== 'Other') {
-                    catTotals[cat] = (catTotals[cat] || 0) + Math.abs(t.amount);
+                let cat = t.category || 'Uncategorized';
+                if (cat === 'Other' || cat === 'Unknown' || cat === '') {
+                    cat = 'Uncategorized';
                 }
+                catTotals[cat] = (catTotals[cat] || 0) + Math.abs(t.amount);
             });
             const sorted = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
             sorted.forEach(([cat, total], i) => {
                 labels.push(cat);
                 data.push(total);
-                bgColors.push(categoryColors[cat] || colors[i % colors.length]);
+                bgColors.push(categoryColors[cat] || categoryColors['Other'] || colors[i % colors.length]);
             });
         } else if (currentPieFilter === 'necessity') {
             const necTotals = {};
@@ -6620,7 +6641,7 @@
                 const bank = t.bank || 'Unknown';
                 bankTotals[bank] = (bankTotals[bank] || 0) + Math.abs(t.amount);
             });
-            const bankColors = { 'chase': '#003087', 'discover': '#FF6000', 'Unknown': '#64748b' };
+            const bankColors = { 'chase': '#003087', 'discover': '#FF6000', 'td': '#34A853', 'Unknown': '#64748b' };
             const sorted = Object.entries(bankTotals).sort((a, b) => b[1] - a[1]);
             sorted.forEach(([bank, total], i) => {
                 labels.push(bank.charAt(0).toUpperCase() + bank.slice(1));

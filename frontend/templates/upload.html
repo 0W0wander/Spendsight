@@ -9,13 +9,13 @@
     <div class="upload-container">
         <div class="upload-card">
             <h3>Upload Bank CSVs</h3>
-            <p>Upload one or more transaction CSV files from Chase or Discover — bank type is auto-detected!</p>
+            <p>Upload one or more transaction CSV files from Chase, Discover, or TD Bank — bank type is auto-detected!</p>
             
             <form method="POST" enctype="multipart/form-data" class="upload-form">
                 <div class="form-group">
                     <label for="files">Select CSV File(s)</label>
                     <input type="file" id="files" name="files" accept=".csv" multiple required>
-                    <small class="form-hint">Supports: Chase credit/debit and Discover credit card CSV exports. Select multiple files at once!</small>
+                    <small class="form-hint">Supports: Chase credit/debit, Discover credit card, and TD Bank checking/credit CSV exports. Select multiple files at once!</small>
                 </div>
                 
                 <div class="form-group category-source-group" id="category-source-section" style="display: none;">
@@ -71,6 +71,20 @@
                     <li>Choose <strong>CSV</strong> format and save the file</li>
                 </ol>
                 <p class="note"><em>Discover CSVs include a Category column</em></p>
+            </div>
+
+            <div class="bank-instructions">
+                <h4>TD Bank (Checking & Credit):</h4>
+                <ol>
+                    <li>Log in to <a href="https://www.td.com" target="_blank" rel="noopener">TD Bank online banking</a></li>
+                    <li>Open your checking or credit card account</li>
+                    <li>Go to <strong>Account Activity</strong> / transaction history</li>
+                    <li>Choose your date range</li>
+                    <li>Download / export as <strong>CSV</strong></li>
+                </ol>
+                <p class="note">
+                    <em>TD checking and credit CSVs use Debit/Credit columns (no Category). Name files with "checking" or "credit" so the account type is detected correctly.</em>
+                </p>
             </div>
             
         </div>

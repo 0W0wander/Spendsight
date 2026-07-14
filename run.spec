@@ -1,4 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
+"""PyInstaller build spec for Spendsight.
+
+Build with:
+    py -3.11 -m PyInstaller run.spec
+
+Output:
+    dist/Spendsight.exe
+"""
 import certifi
 
 a = Analysis(
@@ -24,6 +32,10 @@ a = Analysis(
         'PIL.Image',
         'certifi',
         'ssl',
+        'backend.parsers.chase_parser',
+        'backend.parsers.discover_parser',
+        'backend.parsers.td_parser',
+        'backend.parsers.csv_detector',
     ],
     hookspath=[],
     hooksconfig={},

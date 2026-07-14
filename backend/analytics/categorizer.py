@@ -75,6 +75,7 @@ class TransactionCategorizer:
         'Travel': '#7C4DFF',
         'Education': '#00BCD4',
         'Other': '#607D8B',
+        'Uncategorized': '#607D8B',
     }
     
     @staticmethod

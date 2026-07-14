@@ -16,6 +16,7 @@ logger = logging.getLogger('spendsight')
 logger.propagate = True
 from backend.parsers.chase_parser import ChaseParser
 from backend.parsers.discover_parser import DiscoverParser
+from backend.parsers.td_parser import TDParser
 from backend.parsers.csv_detector import CSVDetector, CSVType
 from backend.sheets.sheets_client import SheetsClient
 from backend.analytics.categorizer import TransactionCategorizer
@@ -423,6 +424,13 @@ def api_upload_csv():
             # Parse based on detected type
             if csv_type == CSVType.CHASE_CREDIT or csv_type == CSVType.CHASE_DEBIT:
                 transactions = ChaseParser.parse(str(filepath), use_csv_categories=use_csv_categories)
+            elif csv_type == CSVType.TD_CHECKING or csv_type == CSVType.TD_CREDIT:
+                account_type = 'credit' if csv_type == CSVType.TD_CREDIT else 'checking'
+                transactions = TDParser.parse(
+                    str(filepath),
+                    use_csv_categories=use_csv_categories,
+                    account_type=account_type,
+                )
             else:  # DISCOVER
                 transactions = DiscoverParser.parse(str(filepath), use_csv_categories=use_csv_categories)
             
@@ -631,6 +639,13 @@ def upload():
                 # Parse based on detected type
                 if csv_type == CSVType.CHASE_CREDIT or csv_type == CSVType.CHASE_DEBIT:
                     transactions = ChaseParser.parse(str(filepath), use_csv_categories=use_csv_categories)
+                elif csv_type == CSVType.TD_CHECKING or csv_type == CSVType.TD_CREDIT:
+                    account_type = 'credit' if csv_type == CSVType.TD_CREDIT else 'checking'
+                    transactions = TDParser.parse(
+                        str(filepath),
+                        use_csv_categories=use_csv_categories,
+                        account_type=account_type,
+                    )
                 else:  # DISCOVER
                     transactions = DiscoverParser.parse(str(filepath), use_csv_categories=use_csv_categories)
                 

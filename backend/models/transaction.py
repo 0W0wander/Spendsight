@@ -32,7 +32,7 @@ class Transaction:
     description: str
     amount: float
     category: str
-    bank: str  # 'chase' or 'discover'
+    bank: str  # 'Chase', 'Discover', 'TD', etc.
     type: Optional[str] = None  # 'Sale', 'Payment', 'Return', etc.
     memo: Optional[str] = None
     
