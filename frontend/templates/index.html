@@ -2956,43 +2956,121 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 26px;
+        gap: 0.3rem;
         height: 26px;
-        background: transparent;
-        color: var(--primary-color);
+        padding: 0 0.55rem;
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(5, 150, 105, 0.08));
+        color: #059669;
         cursor: pointer;
         border-radius: 8px;
         transition: all 0.2s ease;
-        border: 1.5px dashed rgba(99, 102, 241, 0.4);
-        font-size: 1.1rem;
-        font-weight: 300;
+        border: 1.5px solid rgba(16, 185, 129, 0.35);
+        font-size: 0.68rem;
+        font-weight: 600;
         margin-right: 0.3rem;
-        position: relative;
+        white-space: nowrap;
+        letter-spacing: 0.01em;
     }
     
-    .add-cash-btn::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08));
-        border-radius: 7px;
-        opacity: 0;
-        transition: opacity 0.2s ease;
+    .add-cash-btn svg {
+        flex-shrink: 0;
     }
     
     .add-cash-btn:hover {
-        border-color: var(--primary-color);
-        border-style: solid;
-        color: var(--primary-dark);
-        transform: scale(1.08);
-    }
-    
-    .add-cash-btn:hover::before {
-        opacity: 1;
+        border-color: #059669;
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.14));
+        color: #047857;
+        transform: translateY(-1px);
     }
     
     .add-cash-btn:active {
-        transform: scale(0.95);
+        transform: translateY(0);
+    }
+    
+    .cash-amount-wrap {
+        position: relative;
+    }
+    
+    .cash-amount-wrap .cash-currency {
+        position: absolute;
+        left: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-secondary);
+        font-weight: 600;
+        font-size: 0.875rem;
+        pointer-events: none;
+    }
+    
+    .cash-amount-wrap input {
+        padding-left: 1.6rem !important;
+    }
+    
+    .cash-type-toggle {
+        display: flex;
+        gap: 0.35rem;
+        margin-top: 0.4rem;
+    }
+    
+    .cash-type-toggle button {
+        flex: 1;
+        padding: 0.35rem 0.5rem;
+        border: 1.5px solid var(--border-color);
+        border-radius: 6px;
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        font-size: 0.7rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    
+    .cash-type-toggle button.active[data-type="expense"] {
+        background: rgba(239, 68, 68, 0.1);
+        border-color: #ef4444;
+        color: #dc2626;
+    }
+    
+    .cash-type-toggle button.active[data-type="income"] {
+        background: rgba(16, 185, 129, 0.1);
+        border-color: #10b981;
+        color: #059669;
+    }
+    
+    .cash-more-options {
+        margin-top: 0.25rem;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        background: var(--bg-secondary);
+    }
+    
+    .cash-more-options summary {
+        cursor: pointer;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        list-style: none;
+        user-select: none;
+    }
+    
+    .cash-more-options summary::-webkit-details-marker {
+        display: none;
+    }
+    
+    .cash-more-options summary::before {
+        content: '▸';
+        display: inline-block;
+        margin-right: 0.35rem;
+        transition: transform 0.15s ease;
+    }
+    
+    .cash-more-options[open] summary::before {
+        transform: rotate(90deg);
+    }
+    
+    .cash-more-options .cash-more-body {
+        margin-top: 0.75rem;
     }
     
     /* Search Bar */
@@ -3883,11 +3961,12 @@
         <div class="transactions-header">
             <h3><span id="transactionsTitle">All Transactions</span></h3>
             <div class="transactions-summary">
-                <button class="add-cash-btn" onclick="openCashTransactionModal()" title="Add Cash Transaction">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <button class="add-cash-btn" onclick="openCashTransactionModal()" title="Quick add a cash purchase">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                         <line x1="12" y1="5" x2="12" y2="19"></line>
                         <line x1="5" y1="12" x2="19" y2="12"></line>
                     </svg>
+                    Cash
                 </button>
                 <div class="search-container">
                     <div class="search-input-wrapper" id="searchInputWrapper">
@@ -3918,11 +3997,11 @@
         </div>
     </div>
     
-    <!-- Cash Transaction Modal -->
+    <!-- Quick Add Cash Modal -->
     <div class="cash-modal" id="cashModal" onclick="if(event.target === this) closeCashModal()">
         <div class="cash-modal-content">
             <div class="cash-modal-header">
-                <h3>New Transaction</h3>
+                <h3>Quick Add Cash</h3>
                 <button class="cash-modal-close" onclick="closeCashModal()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -3934,53 +4013,65 @@
                 <form id="cashTransactionForm" onsubmit="saveCashTransaction(event)">
                     <div class="form-row">
                         <div class="form-group">
+                            <label>Amount *</label>
+                            <div class="cash-amount-wrap">
+                                <span class="cash-currency">$</span>
+                                <input type="number" id="cashAmount" placeholder="0.00" step="0.01" min="0" required>
+                            </div>
+                            <div class="cash-type-toggle" id="cashTypeToggle">
+                                <button type="button" data-type="expense" class="active" onclick="setCashType('expense')">Expense</button>
+                                <button type="button" data-type="income" onclick="setCashType('income')">Income</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
                             <label>Date *</label>
                             <input type="date" id="cashDate" required>
                         </div>
-                        <div class="form-group">
-                            <label>Amount *</label>
-                            <input type="number" id="cashAmount" placeholder="-0.00" step="0.01" required>
-                            <div class="form-hint">Negative for expense, positive for income</div>
-                        </div>
                     </div>
                     <div class="form-group">
-                        <label>Description *</label>
-                        <input type="text" id="cashDescription" placeholder="e.g., Coffee shop, Grocery store" required>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Category</label>
-                            <input type="text" id="cashCategory" placeholder="e.g., Food & Drink, Shopping" list="categoryList">
-                            <datalist id="categoryList"></datalist>
-                        </div>
-                        <div class="form-group">
-                            <label>Bank/Source</label>
-                            <input type="text" id="cashBank" value="Cash" placeholder="Cash">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Necessity</label>
-                            <select id="cashNecessity">
-                                <option value="Unknown">-- Select --</option>
-                                <option value="Needs">Needs</option>
-                                <option value="Wants">Wants</option>
-                                <option value="Savings">Savings</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Recurrence</label>
-                            <select id="cashRecurrence">
-                                <option value="One-time">One-time</option>
-                                <option value="Recurring">Recurring</option>
-                                <option value="Subscription">Subscription</option>
-                            </select>
-                        </div>
+                        <label>What for? *</label>
+                        <input type="text" id="cashDescription" placeholder="e.g., Coffee, Farmers market, Lunch" required>
                     </div>
                     <div class="form-group">
-                        <label>Note (Optional)</label>
-                        <input type="text" id="cashNote" placeholder="Additional notes...">
+                        <label>Category</label>
+                        <input type="text" id="cashCategory" placeholder="e.g., Food & Dining, Shopping" list="categoryList">
+                        <datalist id="categoryList"></datalist>
                     </div>
+                    <details class="cash-more-options">
+                        <summary>More options</summary>
+                        <div class="cash-more-body">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Source</label>
+                                    <input type="text" id="cashBank" value="Cash" placeholder="Cash">
+                                </div>
+                                <div class="form-group">
+                                    <label>Recurrence</label>
+                                    <select id="cashRecurrence">
+                                        <option value="One-time">One-time</option>
+                                        <option value="Recurring">Recurring</option>
+                                        <option value="Subscription">Subscription</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Necessity</label>
+                                    <select id="cashNecessity">
+                                        <option value="Unknown">-- Select --</option>
+                                        <option value="Needs">Needs</option>
+                                        <option value="Flexible Need">Flexible Need</option>
+                                        <option value="Wants">Wants</option>
+                                        <option value="Savings">Savings</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Note</label>
+                                    <input type="text" id="cashNote" placeholder="Optional note...">
+                                </div>
+                            </div>
+                        </div>
+                    </details>
                     <div class="cash-modal-actions">
                         <button type="button" class="btn btn-secondary" onclick="closeCashModal()">Cancel</button>
                         <button type="submit" class="btn btn-primary">
@@ -3988,7 +4079,7 @@
                                 <line x1="12" y1="5" x2="12" y2="19"></line>
                                 <line x1="5" y1="12" x2="19" y2="12"></line>
                             </svg>
-                            Add Transaction
+                            Add Cash
                         </button>
                     </div>
                 </form>
@@ -4088,8 +4179,23 @@
     Chart.defaults.font.size = 10;
     Chart.defaults.color = '#64748b';
     
-    const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6'];
+    // High-contrast categorical palette — hues spaced for pie-slice distinctness
+    const colors = [
+        '#E63946', '#2A9D8F', '#F4A261', '#4C6EF5', '#F72585',
+        '#FFD166', '#06D6A0', '#9B5DE5', '#118AB2', '#EF476F',
+        '#80B918', '#FB8500', '#3A86FF', '#C1121F', '#00BBF9',
+        '#8338EC', '#FFBE0B', '#FB5607'
+    ];
     const categoryColors = {{ category_colors|tojson|safe if category_colors else '{}' }};
+    
+    // Assign a stable, unused palette color for categories without a predefined one.
+    function ensureCategoryColor(cat, fallbackIndex = 0) {
+        if (categoryColors[cat]) return categoryColors[cat];
+        const used = new Set(Object.values(categoryColors).map(c => (c || '').toLowerCase()));
+        const unused = colors.find(c => !used.has(c.toLowerCase()));
+        categoryColors[cat] = unused || colors[fallbackIndex % colors.length];
+        return categoryColors[cat];
+    }
     
     let currentPeriod = 'days';
     let currentPieFilter = 'category';
@@ -4543,42 +4649,62 @@
         return '$' + Math.abs(amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     }
     
-    // ============ CASH TRANSACTION FUNCTIONS ============
+    // ============ QUICK ADD CASH FUNCTIONS ============
+    
+    let cashEntryType = 'expense'; // 'expense' | 'income'
+    
+    function setCashType(type) {
+        cashEntryType = type === 'income' ? 'income' : 'expense';
+        document.querySelectorAll('#cashTypeToggle button').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.type === cashEntryType);
+        });
+    }
     
     function openCashTransactionModal() {
         const modal = document.getElementById('cashModal');
         modal.classList.add('show');
         
-        // Set default date to today
+        // Defaults for a fast cash purchase entry
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('cashDate').value = today;
-        
-        // Populate category datalist with existing categories
+        document.getElementById('cashBank').value = 'Cash';
+        document.getElementById('cashRecurrence').value = 'One-time';
+        setCashType('expense');
         populateCategoryDatalist();
+        
+        // Focus amount for fastest entry
+        setTimeout(() => document.getElementById('cashAmount').focus(), 50);
     }
     
     function closeCashModal() {
         document.getElementById('cashModal').classList.remove('show');
         document.getElementById('cashTransactionForm').reset();
         document.getElementById('cashBank').value = 'Cash';
+        const more = document.querySelector('#cashModal .cash-more-options');
+        if (more) more.open = false;
+        setCashType('expense');
     }
     
     function populateCategoryDatalist() {
         const datalist = document.getElementById('categoryList');
         const categories = new Set();
         
-        // Get categories from all_transactions if available
         if (typeof allTransactions !== 'undefined') {
             allTransactions.forEach(t => {
-                if (t.category && t.category !== 'Other') {
+                if (t.category && t.category !== 'Other' && t.category !== 'Uncategorized') {
                     categories.add(t.category);
                 }
             });
         }
         
-        // Add common categories
-        ['Food & Drink', 'Shopping', 'Groceries', 'Entertainment', 'Transportation', 
-         'Gas', 'Bills & Utilities', 'Health', 'Travel', 'Income'].forEach(c => categories.add(c));
+        if (typeof knownCategories !== 'undefined') {
+            knownCategories.forEach(c => {
+                if (c && c !== 'Other' && c !== 'Uncategorized') categories.add(c);
+            });
+        }
+        
+        ['Food & Dining', 'Shopping', 'Groceries', 'Entertainment', 'Transportation',
+         'Gas', 'Utilities', 'Health', 'Travel', 'Income'].forEach(c => categories.add(c));
         
         datalist.innerHTML = Array.from(categories).sort().map(c => 
             `<option value="${escapeHtml(c)}">`
@@ -4589,7 +4715,7 @@
         event.preventDefault();
         
         const date = document.getElementById('cashDate').value;
-        const amount = parseFloat(document.getElementById('cashAmount').value);
+        const rawAmount = Math.abs(parseFloat(document.getElementById('cashAmount').value));
         const description = document.getElementById('cashDescription').value.trim();
         const category = document.getElementById('cashCategory').value.trim() || 'Other';
         const bank = document.getElementById('cashBank').value.trim() || 'Cash';
@@ -4597,10 +4723,13 @@
         const recurrence = document.getElementById('cashRecurrence').value;
         const note = document.getElementById('cashNote').value.trim();
         
-        if (!date || isNaN(amount) || !description) {
-            alert('Please fill in all required fields');
+        if (!date || isNaN(rawAmount) || rawAmount === 0 || !description) {
+            alert('Please fill in amount, date, and description');
             return;
         }
+        
+        // Cash purchases default to expenses (negative); income stays positive
+        const amount = cashEntryType === 'income' ? rawAmount : -rawAmount;
         
         try {
             const response = await fetch('/api/transactions/add-cash', {
@@ -4622,10 +4751,16 @@
             
             if (result.success) {
                 closeCashModal();
-                // Reload transactions to show the new one
-                loadTransactions();
-                // Show success feedback
-                showToast('Transaction added successfully!');
+                if (category) {
+                    knownCategories.add(category);
+                    ensureCategoryColor(category);
+                }
+                await loadAllTransactions();
+                await refreshAfterTagEdit();
+                if (typeof markAsUnsynced === 'function' && !result.sheets_synced) {
+                    markAsUnsynced();
+                }
+                showToast(cashEntryType === 'income' ? 'Cash income added!' : 'Cash purchase added!');
             } else {
                 alert('Error: ' + (result.error || 'Failed to add transaction'));
             }
@@ -5394,7 +5529,9 @@
                     data = selectedKeys.map(key => dataSource[key]?.[breakdownField]?.[breakdownKey] || 0);
                 }
                 
-                const color = colorMap[breakdownKey] || colors[colorIndex % colors.length];
+                const color = currentLineBreakdown === 'category'
+                    ? ensureCategoryColor(breakdownKey, colorIndex)
+                    : (colorMap[breakdownKey] || colors[colorIndex % colors.length]);
                 datasets.push({
                     label: breakdownKey,
                     data: data,
@@ -5612,7 +5749,7 @@
             sortedCats.forEach(([cat, total], i) => {
                 labels.push(cat);
                 data.push(total);
-                bgColors.push(categoryColors[cat] || categoryColors['Other'] || colors[i % colors.length]);
+                bgColors.push(ensureCategoryColor(cat, i));
             });
             pieChart.filterType = 'category';
         } else if (currentPieFilter === 'necessity') {
@@ -6061,6 +6198,44 @@
     // =========================================================================
     // TIMEFRAME SYNC - Filter transactions to match visible chart range
     // =========================================================================
+    
+    function hasActiveListFilters() {
+        return !!(
+            activeFilters.startDate ||
+            activeFilters.endDate ||
+            activeFilters.periodType ||
+            (activeFilters.categories && activeFilters.categories.length) ||
+            (activeFilters.necessities && activeFilters.necessities.length) ||
+            (activeFilters.recurrences && activeFilters.recurrences.length) ||
+            activeFilters.untaggedCategory ||
+            activeFilters.untaggedNecessity ||
+            activeFilters.untaggedRecurrence
+        );
+    }
+    
+    // After editing a tag: keep current filter chips (e.g. "No Category") and re-query the list.
+    // Do NOT call syncTransactionsToTimeframe() alone — that redraws the date range and drops tag filters
+    // while leaving the chip UI looking like the filter is still on.
+    async function refreshAfterTagEdit({ updatePie = true } = {}) {
+        updateFilterChips();
+        if (hasActiveListFilters()) {
+            window._skipPieChartUpdate = true;
+            await applyMultiFilters();
+            if (updatePie && pieChart) {
+                updatePieChart();
+            }
+        } else if (lineChart && lineChart.selectedKeys && lineChart.selectedKeys.length > 0) {
+            syncTransactionsToTimeframe();
+            if (updatePie && pieChart) {
+                updatePieChart();
+            }
+        } else {
+            renderTransactions(allTransactions);
+            if (updatePie && pieChart) {
+                updatePieChart();
+            }
+        }
+    }
     
     function syncTransactionsToTimeframe() {
         if (!lineChart || !lineChart.selectedKeys || lineChart.selectedKeys.length === 0) {
@@ -6592,7 +6767,7 @@
             sorted.forEach(([cat, total], i) => {
                 labels.push(cat);
                 data.push(total);
-                bgColors.push(categoryColors[cat] || categoryColors['Other'] || colors[i % colors.length]);
+                bgColors.push(ensureCategoryColor(cat, i));
             });
         } else if (currentPieFilter === 'necessity') {
             const necTotals = {};
@@ -6771,8 +6946,8 @@
     
     function applySearchFilter() {
         if (searchKeywords.length === 0) {
-            // No search filter - show transactions based on timeframe
-            syncTransactionsToTimeframe();
+            // No search filter — restore timeframe + any active tag filters
+            refreshAfterTagEdit({ updatePie: false });
             return;
         }
         
@@ -6843,7 +7018,7 @@
             
             if (data.success) {
                 await loadAllTransactions();
-                syncTransactionsToTimeframe();
+                await refreshAfterTagEdit();
                 if (typeof markAsUnsynced === 'function') {
                     markAsUnsynced();
                 }
@@ -7075,8 +7250,8 @@
                 await loadCategoryRules();
                 await loadAllTransactions(); // Refresh transactions to show new categories
                 
-                // Preserve the current timeframe filter after reloading transactions
-                syncTransactionsToTimeframe();
+                // Preserve timeframe + any active tag filters (e.g. No Category)
+                await refreshAfterTagEdit();
                 
                 // Mark as unsynced since transactions were updated
                 if (data.transactions_updated && data.transactions_updated > 0 && typeof markAsUnsynced === 'function') {
@@ -7100,7 +7275,10 @@
         if (!rule) return;
         
         editingRuleId = ruleId;
-        document.getElementById('ruleCategory').value = rule.category;
+        const tags = rule.tags || {[rule.field || 'category']: rule.category};
+        document.getElementById('ruleCategory').value = tags.category || rule.category || '';
+        document.getElementById('ruleNecessity').value = tags.necessity || '';
+        document.getElementById('ruleRecurrence').value = tags.recurrence || '';
         newRuleKeywords = [...rule.keywords];
         renderKeywords();
         previewRule();
@@ -7933,8 +8111,7 @@
                 await loadCategoryRules();
                 await loadAllTransactions();
                 
-                // Preserve the current timeframe filter after reloading transactions
-                syncTransactionsToTimeframe();
+                await refreshAfterTagEdit();
                 
                 if (data.transactions_updated > 0) {
                     alert(`Rule created! ${data.transactions_updated} transaction(s) updated.`);
@@ -8244,8 +8421,7 @@
                 await loadCategoryRules();
                 await loadAllTransactions();
                 
-                // Preserve the current timeframe filter after reloading transactions
-                syncTransactionsToTimeframe();
+                await refreshAfterTagEdit();
                 
                 // Mark as unsynced since transactions were updated
                 if (data.transactions_updated > 0 && typeof markAsUnsynced === 'function') {
@@ -8303,8 +8479,7 @@
                 await loadCategoryRules();
                 await loadAllTransactions();
                 
-                // Preserve the current timeframe filter after reloading transactions
-                syncTransactionsToTimeframe();
+                await refreshAfterTagEdit();
                 
                 // Mark as unsynced since transactions were updated
                 if (data.transactions_updated > 0 && typeof markAsUnsynced === 'function') {
@@ -8373,9 +8548,14 @@
                     markAsUnsynced();
                 }
                 
-                // Re-render
+                if (field === 'category' && value) {
+                    knownCategories.add(value);
+                    ensureCategoryColor(value, knownCategories.size - 1);
+                }
+                
+                // Keep pie/list filters (e.g. No Category) — don't reset to bare timeframe
                 closeCategoryDropdown();
-                renderTransactions(displayedTransactions || allTransactions);
+                await refreshAfterTagEdit();
             }
         } catch (error) {
             console.error('Error updating field:', error);
@@ -8411,10 +8591,12 @@
                     markAsUnsynced();
                 }
                 
-                // Re-render
-                closeCategoryDropdown();
-                renderTransactions(allTransactions);
                 knownCategories.add(newCategory);
+                ensureCategoryColor(newCategory, knownCategories.size - 1);
+                
+                // Keep pie/list filters (e.g. No Category) — don't reset to bare timeframe
+                closeCategoryDropdown();
+                await refreshAfterTagEdit();
             }
         } catch (error) {
             console.error('Error updating category:', error);
@@ -8491,7 +8673,7 @@
             
             if (data.success) {
                 await loadAllTransactions();
-                syncTransactionsToTimeframe();
+                await refreshAfterTagEdit();
                 if (typeof markAsUnsynced === 'function') {
                     markAsUnsynced();
                 }
@@ -8740,8 +8922,7 @@
                 await loadSweepRules();
                 await loadAllTransactions(); // Refresh transactions list
                 
-                // Preserve the current timeframe filter after reloading transactions
-                syncTransactionsToTimeframe();
+                await refreshAfterTagEdit();
                 
                 // Mark as unsynced since transactions were removed
                 if (typeof markAsUnsynced === 'function') {

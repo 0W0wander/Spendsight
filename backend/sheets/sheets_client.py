@@ -468,4 +468,244 @@ class SheetsClient:
             
         except Exception as e:
             return {'error': f'Error syncing period notes: {str(e)}'}
+    
+    @staticmethod
+    def _keywords_to_cell(keywords) -> str:
+        """Serialize keyword list to a sheet cell (AND keywords joined by ' | ')."""
+        if not keywords:
+            return ''
+        if isinstance(keywords, str):
+            return keywords
+        return ' | '.join(str(k).strip() for k in keywords if str(k).strip())
+    
+    @staticmethod
+    def _keywords_from_cell(cell: str) -> list:
+        """Parse a keywords cell back into a list."""
+        if not cell or not str(cell).strip():
+            return []
+        text = str(cell).strip()
+        # Prefer explicit AND separator; fall back to comma for hand-edited rows
+        if ' | ' in text:
+            parts = text.split(' | ')
+        elif '|' in text and 'OR' not in text.upper():
+            parts = text.split('|')
+        else:
+            parts = [p.strip() for p in text.split(',')]
+        return [p.strip() for p in parts if p.strip()]
+    
+    def sync_auto_tag_rules(self, rules: list) -> dict:
+        """
+        Sync auto-tag (category) rules to a dedicated Google Sheets tab.
+        
+        Args:
+            rules: List of rule dicts (from CategoryRule.to_dict())
+        """
+        if not self.is_connected():
+            return {'error': 'Not connected to Google Sheets'}
+        
+        try:
+            import json
+            headers = ['Id', 'Keywords', 'Priority', 'Enabled', 'Field', 'Category', 'Tags']
+            sheet = self._get_or_create_worksheet('Auto-Tag Rules', headers)
+            sheet.clear()
+            sheet.append_row(headers)
+            
+            rows = []
+            for rule in rules or []:
+                tags = rule.get('tags') or {}
+                if isinstance(tags, dict):
+                    tags_str = json.dumps(tags, ensure_ascii=False)
+                else:
+                    tags_str = str(tags or '')
+                rows.append([
+                    rule.get('id', ''),
+                    self._keywords_to_cell(rule.get('keywords', [])),
+                    str(rule.get('priority', 0)),
+                    'TRUE' if rule.get('enabled', True) else 'FALSE',
+                    rule.get('field', 'category') or 'category',
+                    rule.get('category', '') or '',
+                    tags_str
+                ])
+            
+            if rows:
+                sheet.append_rows(rows)
+            
+            return {'success': True, 'synced_count': len(rows)}
+        except Exception as e:
+            return {'error': f'Error syncing auto-tag rules: {str(e)}'}
+    
+    def load_auto_tag_rules(self) -> dict:
+        """Load auto-tag rules from the Auto-Tag Rules worksheet."""
+        if not self.is_connected():
+            return {'error': 'Not connected to Google Sheets', 'rules': []}
+        
+        try:
+            import json
+            try:
+                sheet = self.spreadsheet.worksheet('Auto-Tag Rules')
+            except gspread.exceptions.WorksheetNotFound:
+                return {'success': True, 'rules': [], 'missing_sheet': True}
+            
+            values = sheet.get_all_values()
+            if not values or len(values) < 2:
+                return {'success': True, 'rules': []}
+            
+            # Map header names → index for resilience to column order
+            headers = [h.strip().lower() for h in values[0]]
+            def col(name, default=None):
+                try:
+                    return headers.index(name.lower())
+                except ValueError:
+                    return default
+            
+            idx_id = col('id', 0)
+            idx_kw = col('keywords', 1)
+            idx_pri = col('priority', 2)
+            idx_en = col('enabled', 3)
+            idx_field = col('field', 4)
+            idx_cat = col('category', 5)
+            idx_tags = col('tags', 6)
+            
+            rules = []
+            for row in values[1:]:
+                if not row or all(not str(c).strip() for c in row):
+                    continue
+                def cell(i):
+                    return row[i].strip() if i is not None and i < len(row) else ''
+                
+                keywords = self._keywords_from_cell(cell(idx_kw))
+                if not keywords:
+                    continue
+                
+                tags_raw = cell(idx_tags)
+                tags = {}
+                if tags_raw:
+                    try:
+                        parsed = json.loads(tags_raw)
+                        if isinstance(parsed, dict):
+                            tags = {str(k): str(v) for k, v in parsed.items() if v}
+                    except Exception:
+                        tags = {}
+                
+                category = cell(idx_cat)
+                field = cell(idx_field) or 'category'
+                if not tags and category:
+                    tags = {field: category}
+                if tags and not category:
+                    category = list(tags.values())[0]
+                    field = list(tags.keys())[0]
+                
+                enabled_raw = cell(idx_en).upper()
+                enabled = enabled_raw not in ('FALSE', '0', 'NO', 'OFF')
+                
+                try:
+                    priority = int(float(cell(idx_pri) or '0'))
+                except ValueError:
+                    priority = 0
+                
+                rules.append({
+                    'id': cell(idx_id) or None,
+                    'keywords': keywords,
+                    'priority': priority,
+                    'enabled': enabled,
+                    'field': field,
+                    'category': category,
+                    'tags': tags
+                })
+            
+            return {'success': True, 'rules': rules}
+        except Exception as e:
+            return {'error': f'Error loading auto-tag rules: {str(e)}', 'rules': []}
+    
+    def sync_sweep_rules(self, rules: list) -> dict:
+        """
+        Sync sweep (broom/exclusion) rules to a dedicated Google Sheets tab.
+        
+        Args:
+            rules: List of rule dicts (from ExclusionRule.to_dict())
+        """
+        if not self.is_connected():
+            return {'error': 'Not connected to Google Sheets'}
+        
+        try:
+            headers = ['Id', 'Title', 'Keywords', 'Enabled', 'Swept Count']
+            sheet = self._get_or_create_worksheet('Sweep Rules', headers)
+            sheet.clear()
+            sheet.append_row(headers)
+            
+            rows = []
+            for rule in rules or []:
+                rows.append([
+                    rule.get('id', ''),
+                    rule.get('title', '') or '',
+                    self._keywords_to_cell(rule.get('keywords', [])),
+                    'TRUE' if rule.get('enabled', True) else 'FALSE',
+                    str(rule.get('swept_count', 0))
+                ])
+            
+            if rows:
+                sheet.append_rows(rows)
+            
+            return {'success': True, 'synced_count': len(rows)}
+        except Exception as e:
+            return {'error': f'Error syncing sweep rules: {str(e)}'}
+    
+    def load_sweep_rules(self) -> dict:
+        """Load sweep rules from the Sweep Rules worksheet."""
+        if not self.is_connected():
+            return {'error': 'Not connected to Google Sheets', 'rules': []}
+        
+        try:
+            try:
+                sheet = self.spreadsheet.worksheet('Sweep Rules')
+            except gspread.exceptions.WorksheetNotFound:
+                return {'success': True, 'rules': [], 'missing_sheet': True}
+            
+            values = sheet.get_all_values()
+            if not values or len(values) < 2:
+                return {'success': True, 'rules': []}
+            
+            headers = [h.strip().lower() for h in values[0]]
+            def col(name, default=None):
+                try:
+                    return headers.index(name.lower())
+                except ValueError:
+                    return default
+            
+            idx_id = col('id', 0)
+            idx_title = col('title', 1)
+            idx_kw = col('keywords', 2)
+            idx_en = col('enabled', 3)
+            idx_swept = col('swept count', 4)
+            
+            rules = []
+            for row in values[1:]:
+                if not row or all(not str(c).strip() for c in row):
+                    continue
+                def cell(i):
+                    return row[i].strip() if i is not None and i < len(row) else ''
+                
+                keywords = self._keywords_from_cell(cell(idx_kw))
+                if not keywords:
+                    continue
+                
+                enabled_raw = cell(idx_en).upper()
+                enabled = enabled_raw not in ('FALSE', '0', 'NO', 'OFF')
+                
+                try:
+                    swept_count = int(float(cell(idx_swept) or '0'))
+                except ValueError:
+                    swept_count = 0
+                
+                rules.append({
+                    'id': cell(idx_id) or None,
+                    'title': cell(idx_title),
+                    'keywords': keywords,
+                    'enabled': enabled,
+                    'swept_count': swept_count
+                })
+            
+            return {'success': True, 'rules': rules}
+        except Exception as e:
+            return {'error': f'Error loading sweep rules: {str(e)}', 'rules': []}
 

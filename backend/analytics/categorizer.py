@@ -63,19 +63,20 @@ class TransactionCategorizer:
         'hospital': 'Health',
     }
     
-    # Category colors for charts
+    # Category colors for charts — high-contrast hues so pie slices stay distinct
     CATEGORY_COLORS = {
-        'Food & Dining': '#FF6384',
-        'Groceries': '#36A2EB',
-        'Transportation': '#FFCE56',
-        'Shopping': '#4BC0C0',
-        'Entertainment': '#9966FF',
-        'Utilities': '#FF9F40',
-        'Health': '#C9CBCF',
-        'Travel': '#7C4DFF',
-        'Education': '#00BCD4',
-        'Other': '#607D8B',
-        'Uncategorized': '#607D8B',
+        'Food & Dining': '#E63946',
+        'Groceries': '#2A9D8F',
+        'Transportation': '#F4A261',
+        'Shopping': '#4C6EF5',
+        'Entertainment': '#9B5DE5',
+        'Utilities': '#FB8500',
+        'Health': '#06D6A0',
+        'Travel': '#118AB2',
+        'Education': '#FFD166',
+        'Income': '#80B918',
+        'Other': '#94A3B8',
+        'Uncategorized': '#94A3B8',
     }
     
     @staticmethod

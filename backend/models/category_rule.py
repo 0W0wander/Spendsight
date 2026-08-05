@@ -151,24 +151,44 @@ class CategoryRuleEngine:
         return rule
     
     def update_rule(self, rule_id: str, category: str = None, keywords: List[str] = None, 
-                   priority: int = None, enabled: bool = None) -> CategoryRule:
+                   priority: int = None, enabled: bool = None, tags: Dict[str, str] = None,
+                   field: str = None) -> CategoryRule:
         """
         Update an existing rule.
         
         Args:
             rule_id: ID of the rule to update
-            category: New category (optional)
+            category: New category (optional, legacy)
             keywords: New keywords list (optional)
             priority: New priority (optional)
             enabled: Enable/disable rule (optional)
+            tags: New multi-tag dict (optional), e.g. {'category': 'Hobby', 'necessity': 'Wants'}
+            field: New legacy field name (optional)
             
         Returns:
             The updated CategoryRule or None if not found
         """
         for rule in self.rules:
             if rule.id == rule_id:
-                if category is not None:
-                    rule.category = category
+                if tags is not None:
+                    rule.tags = tags
+                    # Keep legacy fields in sync with the first tag
+                    if tags:
+                        first_field = list(tags.keys())[0]
+                        rule.field = first_field
+                        rule.category = tags[first_field]
+                    else:
+                        rule.category = category if category is not None else rule.category
+                        if field is not None:
+                            rule.field = field
+                else:
+                    if category is not None:
+                        rule.category = category
+                        # Keep tags in sync for single-field updates
+                        target_field = field if field is not None else (rule.field or 'category')
+                        rule.tags = {**(rule.tags or {}), target_field: category}
+                    if field is not None:
+                        rule.field = field
                 if keywords is not None:
                     rule.keywords = keywords
                 if priority is not None:
@@ -209,6 +229,28 @@ class CategoryRuleEngine:
     def get_all_rules(self) -> List[CategoryRule]:
         """Get all rules sorted by priority."""
         return self.rules
+    
+    def replace_all_rules(self, rules_data: List[dict]) -> int:
+        """
+        Replace all local rules from a list of rule dicts (e.g. loaded from Sheets).
+        
+        Returns:
+            Number of rules loaded
+        """
+        loaded = []
+        for data in rules_data or []:
+            try:
+                if not data.get('keywords'):
+                    continue
+                if not data.get('id'):
+                    data = {**data, 'id': str(uuid.uuid4())}
+                loaded.append(CategoryRule.from_dict(data))
+            except Exception as e:
+                print(f"Error loading category rule from sheets: {e}")
+        self.rules = loaded
+        self.rules.sort(key=lambda r: r.priority, reverse=True)
+        self._save_rules()
+        return len(self.rules)
     
     def find_matching_category(self, description: str) -> str:
         """

@@ -44,6 +44,80 @@ import threading
 _load_sheets_lock = threading.Lock()
 _load_sheets_in_progress = False
 
+
+def _sync_rules_to_sheets(sheets_client=None) -> dict:
+    """Push auto-tag and sweep rules to Google Sheets. Never raises."""
+    try:
+        client = sheets_client or SheetsClient()
+        if not client.is_connected():
+            return {'success': False, 'error': client.last_error or 'Not connected'}
+        
+        auto_tag = [r.to_dict() for r in rule_engine.get_all_rules()]
+        sweep = [r.to_dict() for r in exclusion_engine.get_all_rules()]
+        
+        auto_result = client.sync_auto_tag_rules(auto_tag)
+        sweep_result = client.sync_sweep_rules(sweep)
+        
+        if 'error' in auto_result or 'error' in sweep_result:
+            return {
+                'success': False,
+                'error': auto_result.get('error') or sweep_result.get('error'),
+                'auto_tag_synced': auto_result.get('synced_count', 0),
+                'sweep_synced': sweep_result.get('synced_count', 0)
+            }
+        
+        return {
+            'success': True,
+            'auto_tag_synced': auto_result.get('synced_count', 0),
+            'sweep_synced': sweep_result.get('synced_count', 0)
+        }
+    except Exception as e:
+        logger.error(f"Error syncing rules to sheets: {e}")
+        return {'success': False, 'error': str(e)}
+
+
+def _load_rules_from_sheets(sheets_client=None) -> dict:
+    """
+    Pull auto-tag and sweep rules from Google Sheets into local engines.
+    If a sheet tab is missing/empty but local has rules, seed the sheet from local.
+    """
+    try:
+        client = sheets_client or SheetsClient()
+        if not client.is_connected():
+            return {'success': False, 'error': client.last_error or 'Not connected'}
+        
+        auto_result = client.load_auto_tag_rules()
+        sweep_result = client.load_sweep_rules()
+        
+        auto_rules = auto_result.get('rules', []) if not auto_result.get('error') else []
+        sweep_rules = sweep_result.get('rules', []) if not sweep_result.get('error') else []
+        
+        auto_loaded = 0
+        sweep_loaded = 0
+        
+        if auto_rules:
+            auto_loaded = rule_engine.replace_all_rules(auto_rules)
+        elif rule_engine.get_all_rules() and not auto_result.get('error'):
+            # Sheet empty/missing — seed from local so rules aren't lost next time
+            client.sync_auto_tag_rules([r.to_dict() for r in rule_engine.get_all_rules()])
+        
+        if sweep_rules:
+            sweep_loaded = exclusion_engine.replace_all_rules(sweep_rules)
+        elif exclusion_engine.get_all_rules() and not sweep_result.get('error'):
+            client.sync_sweep_rules([r.to_dict() for r in exclusion_engine.get_all_rules()])
+        
+        return {
+            'success': True,
+            'auto_tag_loaded': auto_loaded,
+            'sweep_loaded': sweep_loaded,
+            'auto_tag_total': len(rule_engine.get_all_rules()),
+            'sweep_total': len(exclusion_engine.get_all_rules())
+        }
+    except Exception as e:
+        logger.error(f"Error loading rules from sheets: {e}")
+        return {'success': False, 'error': str(e)}
+
+
 def needs_setup():
     """Check if the application needs initial setup."""
     # Always look for .env relative to the application base directory
@@ -344,7 +418,13 @@ def api_load_from_sheets():
         # Replace in-memory transactions with loaded data
         all_transactions = loaded_transactions
         
-        logger.info(f"API: load-from-sheets success - loaded {len(loaded_transactions)} transactions")
+        # Also restore auto-tag + sweep rules from Sheets (source of truth across devices)
+        rules_result = _load_rules_from_sheets(sheets_client)
+        
+        logger.info(
+            f"API: load-from-sheets success - loaded {len(loaded_transactions)} transactions, "
+            f"rules: {rules_result}"
+        )
         
         _load_sheets_in_progress = False
         return jsonify({
@@ -352,7 +432,9 @@ def api_load_from_sheets():
             'loaded_count': len(loaded_transactions),
             'error_count': result.get('error_count', 0),
             'date_range': date_range,
-            'start_date': start_date.isoformat() if start_date else None
+            'start_date': start_date.isoformat() if start_date else None,
+            'auto_tag_rules': rules_result.get('auto_tag_total', 0),
+            'sweep_rules': rules_result.get('sweep_total', 0)
         })
         
     except Exception as e:
@@ -946,8 +1028,8 @@ def api_transactions_filter():
     untagged_categories = {'Other', 'Uncategorized', 'Unknown', ''}
     
     if untagged_category:
-        # Filter for transactions with generic/untagged category
-        filtered = [t for t in filtered if t.category in untagged_categories]
+        # Filter for transactions with generic/untagged category (treat None/blank as untagged)
+        filtered = [t for t in filtered if (t.category or '') in untagged_categories]
     
     if untagged_necessity:
         # Filter for transactions with Unknown necessity, excluding Income category
@@ -1045,6 +1127,7 @@ def api_create_category_rule():
     
     # Apply rule to all existing transactions
     updated_count = rule_engine.apply_single_rule(rule, all_transactions)
+    _sync_rules_to_sheets()
     
     return jsonify({
         'success': True,
@@ -1060,10 +1143,38 @@ def api_update_category_rule(rule_id):
     if not data:
         return jsonify({'error': 'No data provided'}), 400
     
-    category = data.get('category')
     keywords = data.get('keywords')
     priority = data.get('priority')
     enabled = data.get('enabled')
+    
+    # Support new multi-tag format (same as create)
+    tags = data.get('tags', None)
+    category = data.get('category')
+    field = data.get('field')
+    
+    allowed_fields = ['category', 'necessity', 'recurrence']
+    
+    if isinstance(tags, dict):
+        tags = {k.strip(): v.strip() for k, v in tags.items()
+                if isinstance(k, str) and isinstance(v, str)
+                and k.strip() in allowed_fields and v.strip()}
+        if not tags:
+            return jsonify({'error': 'At least one tag with a non-empty value is required'}), 400
+        # Keep legacy fields in sync for callers that still read them
+        first_field = list(tags.keys())[0]
+        category = tags[first_field]
+        field = first_field
+    elif category is not None:
+        category = category.strip() if isinstance(category, str) else ''
+        if not category:
+            return jsonify({'error': 'Category cannot be empty'}), 400
+        if field is not None:
+            field = field.strip() if isinstance(field, str) else 'category'
+            if field not in allowed_fields:
+                field = 'category'
+        tags = None  # let update_rule merge into existing tags
+    else:
+        tags = None
     
     # Clean up keywords if provided
     if keywords is not None:
@@ -1071,17 +1182,22 @@ def api_update_category_rule(rule_id):
         if len(keywords) == 0:
             return jsonify({'error': 'At least one non-empty keyword is required'}), 400
     
-    rule = rule_engine.update_rule(rule_id, category, keywords, priority, enabled)
+    rule = rule_engine.update_rule(
+        rule_id, category=category, keywords=keywords,
+        priority=priority, enabled=enabled, tags=tags, field=field
+    )
     
     if not rule:
         return jsonify({'error': 'Rule not found'}), 404
     
-    # Re-apply all rules to all transactions
-    rule_engine.apply_to_all(all_transactions)
+    # Re-apply the updated rule to all transactions
+    updated_count = rule_engine.apply_single_rule(rule, all_transactions)
+    _sync_rules_to_sheets()
     
     return jsonify({
         'success': True,
-        'rule': rule.to_dict()
+        'rule': rule.to_dict(),
+        'transactions_updated': updated_count
     })
 
 @app.route('/api/category-rules/<rule_id>', methods=['DELETE'])
@@ -1092,6 +1208,7 @@ def api_delete_category_rule(rule_id):
     if not success:
         return jsonify({'error': 'Rule not found'}), 404
     
+    _sync_rules_to_sheets()
     return jsonify({'success': True})
 
 @app.route('/api/category-rules/apply-all', methods=['POST'])
@@ -1179,6 +1296,7 @@ def api_create_sweep_rule():
     
     # Apply to existing transactions (sweep them away)
     all_transactions, swept_count = exclusion_engine.sweep_transactions(all_transactions)
+    _sync_rules_to_sheets()
     
     return jsonify({
         'success': True,
@@ -1213,6 +1331,7 @@ def api_join_sweep_rules():
     if not joined_rule:
         return jsonify({'error': 'Could not join rules. Make sure the rules exist and are enabled.'}), 400
     
+    _sync_rules_to_sheets()
     return jsonify({
         'success': True,
         'rule': joined_rule.to_dict(),
@@ -1278,6 +1397,7 @@ def api_update_sweep_rule(rule_id):
     if not rule:
         return jsonify({'error': 'Rule not found'}), 404
     
+    _sync_rules_to_sheets()
     return jsonify({
         'success': True,
         'rule': rule.to_dict()
@@ -1291,101 +1411,8 @@ def api_delete_sweep_rule(rule_id):
     if not success:
         return jsonify({'error': 'Rule not found'}), 404
     
+    _sync_rules_to_sheets()
     return jsonify({'success': True})
-
-
-# =========================================================================
-# RULES EXPORT/IMPORT API ENDPOINTS
-# =========================================================================
-
-@app.route('/api/rules/export', methods=['GET'])
-def api_export_rules():
-    """Export all auto-tag rules and sweep rules as JSON."""
-    try:
-        category_rules = rule_engine.get_all_rules()
-        sweep_rules = exclusion_engine.get_all_rules()
-        
-        export_data = {
-            'version': '1.0',
-            'exported_at': __import__('datetime').datetime.now().isoformat(),
-            'auto_tag_rules': [r.to_dict() for r in category_rules],
-            'sweep_rules': [r.to_dict() for r in sweep_rules]
-        }
-        
-        return jsonify(export_data)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/rules/import', methods=['POST'])
-def api_import_rules():
-    """Import auto-tag rules and sweep rules from JSON."""
-    try:
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-        
-        imported_tag_rules = 0
-        imported_sweep_rules = 0
-        skipped_duplicates = 0
-        
-        # Import auto-tag rules
-        auto_tag_rules = data.get('auto_tag_rules', [])
-        existing_tag_keywords = {tuple(sorted(r.keywords)) for r in rule_engine.get_all_rules()}
-        
-        for rule_data in auto_tag_rules:
-            # Check for duplicate by keywords
-            rule_keywords = tuple(sorted(rule_data.get('keywords', [])))
-            if rule_keywords in existing_tag_keywords:
-                skipped_duplicates += 1
-                continue
-            
-            # Create new rule without ID (will be auto-generated)
-            tags = rule_data.get('tags', {})
-            if not tags and 'category' in rule_data:
-                tags = {rule_data.get('field', 'category'): rule_data.get('category', '')}
-            
-            if tags and rule_data.get('keywords'):
-                first_field = list(tags.keys())[0]
-                first_value = tags[first_field]
-                rule_engine.add_rule(
-                    category=first_value,
-                    keywords=rule_data.get('keywords', []),
-                    priority=rule_data.get('priority', 0),
-                    field=first_field,
-                    tags=tags
-                )
-                existing_tag_keywords.add(rule_keywords)
-                imported_tag_rules += 1
-        
-        # Import sweep rules
-        sweep_rules = data.get('sweep_rules', [])
-        existing_sweep_keywords = {tuple(sorted(r.keywords)) for r in exclusion_engine.get_all_rules()}
-        
-        for rule_data in sweep_rules:
-            # Check for duplicate by keywords
-            rule_keywords = tuple(sorted(rule_data.get('keywords', [])))
-            if rule_keywords in existing_sweep_keywords:
-                skipped_duplicates += 1
-                continue
-            
-            if rule_data.get('keywords'):
-                exclusion_engine.add_rule(
-                    keywords=rule_data.get('keywords', []),
-                    title=rule_data.get('title', '')
-                )
-                existing_sweep_keywords.add(rule_keywords)
-                imported_sweep_rules += 1
-        
-        return jsonify({
-            'success': True,
-            'imported_auto_tag_rules': imported_tag_rules,
-            'imported_sweep_rules': imported_sweep_rules,
-            'skipped_duplicates': skipped_duplicates
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 
 # =========================================================================
@@ -1558,10 +1585,7 @@ def api_add_cash_transaction():
 
 @app.route('/api/sync-to-sheets', methods=['POST'])
 def api_sync_to_sheets():
-    """Manually sync all transactions to Google Sheets."""
-    if len(all_transactions) == 0:
-        return jsonify({'success': False, 'error': 'No transactions to sync'})
-    
+    """Manually sync transactions, period notes, and rules to Google Sheets."""
     try:
         sheets_client = SheetsClient()
         
@@ -1571,25 +1595,40 @@ def api_sync_to_sheets():
                 'error': 'Google Sheets not configured. Please complete setup first.'
             })
         
-        # Clear and re-sync all transactions
-        sync_result = sheets_client.sync_transactions(all_transactions, clear_first=True)
-        
-        # Also update the monthly summary
-        sheets_client.create_monthly_summary(all_transactions)
+        synced_count = 0
+        if len(all_transactions) > 0:
+            # Clear and re-sync all transactions
+            sync_result = sheets_client.sync_transactions(all_transactions, clear_first=True)
+            if 'error' in sync_result:
+                return jsonify({'success': False, 'error': sync_result['error']})
+            synced_count = sync_result.get('synced_count', len(all_transactions))
+            
+            # Also update the monthly summary
+            sheets_client.create_monthly_summary(all_transactions)
         
         # Sync period notes (weekly/monthly analysis) to Google Sheets
         all_notes = period_notes_engine.get_all_notes()
         notes_result = sheets_client.sync_period_notes(all_notes)
         notes_synced = notes_result.get('synced_count', 0) if notes_result.get('success') else 0
         
-        if 'error' in sync_result:
-            return jsonify({'success': False, 'error': sync_result['error']})
+        # Sync auto-tag + sweep rules so they persist in the sheet
+        rules_result = _sync_rules_to_sheets(sheets_client)
+        auto_tag_synced = rules_result.get('auto_tag_synced', 0)
+        sweep_synced = rules_result.get('sweep_synced', 0)
+        
+        if len(all_transactions) == 0 and notes_synced == 0 and auto_tag_synced == 0 and sweep_synced == 0:
+            return jsonify({'success': False, 'error': 'Nothing to sync'})
         
         return jsonify({
             'success': True,
-            'synced_count': sync_result.get('synced_count', len(all_transactions)),
+            'synced_count': synced_count,
             'notes_synced': notes_synced,
-            'message': f'Successfully synced {sync_result.get("synced_count", len(all_transactions))} transactions and {notes_synced} period notes to Google Sheets'
+            'auto_tag_rules_synced': auto_tag_synced,
+            'sweep_rules_synced': sweep_synced,
+            'message': (
+                f'Successfully synced {synced_count} transactions, {notes_synced} period notes, '
+                f'{auto_tag_synced} auto-tag rules, and {sweep_synced} sweep rules to Google Sheets'
+            )
         })
         
     except Exception as e:
@@ -2066,6 +2105,43 @@ def api_get_all_tag_values():
     })
 
 
+def _rename_tag_value(field: str, old_value: str, new_value: str) -> dict:
+    """Rename a tag across transactions and rules. Shared by single + batch APIs."""
+    transactions_updated = 0
+    rules_updated = 0
+    
+    for t in all_transactions:
+        if hasattr(t, field) and getattr(t, field) == old_value:
+            setattr(t, field, new_value)
+            transactions_updated += 1
+    
+    for rule in rule_engine.get_all_rules():
+        changed = False
+        # Legacy single-value fields
+        if rule.field == field and rule.category == old_value:
+            rule.category = new_value
+            changed = True
+        # Multi-tag dict
+        tags = rule.tags or {}
+        if tags.get(field) == old_value:
+            tags = {**tags, field: new_value}
+            rule.tags = tags
+            if field == (rule.field or 'category') or not rule.category:
+                rule.category = new_value
+                rule.field = field
+            changed = True
+        if changed:
+            rules_updated += 1
+    
+    if rules_updated:
+        rule_engine._save_rules()
+    
+    return {
+        'transactions_updated': transactions_updated,
+        'rules_updated': rules_updated
+    }
+
+
 @app.route('/api/rename-tag', methods=['POST'])
 def api_rename_tag():
     """Rename a tag/category across all transactions and rules."""
@@ -2084,32 +2160,140 @@ def api_rename_tag():
     if old_value == new_value:
         return jsonify({'error': 'Old and new values are the same'}), 400
     
-    # Allowed fields to rename
     allowed_fields = ['category', 'necessity', 'recurrence']
     if field not in allowed_fields:
         return jsonify({'error': f'Invalid field: {field}'}), 400
     
-    # Count updates
-    transactions_updated = 0
-    rules_updated = 0
-    
-    # Update all transactions
-    for t in all_transactions:
-        if hasattr(t, field) and getattr(t, field) == old_value:
-            setattr(t, field, new_value)
-            transactions_updated += 1
-    
-    # Update category rules if the field matches
-    for rule in rule_engine.get_all_rules():
-        if rule.field == field and rule.category == old_value:
-            rule_engine.update_rule(rule.id, category=new_value)
-            rules_updated += 1
+    result = _rename_tag_value(field, old_value, new_value)
     
     return jsonify({
         'success': True,
         'field': field,
         'old_value': old_value,
         'new_value': new_value,
+        'transactions_updated': result['transactions_updated'],
+        'rules_updated': result['rules_updated']
+    })
+
+
+@app.route('/api/apply-tag-hierarchy', methods=['POST'])
+def api_apply_tag_hierarchy():
+    """
+    Apply ChatGPT-style hierarchy mappings: specific_tag|Broader Category
+    
+    Body: { "mappings": [{"from": "...", "to": "..."}, ...], "field": "category" }
+    Renames each 'from' category to 'to' across transactions and rules (merge into higher-order tags).
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    field = (data.get('field') or 'category').strip()
+    allowed_fields = ['category', 'necessity', 'recurrence']
+    if field not in allowed_fields:
+        return jsonify({'error': f'Invalid field: {field}'}), 400
+    
+    raw_mappings = data.get('mappings') or []
+    if not isinstance(raw_mappings, list) or len(raw_mappings) == 0:
+        return jsonify({'error': 'At least one mapping is required'}), 400
+    
+    # Build from→to map (case-insensitive match against existing values)
+    existing = {}
+    for t in all_transactions:
+        val = getattr(t, field, None) if hasattr(t, field) else None
+        if val:
+            existing[val.lower()] = val
+    
+    mapping = {}  # exact existing name → target
+    skipped = []
+    applied_pairs = []
+    
+    for item in raw_mappings:
+        if not isinstance(item, dict):
+            continue
+        src = (item.get('from') or '').strip()
+        dst = (item.get('to') or '').strip()
+        if not src or not dst:
+            continue
+        if src.lower() == dst.lower():
+            skipped.append({'from': src, 'to': dst, 'reason': 'same'})
+            continue
+        
+        # Match existing tag case-insensitively
+        real_src = existing.get(src.lower())
+        if not real_src:
+            skipped.append({'from': src, 'to': dst, 'reason': 'not_found'})
+            continue
+        
+        mapping[real_src] = dst
+        applied_pairs.append({'from': real_src, 'to': dst})
+    
+    if not mapping:
+        return jsonify({
+            'success': False,
+            'error': 'No valid mappings matched your existing tags',
+            'skipped': skipped
+        }), 400
+    
+    # Resolve chains (A→B, B→C ⇒ A→C) before applying
+    def resolve(name, seen=None):
+        seen = seen or set()
+        if name in seen:
+            return name
+        seen.add(name)
+        nxt = mapping.get(name)
+        if nxt is None:
+            return name
+        if nxt in mapping:
+            return resolve(nxt, seen)
+        for k in mapping:
+            if k.lower() == nxt.lower() and k != name:
+                return resolve(k, seen)
+        return nxt
+    
+    final_map = {src: resolve(src) for src in mapping}
+    # Drop no-ops
+    final_map = {k: v for k, v in final_map.items() if k != v}
+    
+    # Single pass — don't chain _rename_tag_value or intermediate renames get lost
+    transactions_updated = 0
+    for t in all_transactions:
+        if not hasattr(t, field):
+            continue
+        val = getattr(t, field)
+        if val in final_map:
+            setattr(t, field, final_map[val])
+            transactions_updated += 1
+    
+    rules_updated = 0
+    for rule in rule_engine.get_all_rules():
+        changed = False
+        if rule.field == field and rule.category in final_map:
+            rule.category = final_map[rule.category]
+            changed = True
+        tags = dict(rule.tags or {})
+        if tags.get(field) in final_map:
+            tags[field] = final_map[tags[field]]
+            rule.tags = tags
+            if field == (rule.field or 'category'):
+                rule.category = tags[field]
+            changed = True
+        if changed:
+            rules_updated += 1
+    
+    if rules_updated:
+        rule_engine._save_rules()
+    
+    try:
+        _sync_rules_to_sheets()
+    except Exception:
+        pass
+    
+    return jsonify({
+        'success': True,
+        'field': field,
+        'mappings_applied': [{'from': k, 'to': v} for k, v in final_map.items()],
+        'skipped': skipped,
         'transactions_updated': transactions_updated,
         'rules_updated': rules_updated
     })

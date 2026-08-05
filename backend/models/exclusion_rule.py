@@ -181,6 +181,27 @@ class ExclusionRuleEngine:
         """Get all rules."""
         return self.rules
     
+    def replace_all_rules(self, rules_data: List[dict]) -> int:
+        """
+        Replace all local rules from a list of rule dicts (e.g. loaded from Sheets).
+        
+        Returns:
+            Number of rules loaded
+        """
+        loaded = []
+        for data in rules_data or []:
+            try:
+                if not data.get('keywords'):
+                    continue
+                if not data.get('id'):
+                    data = {**data, 'id': str(uuid.uuid4())}
+                loaded.append(ExclusionRule.from_dict(data))
+            except Exception as e:
+                print(f"Error loading exclusion rule from sheets: {e}")
+        self.rules = loaded
+        self._save_rules()
+        return len(self.rules)
+    
     def should_exclude(self, description: str) -> bool:
         """
         Check if a transaction with the given description should be excluded.

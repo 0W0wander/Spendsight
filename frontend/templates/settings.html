@@ -743,6 +743,157 @@
         font-style: italic;
     }
     
+    /* GPT Tag Hierarchy Helper */
+    .hierarchy-helper {
+        margin-bottom: 1.25rem;
+        padding: 1rem 1.1rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius-lg);
+    }
+    
+    .hierarchy-helper h4 {
+        margin: 0 0 0.35rem 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        border: none;
+        padding: 0;
+    }
+    
+    .hierarchy-helper > p {
+        margin: 0 0 0.9rem 0;
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        line-height: 1.45;
+    }
+    
+    .hierarchy-steps {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    
+    @media (max-width: 800px) {
+        .hierarchy-steps {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .hierarchy-step {
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+        min-width: 0;
+    }
+    
+    .hierarchy-step-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    
+    .hierarchy-step textarea {
+        width: 100%;
+        min-height: 160px;
+        resize: vertical;
+        padding: 0.65rem 0.75rem;
+        border: 1.5px solid var(--border-color);
+        border-radius: 8px;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.72rem;
+        line-height: 1.45;
+    }
+    
+    .hierarchy-step textarea:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+    }
+    
+    .hierarchy-step textarea[readonly] {
+        background: var(--bg-tertiary);
+        cursor: text;
+    }
+    
+    .hierarchy-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+        margin-top: 0.85rem;
+    }
+    
+    .hierarchy-preview {
+        margin-top: 0.75rem;
+        padding: 0.65rem 0.75rem;
+        background: var(--bg-primary);
+        border: 1px dashed var(--border-color);
+        border-radius: 8px;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        max-height: 140px;
+        overflow-y: auto;
+        display: none;
+    }
+    
+    .hierarchy-preview.show {
+        display: block;
+    }
+    
+    .hierarchy-preview .map-row {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.15rem 0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.7rem;
+    }
+    
+    .hierarchy-preview .map-from {
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+    
+    .hierarchy-preview .map-arrow {
+        color: var(--text-light);
+    }
+    
+    .hierarchy-preview .map-to {
+        color: var(--primary-color);
+        font-weight: 600;
+    }
+    
+    .btn-copy-prompt {
+        padding: 0.35rem 0.65rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        cursor: pointer;
+    }
+    
+    .btn-copy-prompt:hover {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+    }
+    
+    .btn-copy-prompt.copied {
+        border-color: #10b981;
+        color: #059669;
+        background: rgba(16, 185, 129, 0.08);
+    }
+    
     /* Rename Modal */
     .modal-backdrop {
         display: none;
@@ -955,31 +1106,22 @@
     <!-- Sync & Data Panel -->
     <div class="settings-panel active" id="panel-sync">
         <div class="settings-section">
-            <h3>Rules Export/Import</h3>
+            <h3>Rules Sync (Google Sheets)</h3>
             <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
-                Export or import your auto-tag and sweep rules to backup or transfer them.
+                Auto-tag and sweep rules are saved to your Google Sheet automatically — no file import needed.
             </p>
             
             <div class="data-mgmt-grid">
                 <div class="data-mgmt-card">
                     <div class="data-mgmt-header">
-                        <h4>Export Rules</h4>
+                        <h4>How it works</h4>
                     </div>
                     <p class="data-mgmt-desc">
-                        Download all your auto-tag and sweep rules as a JSON file for backup or transfer to another device.
+                        Rules live in two sheet tabs: <strong>Auto-Tag Rules</strong> and <strong>Sweep Rules</strong>.
+                        They’re pushed whenever you create, edit, or delete a rule, and again when you hit Sync.
+                        On startup (load from Sheets), they’re pulled back so you don’t lose them.
                     </p>
-                    <button class="btn btn-primary" onclick="exportRules()">Export Rules</button>
-                </div>
-                
-                <div class="data-mgmt-card">
-                    <div class="data-mgmt-header">
-                        <h4>Import Rules</h4>
-                    </div>
-                    <p class="data-mgmt-desc">
-                        Import rules from a previously exported JSON file. Duplicate rules will be skipped.
-                    </p>
-                    <input type="file" id="importRulesFile" accept=".json" style="display: none;" onchange="handleImportFile(event)">
-                    <button class="btn btn-secondary" onclick="document.getElementById('importRulesFile').click()">Import Rules</button>
+                    <button class="btn btn-primary" onclick="syncToGoogleSheets()">Sync Now</button>
                 </div>
             </div>
         </div>
@@ -1269,6 +1411,36 @@
             <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
                 View, rename, or delete categories and tags. Renaming will update ALL transactions and rules using that value.
             </p>
+            
+            <div class="hierarchy-helper">
+                <h4>Broader tags with ChatGPT</h4>
+                <p>
+                    Tag transactions with hyperspecific names, copy the prompt into ChatGPT to group them into broader categories,
+                    then paste the <code>specific|Broader</code> lines back here. SpendSight merges those into higher-order tags.
+                </p>
+                <div class="hierarchy-steps">
+                    <div class="hierarchy-step">
+                        <div class="hierarchy-step-label">
+                            <span>1. Copy this prompt</span>
+                            <button type="button" class="btn-copy-prompt" id="copyHierarchyPromptBtn" onclick="copyHierarchyPrompt()">Copy</button>
+                        </div>
+                        <textarea id="hierarchyPrompt" readonly spellcheck="false" placeholder="Load transactions to build a prompt…"></textarea>
+                    </div>
+                    <div class="hierarchy-step">
+                        <div class="hierarchy-step-label">
+                            <span>2. Paste ChatGPT output</span>
+                            <button type="button" class="btn-copy-prompt" onclick="document.getElementById('hierarchyPaste').value=''; parseHierarchyPaste();">Clear</button>
+                        </div>
+                        <textarea id="hierarchyPaste" spellcheck="false" placeholder="sex toys|Entertainment&#10;farmers market|Groceries&#10;uber to airport|Transportation" oninput="parseHierarchyPaste()"></textarea>
+                    </div>
+                </div>
+                <div class="hierarchy-preview" id="hierarchyPreview"></div>
+                <div class="hierarchy-actions">
+                    <button type="button" class="btn btn-secondary" onclick="refreshHierarchyPrompt()">Refresh prompt</button>
+                    <button type="button" class="btn btn-primary" id="applyHierarchyBtn" onclick="applyHierarchyMappings()" disabled>Apply broader tags</button>
+                    <span id="hierarchyStatus" style="font-size: 0.72rem; color: var(--text-secondary);"></span>
+                </div>
+            </div>
             
             <div class="tags-columns" id="categoriesContainer">
                 <div class="loading-state" style="grid-column: 1 / -1;">
@@ -2278,6 +2450,8 @@
     }
     
     // =================== CATEGORIES ===================
+    let parsedHierarchyMappings = [];
+    
     async function loadCategories() {
         const container = document.getElementById('categoriesContainer');
         container.innerHTML = `<div class="loading-state" style="grid-column: 1 / -1;"><div class="spinner"></div><p>Loading...</p></div>`;
@@ -2286,8 +2460,199 @@
             const response = await fetch('/api/tag-values');
             categoriesData = await response.json();
             renderCategories();
+            refreshHierarchyPrompt();
+            parseHierarchyPaste();
         } catch (error) {
             container.innerHTML = `<div class="alert-box error" style="grid-column: 1 / -1;">Failed to load: ${error.message}</div>`;
+        }
+    }
+    
+    function refreshHierarchyPrompt() {
+        const ta = document.getElementById('hierarchyPrompt');
+        if (!ta) return;
+        
+        const categories = (categoriesData.categories || []).filter(item => {
+            const name = (item.name || '').trim();
+            const lower = name.toLowerCase();
+            return name && lower !== 'other' && lower !== 'uncategorized' && lower !== 'unknown' && lower !== '';
+        });
+        
+        if (categories.length === 0) {
+            ta.value = 'No category tags found yet. Tag some transactions with specific names first, then refresh this prompt.';
+            return;
+        }
+        
+        const tagLines = categories
+            .sort((a, b) => b.count - a.count)
+            .map(item => `- ${item.name} (${item.count} transaction${item.count === 1 ? '' : 's'})`)
+            .join('\n');
+        
+        ta.value = `I track expenses in SpendSight. Below is my full list of category tags — many are hyperspecific (what I actually bought).
+
+Please group each specific tag into a broader spending category that works well for a pie-chart overview.
+
+Output rules:
+- Reply with ONLY mapping lines — no intro, no markdown fences, no commentary
+- One mapping per line, exactly in this format:
+  specific_tag|Broader Category
+- Left side must use my exact tag spelling from the list
+- Right side should be a short reusable broader category (examples: Food & Dining, Groceries, Shopping, Entertainment, Transportation, Health, Bills & Utilities, Travel, Income, Adult, Hobby)
+- Many specific tags can share the same broader category
+- If a tag is already broad enough, either omit it or map it to itself
+
+My tags:
+${tagLines}`;
+    }
+    
+    async function copyHierarchyPrompt() {
+        const ta = document.getElementById('hierarchyPrompt');
+        const btn = document.getElementById('copyHierarchyPromptBtn');
+        if (!ta || !ta.value.trim()) return;
+        
+        try {
+            await navigator.clipboard.writeText(ta.value);
+        } catch (err) {
+            ta.focus();
+            ta.select();
+            document.execCommand('copy');
+        }
+        
+        if (btn) {
+            const prev = btn.textContent;
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.textContent = prev;
+                btn.classList.remove('copied');
+            }, 1500);
+        }
+    }
+    
+    function parseHierarchyPaste() {
+        const raw = (document.getElementById('hierarchyPaste')?.value || '');
+        const existing = new Set(
+            (categoriesData.categories || []).map(c => (c.name || '').toLowerCase())
+        );
+        
+        const mappings = [];
+        const seen = new Set();
+        
+        raw.split(/\r?\n/).forEach(line => {
+            let text = line.trim();
+            if (!text || text.startsWith('#') || text.startsWith('//')) return;
+            
+            // Strip common markdown / list prefixes
+            text = text.replace(/^[-*•]\s+/, '').replace(/^`+|`+$/g, '').trim();
+            if (!text.includes('|')) return;
+            
+            const pipe = text.indexOf('|');
+            const from = text.slice(0, pipe).trim();
+            const to = text.slice(pipe + 1).trim();
+            if (!from || !to) return;
+            
+            const key = from.toLowerCase();
+            if (seen.has(key)) return;
+            seen.add(key);
+            
+            mappings.push({
+                from,
+                to,
+                matched: existing.has(key),
+                noop: from.toLowerCase() === to.toLowerCase()
+            });
+        });
+        
+        parsedHierarchyMappings = mappings.filter(m => m.matched && !m.noop);
+        
+        const preview = document.getElementById('hierarchyPreview');
+        const status = document.getElementById('hierarchyStatus');
+        const applyBtn = document.getElementById('applyHierarchyBtn');
+        
+        if (!preview) return;
+        
+        if (mappings.length === 0) {
+            preview.classList.remove('show');
+            preview.innerHTML = '';
+            if (status) status.textContent = '';
+            if (applyBtn) applyBtn.disabled = true;
+            return;
+        }
+        
+        preview.classList.add('show');
+        preview.innerHTML = mappings.map(m => {
+            let note = '';
+            if (!m.matched) note = ' <span style="color:#ef4444;">(not found)</span>';
+            else if (m.noop) note = ' <span style="color:var(--text-light);">(unchanged)</span>';
+            return `<div class="map-row"><span class="map-from">${escapeHtml(m.from)}</span><span class="map-arrow">→</span><span class="map-to">${escapeHtml(m.to)}</span>${note}</div>`;
+        }).join('');
+        
+        const actionable = parsedHierarchyMappings.length;
+        const unmatched = mappings.filter(m => !m.matched).length;
+        if (status) {
+            status.textContent = actionable
+                ? `${actionable} mapping${actionable === 1 ? '' : 's'} ready to apply` + (unmatched ? ` · ${unmatched} unmatched` : '')
+                : (unmatched ? `${unmatched} line(s) didn't match your tags` : 'Nothing to apply');
+        }
+        if (applyBtn) applyBtn.disabled = actionable === 0;
+    }
+    
+    async function applyHierarchyMappings() {
+        if (!parsedHierarchyMappings.length) return;
+        
+        const summary = parsedHierarchyMappings
+            .slice(0, 12)
+            .map(m => `• ${m.from} → ${m.to}`)
+            .join('\n');
+        const extra = parsedHierarchyMappings.length > 12
+            ? `\n…and ${parsedHierarchyMappings.length - 12} more`
+            : '';
+        
+        if (!confirm(
+            `Merge ${parsedHierarchyMappings.length} specific tag(s) into broader categories?\n\n` +
+            `${summary}${extra}\n\n` +
+            `This renames those categories on all matching transactions and rules.`
+        )) {
+            return;
+        }
+        
+        const applyBtn = document.getElementById('applyHierarchyBtn');
+        if (applyBtn) {
+            applyBtn.disabled = true;
+            applyBtn.textContent = 'Applying…';
+        }
+        
+        try {
+            const response = await fetch('/api/apply-tag-hierarchy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    field: 'category',
+                    mappings: parsedHierarchyMappings.map(m => ({ from: m.from, to: m.to }))
+                })
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                document.getElementById('hierarchyPaste').value = '';
+                parsedHierarchyMappings = [];
+                await loadCategories();
+                await loadTagRules();
+                if (typeof markAsUnsynced === 'function') markAsUnsynced();
+                alert(
+                    `Applied ${ (data.mappings_applied || []).length } broader tag(s).\n\n` +
+                    `Updated ${data.transactions_updated || 0} transaction(s) and ${data.rules_updated || 0} rule(s).\n\n` +
+                    `Sync to Google Sheets when you're ready.`
+                );
+            } else {
+                alert('Error: ' + (data.error || 'Failed to apply mappings'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        } finally {
+            if (applyBtn) {
+                applyBtn.textContent = 'Apply broader tags';
+                parseHierarchyPaste();
+            }
         }
     }
     
@@ -2548,90 +2913,6 @@
             closeAddTagModal();
         }
     });
-    
-    // =================== EXPORT/IMPORT RULES ===================
-    async function exportRules() {
-        try {
-            const response = await fetch('/api/rules/export');
-            const data = await response.json();
-            
-            if (data.error) {
-                alert('Error: ' + data.error);
-                return;
-            }
-            
-            // Create downloadable file
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            
-            // Generate filename with date
-            const date = new Date().toISOString().split('T')[0];
-            a.download = `spendsight-rules-${date}.json`;
-            
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            const tagCount = data.auto_tag_rules ? data.auto_tag_rules.length : 0;
-            const sweepCount = data.sweep_rules ? data.sweep_rules.length : 0;
-            alert(`Exported ${tagCount} auto-tag rule(s) and ${sweepCount} sweep rule(s).`);
-        } catch (error) {
-            alert('Error exporting rules: ' + error.message);
-        }
-    }
-    
-    function handleImportFile(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        
-        const reader = new FileReader();
-        reader.onload = async function(e) {
-            try {
-                const data = JSON.parse(e.target.result);
-                
-                // Validate the file structure
-                if (!data.auto_tag_rules && !data.sweep_rules) {
-                    alert('Invalid rules file. Please select a valid Spendsight rules export file.');
-                    return;
-                }
-                
-                const tagCount = data.auto_tag_rules ? data.auto_tag_rules.length : 0;
-                const sweepCount = data.sweep_rules ? data.sweep_rules.length : 0;
-                
-                if (!confirm(`Import ${tagCount} auto-tag rule(s) and ${sweepCount} sweep rule(s)?\n\nDuplicate rules will be skipped.`)) {
-                    return;
-                }
-                
-                const response = await fetch('/api/rules/import', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert(`Import complete!\n\n• ${result.imported_auto_tag_rules} auto-tag rule(s) imported\n• ${result.imported_sweep_rules} sweep rule(s) imported\n• ${result.skipped_duplicates} duplicate(s) skipped`);
-                    
-                    // Reload rules lists
-                    await loadSweepRules();
-                    await loadTagRules();
-                } else {
-                    alert('Error importing rules: ' + (result.error || 'Unknown error'));
-                }
-            } catch (error) {
-                alert('Error reading file: ' + error.message);
-            }
-        };
-        
-        reader.readAsText(file);
-        
-        // Reset the input so the same file can be selected again
-        event.target.value = '';
-    }
     
     // =================== EXPORT/IMPORT PERSONAL ANALYSIS ===================
     async function exportPersonalAnalysis() {
